@@ -1,0 +1,1533 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liar's Dice</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(135deg, #1a2a6c, #b21f1f, #1a2a6c);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+      color: #fff;
+      min-height: 100vh;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .container {
+      max-width: 100%;
+      margin: 0 auto;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 2em;
+      margin-bottom: 10px;
+      text-shadow: 0 0 10px rgba(255,255,255,0.7);
+    }
+
+    .game-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: rgba(0,0,0,0.3);
+      padding: 10px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .room-name {
+      font-weight: bold;
+      font-size: 1.2em;
+    }
+
+    .controls {
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 1em;
+      transition: all 0.3s ease;
+    }
+
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background-color: #007bff;
+      color: white;
+    }
+
+    .btn-success {
+      background-color: #28a745;
+      color: white;
+    }
+
+    .btn-danger {
+      background-color: #dc3545;
+      color: white;
+    }
+
+    .btn-warning {
+      background-color: #ffc107;
+      color: black;
+    }
+
+    .btn-secondary {
+      background-color: #6c757d;
+      color: white;
+    }
+
+    .top-buttons {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .wide-button {
+      width: 100%;
+      margin-top: 5px;
+    }
+
+    .game-status {
+      text-align: center;
+      font-size: 1.2em;
+      margin: 10px 0;
+      color: #fff;
+      font-weight: bold;
+    }
+
+    .player-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .player-card {
+      background: rgba(255,255,255,0.1);
+      padding: 10px;
+      border-radius: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.3s ease;
+      position: relative;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .player-card.active {
+      box-shadow: inset 0 0 15px #00ffea;
+      animation: pulseBright 1s infinite alternate;
+    }
+
+    @keyframes pulseBright {
+      from { box-shadow: inset 0 0 10px #00ffea; }
+      to { box-shadow: inset 0 0 20px #00ffea; }
+    }
+
+    .player-name {
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .player-poisons {
+      display: flex;
+      gap: 3px;
+    }
+
+    .poison {
+      color: #dc3545;
+      font-size: 1.2em;
+    }
+
+    .bet-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin: 10px 0;
+    }
+
+    .bet-inputs {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 10px;
+      align-items: center;
+    }
+
+    select {
+      width: 40px;
+      height: 40px;
+      padding: 0;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+      background: white;
+      font-size: 1.5em;
+      text-align: center;
+    }
+
+    .player-dice {
+      display: flex;
+      gap: 5px;
+      margin-left: 10px;
+    }
+
+    .dice {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: white;
+      border-radius: 8px;
+      font-size: 1.5em;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+      transition: all 0.3s ease;
+      position: relative;
+      z-index: 1;
+    }
+
+    .dice:hover {
+      box-shadow: 0 6px 12px rgba(0,0,0,0.5);
+      transform: translateY(-2px);
+    }
+
+    .dice.highlight {
+      animation: highlightDice 0.5s;
+    }
+
+    @keyframes highlightDice {
+      0% { transform: scale(1); box-shadow: 0 0 5px #00ffea; }
+      50% { transform: scale(1.2); box-shadow: 0 0 20px #00ffea; }
+      100% { transform: scale(1); box-shadow: 0 0 5px #00ffea; }
+    }
+
+    .dice.special.active { background-color: white; }
+    .dice.special.passive { background-color: #ffff99; }
+    .dice.special.used { background-color: #cccccc; opacity: 0.5; }
+
+    .bet-actions {
+      display: flex;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .last-bets {
+      background: rgba(0,0,0,0.3);
+      padding: 10px;
+      border-radius: 8px;
+      margin-top: 10px;
+      text-align: center;
+      font-size: 1.1em;
+    }
+
+    .chat-container {
+      margin-top: 15px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 8px;
+      padding: 10px;
+    }
+
+    .chat-log {
+      height: 150px;
+      overflow-y: auto;
+      margin-bottom: 10px;
+      background: rgba(0,0,0,0.2);
+      padding: 10px;
+      border-radius: 5px;
+    }
+
+    .chat-message {
+      margin: 5px 0;
+      word-wrap: break-word;
+    }
+
+    .chat-input-area {
+      display: flex;
+      gap: 5px;
+    }
+
+    .chat-input {
+      flex-grow: 1;
+      padding: 8px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+
+    .voice-btn {
+      padding: 8px 12px;
+      border-radius: 5px;
+      border: none;
+      cursor: pointer;
+      background-color: #6c757d;
+      color: white;
+    }
+
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.7);
+    }
+
+    .modal-content {
+      background-color: #2c3e50;
+      margin: 15% auto;
+      padding: 20px;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 500px;
+      color: white;
+      position: relative;
+    }
+
+    .close {
+      color: #aaa;
+      float: right;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    .close:hover {
+      color: white;
+    }
+
+    .hamburger {
+      font-size: 1.5em;
+      cursor: pointer;
+      padding: 5px;
+    }
+
+    .dropdown-menu {
+      display: none;
+      position: absolute;
+      background-color: #34495e;
+      min-width: 160px;
+      box-shadow: 0px -8px 16px 0px rgba(0,0,0,0.2);
+      z-index: 1001;
+      right: 0;
+      bottom: 100%;
+    }
+
+    .dropdown-item {
+      color: white;
+      padding: 12px 16px;
+      text-decoration: none;
+      display: block;
+      cursor: pointer;
+    }
+
+    .dropdown-item:hover {
+      background-color: #2c3e50;
+    }
+
+    .sands-of-time {
+      display: inline-block;
+      animation: flipClock 2s infinite;
+      transition: transform 0.5s ease;
+    }
+
+    @keyframes flipClock {
+      0% { transform: rotateX(0deg); }
+      50% { transform: rotateX(180deg); }
+      100% { transform: rotateX(0deg); }
+    }
+
+    .player-breathing {
+      animation: breathing 4s infinite ease-in-out;
+    }
+
+    @keyframes breathing {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.01); }
+      100% { transform: scale(1); }
+    }
+
+    .player-shadow {
+      text-shadow: 0 0 5px;
+    }
+
+    .player-shadow-0 { text-shadow: 0 0 5px green; }
+    .player-shadow-1 { text-shadow: 0 0 5px yellow; }
+    .player-shadow-2 { text-shadow: 0 0 5px red; }
+
+    .gradient-icon {
+      background: linear-gradient(45deg, #ff9a9e, #fad0c4, #fad0c4, #a1c4fd);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .metallic-text {
+      color: #d4af37;
+      text-shadow: 0 0 5px #ffd700, 0 0 10px #ffa500;
+      font-weight: bold;
+    }
+
+    .death-fade {
+      animation: deathFadeOut 1s forwards;
+    }
+
+    @keyframes deathFadeOut {
+      from { opacity: 1; transform: scale(1); }
+      to { opacity: 0; transform: scale(0.8); }
+    }
+
+    .pulse-chat {
+      animation: pulseChat 0.5s;
+    }
+
+    @keyframes pulseChat {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); }
+    }
+
+    .flash-effect {
+      animation: flash 0.3s;
+    }
+
+    @keyframes flash {
+      0% { background-color: white; }
+      100% { background-color: inherit; }
+    }
+
+    .round-transition {
+      animation: roundTransition 0.5s;
+    }
+
+    @keyframes roundTransition {
+      0% { opacity: 1; }
+      50% { opacity: 0.5; }
+      100% { opacity: 1; }
+    }
+
+    .starfield {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    .smoke-effect {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, rgba(139,139,139,0.5) 0%, transparent 70%);
+      animation: smokeAnim 1s forwards;
+      pointer-events: none;
+    }
+
+    @keyframes smokeAnim {
+      0% { opacity: 1; transform: scale(0.8); }
+      100% { opacity: 0; transform: scale(1.2); }
+    }
+
+    .kaleidoscope {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle, #ff0000, #0000ff, #00ff00, #ffff00);
+      animation: kaleidoscopeAnim 5s forwards;
+      z-index: 2000;
+      pointer-events: none;
+    }
+
+    @keyframes kaleidoscopeAnim {
+      0% { opacity: 1; transform: scale(1); }
+      100% { opacity: 0; transform: scale(1.5); }
+    }
+
+    .dice-3d {
+      animation: rotate3d 6.5s infinite linear;
+    }
+
+    @keyframes rotate3d {
+      0% { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+      100% { transform: rotateX(360deg) rotateY(360deg) rotateZ(360deg); }
+    }
+
+    .dice-3d:nth-child(2n) {
+      animation-duration: 7s;
+    }
+
+    .dice-3d:nth-child(3n) {
+      animation-duration: 5.5s;
+    }
+
+    .dice-dance {
+      animation: dance 0.5s ease-in-out;
+    }
+
+    @keyframes dance {
+      0% { transform: rotate(0deg) scale(1); }
+      25% { transform: rotate(5deg) scale(1.1); }
+      50% { transform: rotate(-5deg) scale(1.1); }
+      75% { transform: rotate(3deg) scale(1.05); }
+      100% { transform: rotate(0deg) scale(1); }
+    }
+
+    .dice-border {
+      border: 2px solid #fff;
+      animation: borderPulse 2s infinite;
+    }
+
+    @keyframes borderPulse {
+      0% { border-color: #fff; }
+      50% { border-color: #00ffea; }
+      100% { border-color: #fff; }
+    }
+
+    .cursor-glow {
+      cursor: url('image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32"><circle cx="16" cy="16" r="8" fill="%2300ffea" /></svg>') 16 16, pointer;
+    }
+
+    .active-player-highlight {
+      background: rgba(0, 255, 234, 0.2);
+    }
+
+    .bet-glow {
+      box-shadow: 0 0 10px #00ffea;
+    }
+
+    .round-flash {
+      animation: roundFlash 0.3s;
+    }
+
+    @keyframes roundFlash {
+      0% { background-color: white; }
+      100% { background-color: inherit; }
+    }
+
+    .rain-effect {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 1500;
+      opacity: 0;
+      animation: rainAppear 1s forwards;
+    }
+
+    @keyframes rainAppear {
+      to { opacity: 0.5; }
+    }
+
+    .win-flash {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: white;
+      opacity: 0;
+      pointer-events: none;
+      z-index: 1600;
+      animation: winFlash 0.5s forwards;
+    }
+
+    @keyframes winFlash {
+      0% { opacity: 0; }
+      50% { opacity: 0.8; }
+      100% { opacity: 0; }
+    }
+
+    .player-gradient-shadow {
+      box-shadow: 0 0 10px;
+    }
+
+    .player-shadow-purple { box-shadow: 0 0 10px purple; }
+    .player-shadow-blue { box-shadow: 0 0 10px blue; }
+    .player-shadow-red { box-shadow: 0 0 10px red; }
+
+    /* Accusation Modal */
+    .accusation-modal-content {
+      background-color: #2c3e50;
+      margin: 5% auto;
+      padding: 20px;
+      border-radius: 10px;
+      width: 90%;
+      max-width: 800px;
+      color: white;
+      position: relative;
+      text-align: center;
+    }
+
+    .all-dice-display {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+      margin: 20px 0;
+    }
+
+    .accusation-result {
+      font-size: 1.5em;
+      font-weight: bold;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Liar's Dice</h1>
+    <div class="game-info">
+      <div class="room-name">ROOM: <span id="roomNameDisplay">MAIN ROOM</span></div>
+      <div class="controls">
+        <span class="hamburger" id="hamburgerMenu">☰</span>
+        <div class="dropdown-menu" id="dropdownMenu">
+          <div class="dropdown-item" id="createRoomBtn">🆕 Создать комнату</div>
+          <div class="dropdown-item" id="inviteFriendsBtn">✉️ Пригласить в комнату</div>
+          <div class="dropdown-item" id="profileBtn">👤 Профиль</div>
+          <div class="dropdown-item" id="achievementsBtn">🏆 Достижения</div>
+          <div class="dropdown-item" id="kickPlayerBtn">🗳️ Исключить игрока</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- NEW: Top Buttons -->
+    <div class="top-buttons">
+      <button class="btn btn-success" id="startGameBtn">▶️ Начать игру</button>
+      <button class="btn btn-warning" id="resetGameBtn">🔄 Сброс игры</button>
+    </div>
+    <div>
+      <button class="btn btn-secondary wide-button" id="rulesBtn">📜 Правила</button>
+    </div>
+
+    <!-- NEW: Game Status Line -->
+    <div class="game-status" id="gameStatus">Ожидание начала игры...</div>
+
+    <div class="last-bets" id="lastBetsDisplay">Последние ставки: </div>
+
+    <div class="player-list" id="playerList"></div>
+
+    <div class="bet-controls" id="betControls" style="display:none;">
+      <div class="bet-inputs">
+        <select id="countSelect">
+          <!-- Will be populated dynamically -->
+        </select>
+        <select id="valueSelect">
+          <option value="1">⚀</option>
+          <option value="2">⚁</option>
+          <option value="3">⚂</option>
+          <option value="4">⚃</option>
+          <option value="5">⚄</option>
+          <option value="6">⚅</option>
+        </select>
+        <!-- NEW: Player Dice Row -->
+        <div class="player-dice" id="myDiceRow">
+          <!-- Will be populated dynamically -->
+        </div>
+      </div>
+      <div class="bet-actions">
+        <button class="btn btn-primary" id="luckBtn">🍀 Удача</button>
+        <button class="btn btn-primary" id="placeBetBtn">📢 Ставка</button>
+        <button class="btn btn-danger" id="accuseBtn">🚨 Обвинить</button>
+      </div>
+    </div>
+
+    <!-- NEW: Chat Container -->
+    <div class="chat-container">
+      <div class="chat-log" id="chatLog"></div>
+      <div class="chat-input-area">
+        <input type="text" class="chat-input" id="chatInput" placeholder="Введите сообщение...">
+        <button class="btn btn-secondary" id="sendMsgBtn">Отправить</button>
+        <button class="voice-btn" id="voiceBtn">🎤</button>
+      </div>
+    </div>
+
+    <div class="modal" id="rulesModal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>ПРАВИЛА Liar's Dice</h2>
+        <p>1. Игроки по очереди делают ставки на количество кубиков определённого номинала на столе.</p>
+        <p>2. Ставка должна быть выше предыдущей (по количеству или номиналу).</p>
+        <p>3. Игрок может "обвинить" предыдущего игрока в блефе.</p>
+        <p>4. При обвинении вскрываются все кубики. Если ставка была ложной — обвиняемый получает яд, иначе — обвинитель.</p>
+        <p>5. Игрок, набравший 3 яда, выбывает из игры.</p>
+        <p>6. Побеждает последний оставшийся игрок!</p>
+      </div>
+    </div>
+
+    <div class="modal" id="profileModal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Профиль</h2>
+        <p id="telegramInfo">Загрузка...</p>
+        <p id="displayNameField">Отображаемый ник: <span id="currentDisplayName">-</span></p>
+        <button class="btn btn-primary" id="changeNickBtn">✏️ Сменить ник</button>
+      </div>
+    </div>
+
+    <div class="modal" id="achievementsModal">
+      <div class="modal-content">
+        <span class="close">&times;</span>
+        <h2>Достижения</h2>
+        <div id="achievementsList">
+          <p>🏆 Достижение 1: Победа в 10 играх</p>
+          <p>🏅 Достижение 2: Ни одной смерти в 5 раундах</p>
+          <p>🎖️ Достижение 3: Использовать все кубики разом</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal" id="devilDealModal">
+      <div class="modal-content">
+        <h2>Сделка с дьяволом!</h2>
+        <p>Угадайте точное количество:</p>
+        <div id="devilOptions"></div>
+      </div>
+    </div>
+
+    <div class="modal" id="stealModal">
+      <div class="modal-content">
+        <h2>Кто у вас украли?</h2>
+        <div id="stealTargets"></div>
+      </div>
+    </div>
+
+    <div class="modal" id="voteKickModal">
+      <div class="modal-content">
+        <h2>Кого исключить?</h2>
+        <div id="kickTargets"></div>
+      </div>
+    </div>
+
+    <div class="modal" id="accusationCommentModal">
+      <div class="modal-content">
+        <h2>Комментарий к обвинению</h2>
+        <input type="text" id="accusationCommentInput" maxlength="100" placeholder="Введите комментарий...">
+        <button class="btn btn-primary" id="submitAccusationCommentBtn">Отправить</button>
+      </div>
+    </div>
+
+    <div class="modal" id="replyModal">
+      <div class="modal-content">
+        <h2>Ваш ответ (5 сек)</h2>
+        <input type="text" id="replyInput" maxlength="100" placeholder="Введите ответ...">
+        <button class="btn btn-primary" id="submitReplyBtn">Отправить</button>
+      </div>
+    </div>
+
+    <!-- NEW: Accusation Result Modal -->
+    <div class="modal" id="accusationResultModal">
+      <div class="accusation-modal-content">
+        <h2>Проверка ставки</h2>
+        <p id="accusationDetails">Обвиняющий: Игрок 1<br>Обвиняемый: Игрок 2</p>
+        <div class="all-dice-display" id="allDiceDisplay">
+          <!-- Dice will be injected here -->
+        </div>
+        <div class="accusation-result" id="accusationResultText">Проверка...</div>
+        <button class="btn btn-primary" id="closeAccusationResultBtn">Закрыть</button>
+      </div>
+    </div>
+
+    <div class="starfield" id="starfieldCanvas"></div>
+  </div>
+
+  <script>
+    // --- Telegram Integration ---
+    const tg = window.Telegram?.WebApp;
+    let myUid = '';
+    let myName = '';
+    let myTitle = '';
+    let currentRoomId = 'main_room';
+    let players = {};
+    let myDice = [];
+    let lastBet = null;
+    let gameState = 'lobby'; // lobby, betting, accusing
+    let alivePlayersCount = 0;
+    let roundNumber = 0;
+    let lastBetsLog = [];
+    let pendingActions = [];
+    let hasUsedThief = false;
+    let activeSessionTabId = null;
+    let currentTabId = crypto.randomUUID();
+    let actionCooldown = false;
+    let lastValidState = {};
+    let animationCache = {};
+    let replySubmitted = false;
+
+    // --- DOM Elements ---
+    const playerListEl = document.getElementById('playerList');
+    const chatLogEl = document.getElementById('chatLog');
+    const chatInputEl = document.getElementById('chatInput');
+    const sendMsgBtnEl = document.getElementById('sendMsgBtn');
+    const placeBetBtnEl = document.getElementById('placeBetBtn');
+    const accuseBtnEl = document.getElementById('accuseBtn');
+    const luckBtnEl = document.getElementById('luckBtn');
+    const countSelectEl = document.getElementById('countSelect');
+    const valueSelectEl = document.getElementById('valueSelect');
+    const betControlsEl = document.getElementById('betControls');
+    const lastBetsDisplayEl = document.getElementById('lastBetsDisplay');
+    const myDiceRowEl = document.getElementById('myDiceRow'); // NEW
+    const gameStatusEl = document.getElementById('gameStatus');
+    const roomNameDisplayEl = document.getElementById('roomNameDisplay');
+    const hamburgerMenuEl = document.getElementById('hamburgerMenu');
+    const dropdownMenuEl = document.getElementById('dropdownMenu');
+    const createRoomBtnEl = document.getElementById('createRoomBtn');
+    const inviteFriendsBtnEl = document.getElementById('inviteFriendsBtn');
+    const profileBtnEl = document.getElementById('profileBtn');
+    const achievementsBtnEl = document.getElementById('achievementsBtn');
+    const kickPlayerBtnEl = document.getElementById('kickPlayerBtn');
+    const rulesModalEl = document.getElementById('rulesModal');
+    const profileModalEl = document.getElementById('profileModal');
+    const achievementsModalEl = document.getElementById('achievementsModal');
+    const startGameBtnEl = document.getElementById('startGameBtn');
+    const resetGameBtnEl = document.getElementById('resetGameBtn');
+    const rulesBtnEl = document.getElementById('rulesBtn');
+    const closeButtons = document.querySelectorAll('.close');
+    const changeNickBtnEl = document.getElementById('changeNickBtn');
+    const currentDisplayNameEl = document.getElementById('currentDisplayName');
+    const telegramInfoEl = document.getElementById('telegramInfo');
+    const voiceBtnEl = document.getElementById('voiceBtn');
+    const devilDealModalEl = document.getElementById('devilDealModal');
+    const stealModalEl = document.getElementById('stealModal');
+    const voteKickModalEl = document.getElementById('voteKickModal');
+    const accusationCommentModalEl = document.getElementById('accusationCommentModal');
+    const replyModalEl = document.getElementById('replyModal');
+    const submitAccusationCommentBtnEl = document.getElementById('submitAccusationCommentBtn');
+    const submitReplyBtnEl = document.getElementById('submitReplyBtn');
+    const accusationResultModalEl = document.getElementById('accusationResultModal');
+    const allDiceDisplayEl = document.getElementById('allDiceDisplay');
+    const accusationResultTextEl = document.getElementById('accusationResultText');
+    const closeAccusationResultBtnEl = document.getElementById('closeAccusationResultBtn');
+
+    // --- Initialize ---
+    function init() {
+      if (tg) {
+        tg.expand();
+        tg.ready();
+        const user = tg.initDataUnsafe?.user;
+        if (user) {
+          myUid = user.id.toString();
+          myName = user.first_name + (user.last_name ? ' ' + user.last_name : '');
+          // Auto-bind Telegram profile
+          localStorage.setItem('telegramId', myUid);
+          localStorage.setItem('telegramName', myName);
+        }
+      } else {
+        myUid = localStorage.getItem('uid') || Date.now().toString();
+        myName = localStorage.getItem('name') || 'Player_' + Math.floor(Math.random() * 1000);
+      }
+
+      loadGameState();
+      setupEventListeners();
+      joinRoom(currentRoomId);
+      loadAssets();
+      cacheAnimations();
+      restoreState(lastValidState);
+    }
+
+    function loadAssets() {
+      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      // Preload sounds if needed
+    }
+
+    function cacheAnimations() {
+      if (sessionStorage.getItem('animationCache')) {
+        animationCache = JSON.parse(sessionStorage.getItem('animationCache'));
+      } else {
+        animationCache = {
+          'pulse': '@keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }',
+          'dance': '@keyframes dance { 0% { transform: rotate(0deg) scale(1); } 25% { transform: rotate(5deg) scale(1.1); } 50% { transform: rotate(-5deg) scale(1.1); } 75% { transform: rotate(3deg) scale(1.05); } 100% { transform: rotate(0deg) scale(1); } }'
+        };
+        sessionStorage.setItem('animationCache', JSON.stringify(animationCache));
+      }
+    }
+
+    function setupEventListeners() {
+      window.addEventListener('beforeunload', () => {
+        // No Firebase
+      });
+
+      hamburgerMenuEl.addEventListener('click', toggleDropdown);
+      createRoomBtnEl.addEventListener('click', createNewRoom);
+      inviteFriendsBtnEl.addEventListener('click', inviteFriends);
+      profileBtnEl.addEventListener('click', showProfile);
+      achievementsBtnEl.addEventListener('click', showAchievements);
+      kickPlayerBtnEl.addEventListener('click', startVoteKick);
+      rulesBtnEl.addEventListener('click', () => rulesModalEl.style.display = 'block');
+      startGameBtnEl.addEventListener('click', startGame);
+      resetGameBtnEl.addEventListener('click', resetGame);
+      rulesModalEl.querySelector('.close').addEventListener('click', () => rulesModalEl.style.display = 'none');
+      profileModalEl.querySelector('.close').addEventListener('click', () => profileModalEl.style.display = 'none');
+      achievementsModalEl.querySelector('.close').addEventListener('click', () => achievementsModalEl.style.display = 'none');
+      changeNickBtnEl.addEventListener('click', promptChangeNick);
+      placeBetBtnEl.addEventListener('click', placeBet);
+      accuseBtnEl.addEventListener('click', startAccusationFlow);
+      luckBtnEl.addEventListener('click', useLuck);
+      sendMsgBtnEl.addEventListener('click', sendMessage);
+      chatInputEl.addEventListener('keypress', (e) => { if(e.key === 'Enter') sendMessage(); });
+      voiceBtnEl.addEventListener('click', recordVoiceMessage);
+
+      closeButtons.forEach(btn => {
+        btn.addEventListener('click', function() {
+          this.closest('.modal').style.display = 'none';
+        });
+      });
+
+      submitAccusationCommentBtnEl.addEventListener('click', () => {
+        const comment = document.getElementById('accusationCommentInput').value;
+        startAccusationWithComment(comment);
+        accusationCommentModalEl.style.display = 'none';
+        startReplyTimer();
+      });
+
+      submitReplyBtnEl.addEventListener('click', () => {
+        const reply = document.getElementById('replyInput').value;
+        addToChat(`(Ответ) ${players[lastBet.player]?.name}: ${reply}`);
+        replyModalEl.style.display = 'none';
+        replySubmitted = true;
+      });
+
+      closeAccusationResultBtnEl.addEventListener('click', () => {
+        accusationResultModalEl.style.display = 'none';
+      });
+    }
+
+    function startGame() {
+      gameState = 'betting';
+      gameStatusEl.textContent = `Раунд ${++roundNumber}`;
+      renderUI();
+    }
+
+    function resetGame() {
+      gameState = 'lobby';
+      gameStatusEl.textContent = 'Ожидание начала игры...';
+      players = {};
+      lastBetsLog = [];
+      roundNumber = 0;
+      alivePlayersCount = 0;
+      renderUI();
+    }
+
+    function startReplyTimer() {
+      replySubmitted = false;
+      setTimeout(() => {
+        if (!replySubmitted) {
+          // Proceed with result
+        }
+      }, 5000);
+    }
+
+    function toggleDropdown() {
+      dropdownMenuEl.style.display = dropdownMenuEl.style.display === 'block' ? 'none' : 'block';
+    }
+
+    function createNewRoom() {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      const newId = 'room_' + Math.random().toString(36).substring(2, 10).toUpperCase();
+      window.history.pushState({}, '', '?id=' + newId);
+      leaveCurrentRoom();
+      joinRoom(newId);
+      dropdownMenuEl.style.display = 'none';
+    }
+
+    function inviteFriends() {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      if (tg) {
+        const inviteUrl = `https://t.me/${tg.initDataUnsafe.bot_username}?start=room_${currentRoomId}`;
+        tg.WebApp.openTelegramLink(inviteUrl);
+      }
+      dropdownMenuEl.style.display = 'none';
+    }
+
+    function showProfile() {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      loadProfileData();
+      profileModalEl.style.display = 'block';
+      dropdownMenuEl.style.display = 'none';
+    }
+
+    function loadProfileData() {
+      const telegramId = localStorage.getItem('telegramId');
+      const telegramName = localStorage.getItem('telegramName');
+      if (telegramId && telegramName) {
+        telegramInfoEl.textContent = `👤 Телеграм: ${telegramName} (ID: ${telegramId})`;
+      } else {
+        telegramInfoEl.textContent = 'Телеграм не привязан';
+      }
+      currentDisplayNameEl.textContent = myName;
+    }
+
+    function promptChangeNick() {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      const newName = prompt('Введите новый ник:', myName);
+      if (newName && newName.trim()) {
+        const oldName = myName;
+        myName = newName.trim();
+        if (gameState === 'lobby') {
+          updatePlayerNameInFirebase(oldName, myName);
+        } else {
+          addToChat(`(${oldName}) сменил ник на (${myName})`);
+          updatePlayerNameInFirebase(oldName, myName);
+        }
+        localStorage.setItem('name', myName);
+        currentDisplayNameEl.textContent = myName;
+        renderUI();
+      }
+    }
+
+    function updatePlayerNameInFirebase(oldName, newName) {
+      // Simulate local update
+      players[myUid].name = newName;
+    }
+
+    function showAchievements() {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      achievementsModalEl.style.display = 'block';
+      dropdownMenuEl.style.display = 'none';
+    }
+
+    function joinRoom(roomId) {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      currentRoomId = roomId;
+      roomNameDisplayEl.textContent = roomId.toUpperCase();
+      // Simulate joining room logic here
+      simulateJoinRoom();
+    }
+
+    function leaveCurrentRoom() {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      // Simulate leaving room logic
+    }
+
+    function simulateJoinRoom() {
+      // Simulate fetching room state
+      players = {};
+      players[myUid] = { name: myName, dice: [1,2,3,4,5], poisons: 0, alive: true, specialDie: null };
+      alivePlayersCount = 1;
+      renderUI();
+    }
+
+    function validateGameState(state) {
+      if (!state.players) state.players = {};
+      if (!Array.isArray(state.lastBetsLog)) state.lastBetsLog = [];
+      if (typeof state.myName !== 'string') state.myName = 'Player';
+      if (typeof state.gameState !== 'string') state.gameState = 'lobby';
+      return state;
+    }
+
+    function renderUI() {
+      // Update game status
+      if (gameState === 'lobby') {
+        gameStatusEl.textContent = 'Ожидание начала игры...';
+      } else {
+        gameStatusEl.textContent = `Раунд ${roundNumber}`;
+      }
+
+      // Validate data
+      if (!Array.isArray(lastBetsLog)) lastBetsLog = [];
+      if (typeof players === 'undefined') players = {};
+      lastValidState = { players, myName, lastBet, gameState }; // Save for rollback
+
+      playerListEl.innerHTML = '';
+      Object.keys(players).forEach(uid => {
+        const p = players[uid];
+        if (!p) return;
+        if (!p.alive) return;
+
+        const playerDiv = document.createElement('div');
+        playerDiv.className = 'player-card';
+        if (uid === myUid && isMyTurn()) playerDiv.classList.add('active-player-highlight');
+        if (p.alive) playerDiv.classList.add('player-breathing');
+
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'player-name player-shadow player-shadow-' + p.poisons;
+        if (p.title) nameSpan.textContent = `${p.title} ${p.name}`;
+        else nameSpan.textContent = p.name;
+
+        const sandsSpan = document.createElement('span');
+        sandsSpan.className = 'sands-of-time';
+        sandsSpan.textContent = '⏳';
+        if (isMyTurn() && uid === myUid && gameState === 'betting') { // NEW: Only during betting
+          sandsSpan.style.display = 'inline';
+        } else {
+          sandsSpan.style.display = 'none';
+        }
+
+        const poisonsDiv = document.createElement('div');
+        poisonsDiv.className = 'player-poisons';
+        for (let i = 0; i < p.poisons; i++) {
+          const poisonSpan = document.createElement('span');
+          poisonSpan.className = 'poison';
+          poisonSpan.textContent = '🧪';
+          poisonsDiv.appendChild(poisonSpan);
+        }
+
+        playerDiv.appendChild(nameSpan);
+        playerDiv.appendChild(sandsSpan);
+        playerDiv.appendChild(poisonsDiv);
+        playerListEl.appendChild(playerDiv);
+      });
+
+      // NEW: Render my dice row in bet controls
+      renderMyDiceRow();
+
+      updateLastBetsDisplay();
+      updateBetControls();
+    }
+
+    // NEW: Function to render dice row
+    function renderMyDiceRow() {
+      myDiceRowEl.innerHTML = '';
+      const player = players[myUid];
+      if (!player) return;
+
+      player.dice.forEach((die, index) => {
+        const dieSpan = document.createElement('span');
+        dieSpan.className = 'dice';
+        dieSpan.textContent = getDieEmoji(die);
+        myDiceRowEl.appendChild(dieSpan);
+      });
+
+      const specDieSpan = document.createElement('span');
+      specDieSpan.className = 'dice special';
+      if (player.specialDie) {
+        if (isSpecialDieActive(player.specialDie)) specDieSpan.classList.add('active');
+        else if (isSpecialDiePassive(player.specialDie)) specDieSpan.classList.add('passive');
+        else if (hasUsedSpecialDieThisRound(myUid, player.specialDie)) specDieSpan.classList.add('used');
+        specDieSpan.textContent = player.specialDie;
+        specDieSpan.onclick = () => useSpecialDie(myUid, player.specialDie, 5);
+      } else {
+        specDieSpan.textContent = '⬜'; // White cube placeholder
+        specDieSpan.style.opacity = '0.3';
+      }
+      myDiceRowEl.appendChild(specDieSpan);
+    }
+
+    function compress(obj) {
+      // Example compression
+      const compressed = {};
+      for (const key in obj) {
+        switch(key) {
+          case 'players': compressed.p = obj[key]; break;
+          case 'dice': compressed.d = obj[key]; break;
+          case 'poisons': compressed.ps = obj[key]; break;
+          case 'alive': compressed.a = obj[key]; break;
+          case 'name': compressed.n = obj[key]; break;
+          default: compressed[key] = obj[key];
+        }
+      }
+      return compressed;
+    }
+
+    function decompress(obj) {
+      // Example decompression
+      const decompressed = {};
+      for (const key in obj) {
+        switch(key) {
+          case 'p': decompressed.players = obj[key]; break;
+          case 'd': decompressed.dice = obj[key]; break;
+          case 'ps': decompressed.poisons = obj[key]; break;
+          case 'a': decompressed.alive = obj[key]; break;
+          case 'n': decompressed.name = obj[key]; break;
+          default: decompressed[key] = obj[key];
+        }
+      }
+      return decompressed;
+    }
+
+    function restoreState(state) {
+      if (state.players) players = state.players;
+      if (state.myName) myName = state.myName;
+      if (state.lastBet) lastBet = state.lastBet;
+      if (state.gameState) gameState = state.gameState;
+      renderUI();
+    }
+
+    function getDieEmoji(value) {
+      const emojis = ['?', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+      return emojis[value] || '?';
+    }
+
+    function isSpecialDieActive(sd) {
+      return ['🎯', '🧊', '🔥', '🔄', '🧛'].includes(sd);
+    }
+
+    function isSpecialDiePassive(sd) {
+      return ['🛡️', '☠️', '_CHAIN', '🤝', '🧩'].includes(sd); // Убран '👻'
+    }
+
+    function hasUsedSpecialDieThisRound(uid, sd) {
+      // Simplified for demo
+      return false;
+    }
+
+    function useSpecialDie(uid, sd, index) {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      if (uid !== myUid) return;
+      if (sd === '🧛' && !hasUsedThief) {
+        startStealProcess();
+      }
+      // Add other special die logic here
+    }
+
+    function useLuck() {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      // Simulate luck action
+      addToChat(`${players[myUid].name} использовал Удачу!`);
+    }
+
+    function startStealProcess() {
+      // Show modal to select target
+      const targets = Object.keys(players).filter(uid => uid !== myUid && players[uid].specialDie && !hasUsedSpecialDieThisRound(uid, players[uid].specialDie));
+      if (targets.length === 0) {
+        addToChat('Нет доступных целей для кражи.');
+        return;
+      }
+      const stealTargetsDiv = document.getElementById('stealTargets');
+      stealTargetsDiv.innerHTML = '';
+      targets.forEach(tUid => {
+        const t = players[tUid];
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-secondary';
+        btn.textContent = `${t.name} (${t.specialDie})`;
+        btn.onclick = () => performSteal(tUid);
+        stealTargetsDiv.appendChild(btn);
+      });
+      stealModalEl.style.display = 'block';
+    }
+
+    function performSteal(targetUid) {
+      const targetSpecialDie = players[targetUid].specialDie;
+      if (!targetSpecialDie) return;
+
+      players[myUid].specialDie = targetSpecialDie;
+      players[targetUid].specialDie = null;
+      hasUsedThief = true;
+
+      addToChat(`${players[myUid].name} украл кубик ${targetSpecialDie} у ${players[targetUid].name}!`);
+      renderUI();
+      stealModalEl.style.display = 'none';
+    }
+
+    function updateLastBetsDisplay() {
+      const formatted = lastBetsLog.slice(0, 3).map(bet => `${bet.count}×${getDieEmoji(bet.value)}`).join(' ← ');
+      lastBetsDisplayEl.textContent = `Последние ставки: ${formatted}`;
+    }
+
+    function updateBetControls() {
+      if (isMyTurn()) {
+        betControlsEl.style.display = 'block';
+        populateCountSelect();
+      } else {
+        betControlsEl.style.display = 'none';
+      }
+    }
+
+    function populateCountSelect() {
+      const maxPossible = alivePlayersCount * 5;
+      countSelectEl.innerHTML = '';
+      for (let i = 1; i <= maxPossible; i++) {
+        const option = document.createElement('option');
+        option.value = i;
+        option.textContent = i;
+        countSelectEl.appendChild(option);
+      }
+    }
+
+    function isMyTurn() {
+      // Simplified for demo
+      return true;
+    }
+
+    function placeBet() {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      const count = parseInt(countSelectEl.value);
+      const value = parseInt(valueSelectEl.value);
+      if (isNaN(count) || isNaN(value)) return;
+
+      const newBet = { player: myUid, count: count, value: value };
+      lastBet = newBet;
+      lastBetsLog.unshift(newBet);
+      if (lastBetsLog.length > 3) lastBetsLog.pop();
+
+      addToChat(`${players[myUid].name} поставил ${count}×${getDieEmoji(value)}`);
+      renderUI();
+    }
+
+    function startAccusationFlow() {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      // Open comment modal first
+      accusationCommentModalEl.style.display = 'block';
+    }
+
+    function startAccusationWithComment(comment) {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      if (!lastBet) return;
+      const accuserName = players[lastBet.player]?.name || 'Unknown';
+      addToChat(`${players[myUid].name} обвиняет ${accuserName} в блефе! ${comment ? `(${comment})` : ''}`);
+
+      // Show accusation modal with all dice
+      showAccusationModal(accuserName, comment);
+
+      // Simulate accusation result
+      setTimeout(() => {
+        const totalDice = 3; // Simulated
+        const isAccusationCorrect = totalDice < lastBet.count;
+
+        if (isAccusationCorrect) {
+          accusationResultTextEl.textContent = `Обвинение верно! У ${accuserName} был блеф.`;
+          // Apply poison to bet maker
+          if (players[lastBet.player]) {
+            players[lastBet.player].poisons++;
+            if (players[lastBet.player].poisons >= 3) {
+              players[lastBet.player].alive = false;
+              addToChat(`${accuserName} выбыл из игры.`);
+              alivePlayersCount--;
+              checkForDevilDeal(lastBet.player);
+            }
+          }
+        } else {
+          accusationResultTextEl.textContent = `Обвинение неверно! У ${accuserName} была правда.`;
+          // Apply poison to accuser
+          if (players[myUid]) {
+            players[myUid].poisons++;
+            if (players[myUid].poisons >= 3) {
+              players[myUid].alive = false;
+              addToChat(`${players[myUid].name} выбыл из игры.`);
+              alivePlayersCount--;
+              checkForDevilDeal(myUid);
+            }
+          }
+        }
+        renderUI();
+      }, 5000); // Increased time for players to see dice and comment
+    }
+
+    function showAccusationModal(accuserName, comment) {
+      // Build dice display
+      allDiceDisplayEl.innerHTML = '';
+      Object.keys(players).forEach(uid => {
+        const p = players[uid];
+        if (!p) return;
+        const playerDiceContainer = document.createElement('div');
+        playerDiceContainer.style.margin = '10px';
+        playerDiceContainer.style.textAlign = 'center';
+
+        const playerNameLabel = document.createElement('div');
+        playerNameLabel.textContent = p.name;
+        playerNameLabel.style.fontWeight = 'bold';
+
+        const diceRow = document.createElement('div');
+        diceRow.style.display = 'flex';
+        diceRow.style.justifyContent = 'center';
+        diceRow.style.gap = '5px';
+
+        p.dice.forEach(die => {
+          const dieEl = document.createElement('span');
+          dieEl.className = 'dice dice-dance';
+          dieEl.textContent = getDieEmoji(die);
+          diceRow.appendChild(dieEl);
+        });
+
+        playerDiceContainer.appendChild(playerNameLabel);
+        playerDiceContainer.appendChild(diceRow);
+        allDiceDisplayEl.appendChild(playerDiceContainer);
+      });
+
+      document.getElementById('accusationDetails').textContent = `Обвиняющий: ${players[myUid]?.name}\nОбвиняемый: ${accuserName}\nКомментарий: ${comment || 'Нет'}`;
+
+      accusationResultModalEl.style.display = 'block';
+    }
+
+    function checkForDevilDeal(deceasedUid) {
+      if (alivePlayersCount > 0) {
+        // Show devil deal modal
+        const options = generateDevilOptions();
+        const devilOptsDiv = document.getElementById('devilOptions');
+        devilOptsDiv.innerHTML = '';
+        options.forEach(opt => {
+          const btn = document.createElement('button');
+          btn.className = 'btn btn-warning';
+          btn.textContent = `${opt.count} × ${getDieEmoji(opt.value)}`;
+          btn.onclick = () => resolveDevilDeal(opt.isCorrect);
+          if (opt.isCorrect) btn.dataset.correct = 'true';
+          devilOptsDiv.appendChild(btn);
+        });
+        devilDealModalEl.style.display = 'block';
+      }
+    }
+
+    function generateDevilOptions() {
+      const correctValue = 3; // Simulated
+      const correctCount = 2; // Simulated
+      const options = [
+        { count: correctCount, value: correctValue, isCorrect: true },
+        { count: correctCount - 1, value: correctValue, isCorrect: false },
+        { count: correctCount + 1, value: correctValue, isCorrect: false }
+      ];
+      // Shuffle
+      for (let i = options.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [options[i], options[j]] = [options[j], options[i]];
+      }
+      return options;
+    }
+
+    function resolveDevilDeal(isSuccess) {
+      if (isSuccess) {
+        players[deceasedUid].alive = true;
+        players[deceasedUid].poisons = 1;
+        players[deceasedUid].title = ' DEVIL ';
+        addToChat(`${players[deceasedUid].name} заключил сделку с дьяволом и возвращается!`);
+      } else {
+        addToChat(`${players[deceasedUid].name} проиграл сделку с дьяволом.`);
+      }
+      devilDealModalEl.style.display = 'none';
+      renderUI();
+    }
+
+    function sendMessage() {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      const msg = chatInputEl.value.trim();
+      if (!msg) return;
+      addToChat(`${players[myUid]?.name || 'Anon'}: ${msg}`);
+      chatInputEl.value = '';
+    }
+
+    function addToChat(message) {
+      const msgEl = document.createElement('div');
+      msgEl.className = 'chat-message pulse-chat';
+      msgEl.textContent = message;
+      chatLogEl.insertBefore(msgEl, chatLogEl.firstChild); // Add to top
+    }
+
+    function recordVoiceMessage() {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      alert('Запись голосового сообщения. (Функция в разработке)');
+    }
+
+    function startVoteKick() {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      const targets = Object.keys(players).filter(uid => uid !== myUid && players[uid].alive);
+      if (targets.length === 0) {
+        addToChat('Нет игроков для исключения.');
+        return;
+      }
+      const kickTargetsDiv = document.getElementById('kickTargets');
+      kickTargetsDiv.innerHTML = '';
+      targets.forEach(tUid => {
+        const t = players[tUid];
+        if (!t) return;
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-danger';
+        btn.textContent = `Исключить ${t.name}`;
+        btn.onclick = () => castVote(tUid);
+        kickTargetsDiv.appendChild(btn);
+      });
+      voteKickModalEl.style.display = 'block';
+    }
+
+    function castVote(targetUid) {
+      if (actionCooldown) return;
+      actionCooldown = true;
+      setTimeout(() => { actionCooldown = false; }, 1000);
+
+      addToChat(`${players[myUid].name} проголосовал за исключение ${players[targetUid].name}.`);
+      // Simulate voting logic
+      voteKickModalEl.style.display = 'none';
+    }
+
+    function loadGameState() {
+      // Load from localStorage
+      const saved = localStorage.getItem('gameState');
+      if (saved) {
+        try {
+          let state = JSON.parse(saved);
+          state = validateGameState(state); // Validate before using
+          if (state.roomId) currentRoomId = state.roomId;
+          if (state.myName) myName = state.myName;
+        } catch (e) {
+          console.error('Error loading game state, restoring...', e);
+          restoreState(lastValidState);
+        }
+      }
+    }
+
+    // --- Main ---
+    window.onload = init;
+  </script>
+</body>
+</html>
