@@ -56,6 +56,7 @@
     .controls {
       display: flex;
       gap: 10px;
+      position: relative; /* NEW: Important for dropdown positioning */
     }
 
     .btn {
@@ -323,6 +324,7 @@
       font-size: 1.5em;
       cursor: pointer;
       padding: 5px;
+      z-index: 1002; /* NEW: Ensure hamburger is above */
     }
 
     .dropdown-menu {
@@ -330,10 +332,11 @@
       position: absolute;
       background-color: #34495e;
       min-width: 160px;
-      box-shadow: 0px -8px 16px 0px rgba(0,0,0,0.2);
-      z-index: 1001;
+      box-shadow: 0px -8px 16px 0px rgba(0,0,0,0.2); /* ORIGINAL shadow */
+      z-index: 1001; /* NEW: Ensure dropdown is above everything */
       right: 0;
-      bottom: 100%;
+      top: 100%; /* NEW: Position below hamburger */
+      border-radius: 5px; /* NEW: Optional, for aesthetics */
     }
 
     .dropdown-item {
@@ -946,7 +949,9 @@
     }
 
     function toggleDropdown() {
-      dropdownMenuEl.style.display = dropdownMenuEl.style.display === 'block' ? 'none' : 'block';
+      // NEW: More robust toggle logic
+      const currentDisplay = dropdownMenuEl.style.display;
+      dropdownMenuEl.style.display = (currentDisplay === 'block') ? 'none' : 'block';
     }
 
     function createNewRoom() {
