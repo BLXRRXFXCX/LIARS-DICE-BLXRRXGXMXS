@@ -91,8 +91,7 @@ select{width:45px;height:42px;background:#fff;border:2px solid #aaa;border-radiu
 <h1>🎲 LIAR'S DICE</h1>
 <div class="game-header">
 <div class="game-actions">
-<button class="action-btn btn-success" id="btnCreateRoom">🏠 СОЗДАТЬ КОМНАТУ</button>
-<button class="action-btn btn-primary" id="btnJoinRoom">🔌 ПОДКЛЮЧИТЬСЯ ПО IP</button>
+<button class="action-btn btn-success" id="btnStartGame">▶ СТАРТ</button>
 <button class="action-btn btn-warning" id="btnResetGame">↺ СБРОС</button>
 </div>
 <div class="room-display" id="roomDisplay">Статус: <span id="connectionStatus">Не подключён</span><br><span id="roomIdDisplay" style="font-size:0.7em;"></span></div>
@@ -101,9 +100,12 @@ select{width:45px;height:42px;background:#fff;border:2px solid #aaa;border-radiu
 <div class="dropdown-item" id="menuLives">❤️ Жизни: 3</div>
 <div class="dropdown-item" id="menuBotDifficulty">🤖 Сложность новых ботов: <span id="botDifficultyLabel">Средняя</span></div>
 <div class="dropdown-item" id="menuBotControl">🤖 <span id="botAddBtn">[➕ Добавить бота]</span> <span id="botRemoveAll">[🗑️ Удалить всех ботов]</span></div>
+<div class="dropdown-item" id="menuCreateRoom">🏠 СОЗДАТЬ КОМНАТУ</div>
+<div class="dropdown-item" id="menuJoinRoom">🔌 ПОДКЛЮЧИТЬСЯ ПО IP</div>
 <div class="dropdown-item" id="menuInvite">✉️ Пригласить друзей</div>
 <div class="dropdown-item" id="menuProfile">👤 Профиль</div>
 <div class="dropdown-item" id="menuRules">📜 Правила</div>
+<div class="dropdown-item" id="menuKick">🗳️ Исключить игрока</div>
 <div class="dropdown-item" id="menuSound">🔊 Звук: ВКЛ</div>
 </div></div></div>
 <div class="status-bar"><div class="game-status" id="gameStatusText">Ожидание подключения...</div><div class="last-bet-display" id="lastBetDisplay">Последняя ставка: —</div></div>
