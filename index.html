@@ -99,10 +99,10 @@ select{width:45px;height:42px;background:#fff;border:2px solid #aaa;border-radiu
 <div class="dropdown-item" id="menuArtifacts">🎲 Артефакты: ✅</div>
 <div class="dropdown-item" id="menuLives">❤️ Жизни: 3</div>
 <div class="dropdown-item" id="menuBotDifficulty">🤖 Сложность новых ботов: <span id="botDifficultyLabel">Средняя</span></div>
-<div class="dropdown-item" id="menuBotControl">🤖 <span id="botAddBtn">[➕ Добавить бота]</span> <span id="botRemoveAll">[🗑️ Удалить всех ботов]</span></div>
+<div class="dropdown-item" id="menuBotAdd">🤖 [➕ Добавить бота]</div>
+<div class="dropdown-item" id="menuBotRemoveAll">🤖 [🗑️ Удалить всех ботов]</div>
 <div class="dropdown-item" id="menuCreateRoom">🏠 СОЗДАТЬ КОМНАТУ</div>
-<div class="dropdown-item" id="menuJoinRoom">🔌 ПОДКЛЮЧИТЬСЯ ПО IP</div>
-<div class="dropdown-item" id="menuInvite">✉️ Пригласить друзей</div>
+<div class="dropdown-item" id="menuInvite">🔗 СКОПИРОВАТЬ ССЫЛКУ-ПРИГЛАШЕНИЕ</div>
 <div class="dropdown-item" id="menuProfile">👤 Профиль</div>
 <div class="dropdown-item" id="menuRules">📜 Правила</div>
 <div class="dropdown-item" id="menuKick">🗳️ Исключить игрока</div>
@@ -127,7 +127,6 @@ select{width:45px;height:42px;background:#fff;border:2px solid #aaa;border-radiu
 <div class="modal" id="modalKeeper"><div class="modal-content"><span class="close-btn">&times;</span><h2>👁️ ХРАНИТЕЛЬ ТАЙН</h2><p style="text-align:center; color:#cc00ff; font-size:0.85em;">Вы видите кубики всех живых игроков</p><div id="keeperContent" style="margin-top:10px; max-height:350px; overflow-y:auto;"></div></div></div>
 <div class="modal" id="modalArtifactInfo"><div class="modal-content"><span class="close-btn">&times;</span><h2 id="artifactInfoTitle">Артефакт</h2><p id="artifactInfoDesc"></p></div></div>
 <div class="modal" id="modalRoomJoin"><div class="modal-content"><span class="close-btn">&times;</span><h2>Вход в игру</h2><p><input type="text" id="playerNameInput" placeholder="Ваше имя" style="width:100%; padding:8px; font-family:inherit; font-size:0.9em;"></p><button class="action-btn btn-primary" id="confirmJoinBtn" style="width:100%;">Начать игру</button></div></div>
-<div class="modal" id="modalJoinIP"><div class="modal-content"><span class="close-btn">&times;</span><h2>Подключение по IP</h2><p><input type="text" id="ipAddressInput" placeholder="IP:порт (например, 123.45.67.89:9000)" style="width:100%; padding:8px; font-family:inherit; font-size:0.9em;"></p><button class="action-btn btn-primary" id="connectIPBtn" style="width:100%;">Подключиться</button></div></div>
 <script src="game.js"></script>
 </body>
 </html>
