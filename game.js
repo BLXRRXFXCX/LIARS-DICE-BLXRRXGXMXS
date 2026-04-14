@@ -69,8 +69,8 @@ const GHOST_ABILITIES = [
 ];
 
 function getDieEmoji(v) { const val = parseInt(v)||1; return ['?','⚀','⚁','⚂','⚃','⚄','⚅'][val]||'⚀'; }
-function showNotification(msg, type='info') { const tt={error:'❌ Ошибка',warning:'⚠️ Внимание',success:'✅ Успех',info:'ℹ️ Инфо'}; document.getElementById('notifyTitle').textContent=tt[type]||'ℹ️ Уведомление'; document.getElementById('notifyMessage').textContent=msg; document.getElementById('modalNotify').style.display='block'; }
-function appendChat(msg, t='normal') { const e=document.createElement('div'); e.className=`chat-msg msg-${t}`; e.textContent=msg; const log=document.getElementById('chatLog'); log.insertBefore(e,log.firstChild); if(log.children.length>60) log.removeChild(log.lastChild); }
+function showNotification(msg, type='info') { const tt={error:'❌ Ошибка',warning:'⚠️ Внимание',success:'✅ Успех',info:'ℹ️ Инфо'}; const title=document.getElementById('notifyTitle'); const message=document.getElementById('notifyMessage'); const modal=document.getElementById('modalNotify'); if(title && message && modal) { title.textContent=tt[type]||'ℹ️ Уведомление'; message.textContent=msg; modal.style.display='block'; } else { alert(msg); } }
+function appendChat(msg, t='normal') { const e=document.createElement('div'); e.className=`chat-msg msg-${t}`; e.textContent=msg; const log=document.getElementById('chatLog'); if(log) { log.insertBefore(e,log.firstChild); if(log.children.length>60) log.removeChild(log.lastChild); } }
 function playSound(type) { if(!soundEnabled||!audioContext) return; try{ const o=audioContext.createOscillator(),g=audioContext.createGain(); o.connect(g); g.connect(audioContext.destination); const n=audioContext.currentTime; const p={bet:[440,220,0.1,'square'],accuse:[880,440,0.3,'sawtooth'],poison:[300,150,0.2,'sine'],death:[220,110,0.5,'sine'],devil:[150,100,0.4,'sawtooth'],devilWin:[440,880,0.3,'square'],devilLose:[200,100,0.4,'sawtooth'],ghost:[660,880,0.3,'sine'],resurrection:[330,990,0.6,'sine'],artifact:[523,784,0.2,'square'],round:[440,880,0.3,'square'],blood:[392,523,0.2,'sine'],win:[523,659,784,1046,0.8,'square']}[type]||[440,220,0.1,'sine']; if(type==='win'){ p.forEach((f,i)=>{ const oc=audioContext.createOscillator(),gc=audioContext.createGain(); oc.connect(gc); gc.connect(audioContext.destination); oc.frequency.value=f; oc.type='square'; gc.gain.setValueAtTime(0.2,n+i*0.1); gc.gain.exponentialRampToValueAtTime(0.01,n+i*0.1+0.3); oc.start(n+i*0.1); oc.stop(n+i*0.1+0.3); }); }else{ o.frequency.setValueAtTime(p[0],n); o.frequency.exponentialRampToValueAtTime(p[1],n+p[2]); o.type=p[3]; g.gain.setValueAtTime(0.2,n); g.gain.exponentialRampToValueAtTime(0.01,n+p[2]); o.start(n); o.stop(n+p[2]); } }catch(e){} }
 
 function generateRoomId() {
@@ -101,7 +101,8 @@ function createRoom() {
     const url = new URL(window.location);
     url.searchParams.set('room', roomId);
     window.history.pushState({}, '', url);
-    document.getElementById('roomIdDisplay').innerHTML = `ID комнаты: ${roomId}`;
+    const roomDisplay = document.getElementById('roomIdDisplay');
+    if(roomDisplay) roomDisplay.innerHTML = `ID комнаты: ${roomId}`;
     initPeerAsHost();
 }
 
@@ -117,7 +118,8 @@ async function initPeerAsHost() {
             myIP = 'localhost';
         }
         const inviteLink = `${window.location.origin}${window.location.pathname}?connect=${myIP}:${myPort}&room=${currentRoomId}`;
-        document.getElementById('connectionStatus').innerHTML = `✅ Хост | IP: ${myIP}:${myPort}`;
+        const statusEl = document.getElementById('connectionStatus');
+        if(statusEl) statusEl.innerHTML = `✅ Хост | IP: ${myIP}:${myPort}`;
         appendChat(`🏠 Вы создали комнату ${currentRoomId}`, 'system');
         appendChat(`🔗 Ваша ссылка-приглашение: ${inviteLink}`, 'system');
         showNotification(`Комната создана!`, 'success');
@@ -162,11 +164,12 @@ function joinRoomByIP(address) {
     myId = 'client_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
     room = new Peer(myId);
     room.on('open', () => {
-        const hostPeerId = 'host_' + currentRoomId.split('_')[0]; 
+        const hostPeerId = 'host_' + (currentRoomId || generateRoomId());
         const conn = room.connect(hostPeerId, { reliable: true });
         if(conn) {
             setupConnection(conn);
-            document.getElementById('connectionStatus').innerHTML = `🔗 Подключение к ${ip}:${port}`;
+            const statusEl = document.getElementById('connectionStatus');
+            if(statusEl) statusEl.innerHTML = `🔗 Подключение к ${ip}:${port}`;
             appendChat(`🔌 Подключение к хосту...`, 'system');
         } else {
             appendChat(`❌ Не удалось подключиться к ${ip}:${port}`, 'death');
@@ -212,8 +215,8 @@ function handlePeerData(data, peerId) {
             if(isNewPlayerGhost) appendChat(`👻 ${data.name} подключился и стал призраком`, 'system');
             else appendChat(`🎉 ${data.name} присоединился к игре`, 'system');
             renderUI();
-            if(isHost) {
-                gameConn.send({ type: 'fullState', players: players, gameState: gameState, lastBet: lastBet, roundNumber: roundNumber, currentPlayerUid: currentPlayerUid, defaultLives: defaultLives, specialDiceEnabled: specialDiceEnabled, artifactHistory: artifactHistory, blood: blood, usedSpecialThisRound: usedSpecialThisRound, thiefUsedThisRound: thiefUsedThisRound, sniperShotUsedThisRound: sniperShotUsedThisRound });
+            if(isHost && window.gameConn) {
+                window.gameConn.send({ type: 'fullState', players: players, gameState: gameState, lastBet: lastBet, roundNumber: roundNumber, currentPlayerUid: currentPlayerUid, defaultLives: defaultLives, specialDiceEnabled: specialDiceEnabled, artifactHistory: artifactHistory, blood: blood, usedSpecialThisRound: usedSpecialThisRound, thiefUsedThisRound: thiefUsedThisRound, sniperShotUsedThisRound: sniperShotUsedThisRound });
             }
         }
     } else if(data.type === 'fullState' && !isHost) {
@@ -233,7 +236,7 @@ function handlePeerData(data, peerId) {
     } else if(data.type === 'bet') {
         if(gameState === 'betting' && currentPlayerUid === peerId) {
             lastBet = data.bet;
-            players[peerId].lastBetInRound = lastBet;
+            if(players[peerId]) players[peerId].lastBetInRound = lastBet;
             renderUI();
             nextTurn();
         }
@@ -242,7 +245,12 @@ function handlePeerData(data, peerId) {
             resolveAccusation(data.accusedUid);
         }
     } else if(data.type === 'startGame') {
-        if(gameState === 'lobby' && Object.keys(players).length >= 2) startNewRound();
+        if(gameState === 'lobby') {
+            let aliveCount = Object.keys(players).filter(uid => players[uid] && (players[uid].alive || !players[uid].isGhost) && !players[uid].isBot).length;
+            let botCount = Object.keys(players).filter(uid => players[uid] && players[uid].isBot).length;
+            if((aliveCount >= 1 && botCount >= 1) || aliveCount >= 2) startNewRound();
+            else showNotification('Нужен хотя бы 1 игрок и 1 бот, или 2 игрока', 'warning');
+        }
     } else if(data.type === 'resetGame') {
         if(isHost) resetGame();
     } else if(data.type === 'chat') {
@@ -264,14 +272,14 @@ function handlePeerData(data, peerId) {
 }
 
 function sendToAll(type, data) {
-    if(isHost && gameConn) {
+    if(isHost && window.gameConn) {
         for(let pid in players) {
             if(pid !== myId && !players[pid].isBot) {
-                try { gameConn.send({ type: type, ...data }); } catch(e) {}
+                try { window.gameConn.send({ type: type, ...data }); } catch(e) {}
             }
         }
-    } else if(gameConn) {
-        try { gameConn.send({ type: type, ...data }); } catch(e) {}
+    } else if(window.gameConn) {
+        try { window.gameConn.send({ type: type, ...data }); } catch(e) {}
     }
 }
 
@@ -288,30 +296,32 @@ function resetGame() {
     blood = 0;
     for(let uid in players) {
         let p = players[uid];
-        p.poisons = 0;
-        p.blood = 0;
-        p.alive = true;
-        p.isGhost = false;
-        p.artifact = null;
-        p.dice = [];
-        p.usedSpecialThisRound = {};
-        p.lastBetInRound = null;
-        p.cursed = false;
-        p.frozen = false;
-        p.defenderActive = false;
-        p.stunned = false;
-        p.blind = false;
-        p.darkPact = false;
-        p.darkPactShield = false;
-        p.devilShield = false;
-        p.evilEyed = false;
-        p.forcedBluff = false;
-        p.cannotAccuse = false;
-        p.sniperShotUsedThisRound = false;
-        p.familiarCursed = false;
-        p.usedAbilities = {};
-        p.devilDealsUsed = 0;
-        if(p.isBot) p.botDifficulty = botDifficulty;
+        if(p) {
+            p.poisons = 0;
+            p.blood = 0;
+            p.alive = true;
+            p.isGhost = false;
+            p.artifact = null;
+            p.dice = [];
+            p.usedSpecialThisRound = {};
+            p.lastBetInRound = null;
+            p.cursed = false;
+            p.frozen = false;
+            p.defenderActive = false;
+            p.stunned = false;
+            p.blind = false;
+            p.darkPact = false;
+            p.darkPactShield = false;
+            p.devilShield = false;
+            p.evilEyed = false;
+            p.forcedBluff = false;
+            p.cannotAccuse = false;
+            p.sniperShotUsedThisRound = false;
+            p.familiarCursed = false;
+            p.usedAbilities = {};
+            p.devilDealsUsed = 0;
+            if(p.isBot) p.botDifficulty = botDifficulty;
+        }
     }
     renderUI();
     appendChat(`🔄 Игра сброшена в лобби хостом`, 'system');
@@ -369,7 +379,8 @@ function removeAllBots() {
 
 function setBotDifficulty(level) {
     botDifficulty = level;
-    document.getElementById('botDifficultyLabel').innerText = botDifficultyNames[level];
+    const label = document.getElementById('botDifficultyLabel');
+    if(label) label.innerText = botDifficultyNames[level];
     appendChat(`Сложность новых ботов изменена на ${botDifficultyNames[level]}`, 'system');
 }
 
@@ -382,21 +393,6 @@ function copyInviteLink() {
     navigator.clipboard.writeText(inviteLink);
     showNotification('Ссылка-приглашение скопирована!', 'success');
     appendChat(`🔗 Ссылка скопирована: ${inviteLink}`, 'system');
-}
-
-function showJoinIPModal() {
-    const modal = document.getElementById('modalJoinIP');
-    modal.style.display = 'block';
-    document.getElementById('connectIPBtn').onclick = () => {
-        const address = document.getElementById('ipAddressInput').value.trim();
-        if(!address) { showNotification('Введите IP:порт', 'warning'); return; }
-        modal.style.display = 'none';
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomIdFromUrl = urlParams.get('room');
-        if(roomIdFromUrl) currentRoomId = roomIdFromUrl;
-        else currentRoomId = generateRoomId();
-        joinRoomByIP(address);
-    };
 }
 
 function updateExpertKnowledge(botId, targetId, newDice) {
@@ -697,6 +693,8 @@ function botUseGhostAbility(botId) {
 function botTurn(botId) {
     if(isBotThinking) return;
     isBotThinking=true;
+    let difficulty = bots[botId]?.difficulty ?? 2;
+    let delay = [8000, 6000, 6000, 4000][difficulty] + Math.random() * 2000;
     setTimeout(()=>{
         if(gameState!=='betting' || currentPlayerUid!==botId) { isBotThinking=false; return; }
         let bot = players[botId];
@@ -706,7 +704,7 @@ function botTurn(botId) {
         botMakeDecision(botId);
         isBotThinking=false;
         nextTurn();
-    }, [1000,800,500,200][bots[botId]?.difficulty ?? 2] + Math.random()*500);
+    }, delay);
 }
 
 function nextTurn() {
@@ -760,8 +758,11 @@ function renderPlayerList() {
         if(p.isGhost) { const ghostSpan=document.createElement('span'); ghostSpan.textContent=' 👻'; n.appendChild(ghostSpan); }
         i.appendChild(n);
         const s=document.createElement('span'); s.className='sands-of-time'; s.textContent='⏳'; if(uid===cu && gameState==='betting' && !p.isGhost) s.style.display='inline'; i.appendChild(s);
-        const pd=document.createElement('div'); pd.className='player-poisons'; const ml=p.maxLives||3, ts=ml+(p.blood||0);
-        for(let j=0;j<ts;j++){ const sp=document.createElement('span'); if(p.isGhost){ sp.className='icon-ghost'; sp.textContent='👻'; } else if(!p.alive){ sp.className='icon-dead'; sp.textContent='💀'; } else if(j<ml && j<p.poisons){ sp.className='icon-poison'; sp.textContent='🫙'; } else if(j===ml && p.blood>0){ sp.className='icon-blood'; sp.textContent='🩸'; } else { sp.className='icon-life'; sp.textContent='🧪'; } pd.appendChild(sp); }
+        const pd=document.createElement('div'); pd.className='player-poisons';
+        if(gameState !== 'lobby') {
+            const ml=p.maxLives||3, ts=ml+(p.blood||0);
+            for(let j=0;j<ts;j++){ const sp=document.createElement('span'); if(p.isGhost){ sp.className='icon-ghost'; sp.textContent='👻'; } else if(!p.alive){ sp.className='icon-dead'; sp.textContent='💀'; } else if(j<ml && j<p.poisons){ sp.className='icon-poison'; sp.textContent='🫙'; } else if(j===ml && p.blood>0){ sp.className='icon-blood'; sp.textContent='🩸'; } else { sp.className='icon-life'; sp.textContent='🧪'; } pd.appendChild(sp); }
+        }
         const bs=document.createElement('span'); bs.className='player-last-bet'; bs.textContent=p.lastBetInRound?`${p.lastBetInRound.count}×${getDieEmoji(p.lastBetInRound.value)}`:'—';
         c.appendChild(i); c.appendChild(pd); c.appendChild(bs); container.appendChild(c);
     });
@@ -790,24 +791,36 @@ function renderDiceRow(){
     }
 }
 
-function showArtifactInfo(art){ document.getElementById('artifactInfoTitle').textContent=`${art.emoji} ${art.name}`; document.getElementById('artifactInfoDesc').innerHTML=`<strong>Тип:</strong> ${art.type==='active'?'Активный (1 раз за раунд)':'Пассивный (автоматически)'}<br><br><strong>Описание:</strong> ${art.description}`; document.getElementById('modalArtifactInfo').style.display='block'; }
+function showArtifactInfo(art){ const title=document.getElementById('artifactInfoTitle'); const desc=document.getElementById('artifactInfoDesc'); if(title && desc) { title.textContent=`${art.emoji} ${art.name}`; desc.innerHTML=`<strong>Тип:</strong> ${art.type==='active'?'Активный (1 раз за раунд)':'Пассивный (автоматически)'}<br><br><strong>Описание:</strong> ${art.description}`; document.getElementById('modalArtifactInfo').style.display='block'; } }
 
 function updateControls(){
     const mt=isMyTurn(), m=players[myId]||{};
-    document.getElementById('betCount').disabled=!mt||isGhost;
-    document.getElementById('betValue').disabled=!mt||isGhost;
-    document.getElementById('btnPlaceBet').disabled=!mt||isGhost||gameState!=='betting';
-    document.getElementById('btnAccuse').disabled=!mt||isGhost||gameState!=='betting'||!lastBet||lastBet.player===myId||m.cannotAccuse;
+    const betCount = document.getElementById('betCount');
+    const betValue = document.getElementById('betValue');
+    const btnPlaceBet = document.getElementById('btnPlaceBet');
+    const btnAccuse = document.getElementById('btnAccuse');
+    if(betCount) betCount.disabled=!mt||isGhost;
+    if(betValue) betValue.disabled=!mt||isGhost;
+    if(btnPlaceBet) btnPlaceBet.disabled=!mt||isGhost||gameState!=='betting';
+    if(btnAccuse) btnAccuse.disabled=!mt||isGhost||gameState!=='betting'||!lastBet||lastBet.player===myId||m.cannotAccuse;
     const cc=!isGhost&&gameState!=='devil_deal';
-    document.getElementById('chatInput').disabled=!cc; document.getElementById('btnSendChat').disabled=!cc;
+    const chatInput = document.getElementById('chatInput');
+    const btnSendChat = document.getElementById('btnSendChat');
+    if(chatInput) chatInput.disabled=!cc;
+    if(btnSendChat) btnSendChat.disabled=!cc;
     if(isGhost){
-        document.getElementById('diceContainer').style.display='none';
-        document.getElementById('controlsRow').style.display='none';
-        document.getElementById('ghostAbilitiesPanel').style.display='flex';
+        const diceContainer = document.getElementById('diceContainer');
+        const controlsRow = document.getElementById('controlsRow');
+        const ghostPanel = document.getElementById('ghostAbilitiesPanel');
+        if(diceContainer) diceContainer.style.display='none';
+        if(controlsRow) controlsRow.style.display='none';
+        if(ghostPanel) ghostPanel.style.display='flex';
         updateGhostButtons();
     }else{
-        document.getElementById('ghostAbilitiesPanel').style.display='none';
-        document.getElementById('controlsRow').style.display='flex';
+        const ghostPanel = document.getElementById('ghostAbilitiesPanel');
+        const controlsRow = document.getElementById('controlsRow');
+        if(ghostPanel) ghostPanel.style.display='none';
+        if(controlsRow) controlsRow.style.display='flex';
         if(mt&&!isGhost&&gameState==='betting') populateBetSelects();
     }
 }
@@ -819,7 +832,8 @@ function populateBetSelects(){
     sel.innerHTML='<option value="">—</option>';
     const mp=Math.max(Object.keys(players).filter(u=>players[u]?.alive&&!players[u]?.isGhost).length*5,1);
     for(let i=1;i<=mp;i++){ const o=document.createElement('option'); o.value=i; o.textContent=i; sel.appendChild(o); }
-    sel.value=lastBet?Math.min(lastBet.count+1,mp):1;
+    const betCountVal = document.getElementById('betCount');
+    if(betCountVal) betCountVal.value=lastBet?Math.min(lastBet.count+1,mp):1;
 }
 
 function isMyTurn(){ if(isGhost||gameState!=='betting') return false; const au=Object.keys(players).filter(u=>players[u]?.alive&&!players[u]?.isGhost); if(!au.length) return false; const li=au.indexOf(lastBet?.player); return au.indexOf(myId)===(li+1)%au.length; }
@@ -840,15 +854,19 @@ function placeBet(){
 function accuse(){
     if(!lastBet||lastBet.player===myId) return;
     const t=players[lastBet.player]?.name||'Противник', p=[`${myName} бьёт по столу: "${t}, ложь!"`,`"${t}, вскрывайся!" — ${myName}`,`${myName} указывает: "${t}, блеф!"`,`"Не верю!" — ${myName} нацелился на ${t}`];
-    document.getElementById('accusationPhrase').textContent=p[Math.floor(Math.random()*p.length)];
-    document.getElementById('accusationResult').textContent='Проверка кубиков...';
-    document.getElementById('accusationResult').className='accusation-result';
-    document.getElementById('accusationEffects').innerHTML='<h4 style="margin:5px 0; color:#ffd700;">📋 Эффекты:</h4>';
+    const phraseEl = document.getElementById('accusationPhrase');
+    if(phraseEl) phraseEl.textContent=p[Math.floor(Math.random()*p.length)];
+    const resultEl = document.getElementById('accusationResult');
+    if(resultEl) { resultEl.textContent='Проверка кубиков...'; resultEl.className='accusation-result'; }
+    const effectsEl = document.getElementById('accusationEffects');
+    if(effectsEl) effectsEl.innerHTML='<h4 style="margin:5px 0; color:#ffd700;">📋 Эффекты:</h4>';
     let ct={1:0,2:0,3:0,4:0,5:0,6:0};
     Object.values(players).forEach(p=>{ if(p?.alive&&!p.isGhost) p.dice.forEach(d=>ct[parseInt(d)||1]++); });
     const sm=Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}x${getDieEmoji(k)}`).join('  ');
-    document.getElementById('accusationDiceSummary').textContent=`📊 Всего на столе: ${sm||'Нет кубиков'}`;
-    document.getElementById('accusationPanel').style.display='block';
+    const summaryEl = document.getElementById('accusationDiceSummary');
+    if(summaryEl) summaryEl.textContent=`📊 Всего на столе: ${sm||'Нет кубиков'}`;
+    const panel = document.getElementById('accusationPanel');
+    if(panel) panel.style.display='block';
     playSound('accuse');
     if(accusationTimer) clearTimeout(accusationTimer);
     accusationTimer=setTimeout(()=>resolveAccusation(lastBet.player), 5000);
@@ -863,23 +881,30 @@ function resolveAccusation(accusedUid){
     if(accused?.cursed || accused?.familiarCursed) isLie=true;
     const r=document.getElementById('accusationResult'), e=document.getElementById('accusationEffects');
     if(isLie){
-        r.textContent='✅ ЛОЖНАЯ СТАВКА!'; r.className='accusation-result effect-green';
+        if(r) { r.textContent='✅ ЛОЖНАЯ СТАВКА!'; r.className='accusation-result effect-green'; }
         applyPoison(accusedUid,1,'Ложная ставка'); addEffectLine(`🔴 ${accused?.name||'Цель'}: +1 яд`,e);
         if(accused?.artifact?.id==='bloodthirst'){ applyBlood(myId,1); applyPoison(accusedUid,2,'Кровожадность'); addEffectLine(`🟢 ${myName}: +1 кровь | 🔴 ${accused.name}: +2 яда`,e); }
         else if(accused?.artifact?.id==='deceiver'){ applyPoison(myId,2,'Обманщик'); addEffectLine(`🟣 ${accused.name}: Обманщик активирован | 🔴 ${myName}: +2 яда`,e); }
         else if(accused?.darkPact){ applyPoison(accusedUid,2,'Тёмный Договор'); addEffectLine(`🟣 ${accused.name}: +2 яда (Договор)`,e); }
         if(wildDieSaved && !isLie){ applyPoison(myId,2,'Дикий Кубик спас ставку'); addEffectLine(`🔵 Дикий Кубик сработал! +2 яда обвинителю`,e); }
     } else {
-        r.textContent='❌ ПРАВДИВАЯ СТАВКА!'; r.className='accusation-result effect-red';
+        if(r) { r.textContent='❌ ПРАВДИВАЯ СТАВКА!'; r.className='accusation-result effect-red'; }
         applyPoison(myId,1,'Ошибочное обвинение'); addEffectLine(`🔴 ${myName}: +1 яд`,e);
         if(accused?.artifact?.id==='bloodthirst'){ applyBlood(accusedUid,1); addEffectLine(`🟢 ${accused.name}: +1 кровь`,e); }
         if(accused?.darkPact){ players[accusedUid].darkPact=false; players[accusedUid].darkPactShield=true; players[accusedUid].darkPactRound=roundNumber+1; addEffectLine(`🟡 ${accused.name}: Тёмный Договор → щит на след. раунд`,e); }
     }
-    const el=e.querySelectorAll('div').length;
-    setTimeout(()=>{ document.getElementById('accusationPanel').style.display='none'; gameState='betting'; sendToAll('syncGameState', { fullState: { players, gameState, lastBet, roundNumber, currentPlayerUid, defaultLives, specialDiceEnabled, artifactHistory, blood, usedSpecialThisRound, thiefUsedThisRound, sniperShotUsedThisRound } }); checkDeath(); setTimeout(startNewRound,2500); },5000+(el*3000));
+    const el=e?.querySelectorAll('div').length || 0;
+    setTimeout(()=>{ 
+        const panel = document.getElementById('accusationPanel');
+        if(panel) panel.style.display='none'; 
+        gameState='betting'; 
+        sendToAll('syncGameState', { fullState: { players, gameState, lastBet, roundNumber, currentPlayerUid, defaultLives, specialDiceEnabled, artifactHistory, blood, usedSpecialThisRound, thiefUsedThisRound, sniperShotUsedThisRound } }); 
+        checkDeath(); 
+        setTimeout(startNewRound,2500); 
+    },5000+(el*3000));
 }
 
-function addEffectLine(t,c){ const d=document.createElement('div'); d.textContent=t; c.appendChild(d); }
+function addEffectLine(t,c){ if(c) { const d=document.createElement('div'); d.textContent=t; c.appendChild(d); } }
 
 function applyPoison(uid,amt,reason){
     const p=players[uid]; if(!p) return;
@@ -918,22 +943,28 @@ function startDevilDeal(uid){
     let rl=0;
     Object.values(players).forEach(p=>{ if(p?.alive&&!p.isGhost) rl+=p.dice.filter(d=>parseInt(d)||1===tv).length; });
     devilDealData={targetValue:tv,realCount:rl,uid};
-    document.getElementById('devilTargetEmoji').textContent=getDieEmoji(tv);
+    const targetEmoji = document.getElementById('devilTargetEmoji');
+    if(targetEmoji) targetEmoji.textContent=getDieEmoji(tv);
     const opts=[rl];
     while(opts.length<3){ const f=rl+Math.floor(Math.random()*5)-2; if(f>0 && !opts.includes(f)) opts.push(f); }
     opts.sort(()=>Math.random()-0.5);
-    document.getElementById('devilOptions').innerHTML=opts.map(o=>`<button class="devil-opt" onclick="resolveDevilDeal(${o})">${o}</button>`).join('');
-    const fi=document.getElementById('devilFire'); fi.style.animation='none'; fi.offsetHeight; fi.style.animation='fireRise 30s linear forwards';
-    document.getElementById('devilModal').style.display='block';
-    document.getElementById('devilTimer').textContent='30';
+    const optionsDiv = document.getElementById('devilOptions');
+    if(optionsDiv) optionsDiv.innerHTML=opts.map(o=>`<button class="devil-opt" onclick="resolveDevilDeal(${o})">${o}</button>`).join('');
+    const fi=document.getElementById('devilFire'); if(fi) { fi.style.animation='none'; fi.offsetHeight; fi.style.animation='fireRise 30s linear forwards'; }
+    const modal = document.getElementById('devilModal');
+    if(modal) modal.style.display='block';
+    const timerEl = document.getElementById('devilTimer');
+    if(timerEl) timerEl.textContent='30';
     let t=30;
     if(devilDealTimer) clearInterval(devilDealTimer);
-    devilDealTimer=setInterval(()=>{ t--; document.getElementById('devilTimer').textContent=t; if(t<=0){ clearInterval(devilDealTimer); resolveDevilDeal(-1); } },1000);
+    devilDealTimer=setInterval(()=>{ t--; if(timerEl) timerEl.textContent=t; if(t<=0){ clearInterval(devilDealTimer); resolveDevilDeal(-1); } },1000);
     playSound('devil'); appendChat(`😈 ${myName} заключает сделку с Дьяволом...`,'death');
 }
 
 function resolveDevilDeal(chosen){
-    clearInterval(devilDealTimer); document.getElementById('devilModal').style.display='none';
+    clearInterval(devilDealTimer); 
+    const modal = document.getElementById('devilModal');
+    if(modal) modal.style.display='none';
     if(!devilDealData) return;
     const {realCount,uid}=devilDealData, p=players[uid];
     if(!p) return;
@@ -964,7 +995,7 @@ function checkVengeance(uid){
 
 function startNewRound(){
     const aliveCount=Object.keys(players).filter(u=>players[u]?.alive&&!players[u]?.isGhost).length;
-    if(aliveCount<2) return;
+    if(aliveCount<2 && Object.keys(bots).length === 0) return;
     roundNumber++;
     for(let botId in bots) {
         if(bots[botId].difficulty === 3) {
@@ -1028,17 +1059,17 @@ function useArtifact(id){
 function applyArtifactEffect(peerId, artifactId){}
 function getNextPlayerUid(){ const a=Object.keys(players).filter(u=>players[u]?.alive&&!players[u]?.isGhost); if(!a.length) return null; const i=a.indexOf(lastBet?.player); return a[(i+1)%a.length]; }
 
-function showTargetModal(uids,cb){ const l=document.getElementById('modalTargetList'); l.innerHTML=''; uids.forEach(u=>{ const p=players[u]; if(!p||!p.name) return; const b=document.createElement('button'); b.className='select-item'; b.style.width='100%'; b.textContent=p.name+(p.isGhost?' 👻':''); b.onclick=()=>{ cb(u); closeModal('modalTarget'); }; l.appendChild(b); }); document.getElementById('modalTarget').style.display='block'; }
-function showNominalModal(cb){ const l=document.getElementById('modalNominalList'); l.innerHTML=''; for(let i=1;i<=6;i++){ const b=document.createElement('button'); b.className='select-item'; b.textContent=getDieEmoji(i); b.style.width='45px'; b.style.height='45px'; b.style.fontSize='1.3em'; b.onclick=()=>{ cb(i); closeModal('modalNominal'); }; l.appendChild(b); } document.getElementById('modalNominal').style.display='block'; }
-function showDynamicNominalModal(cb){ const l=document.getElementById('modalNominalList'); const iv=setInterval(()=>{ l.innerHTML=''; for(let i=1;i<=6;i++){ const b=document.createElement('button'); b.className='select-item'; b.textContent=getDieEmoji(i); b.style.width='45px'; b.style.height='45px'; b.style.fontSize='1.3em'; if(lastBet&&lastBet.value===i){ b.style.opacity='0.3'; b.style.cursor='not-allowed'; b.disabled=true; }else{ b.onclick=()=>{ cb(i); closeModal('modalNominal'); clearInterval(iv); }; } l.appendChild(b); } },200); document.getElementById('modalNominal').style.display='block'; }
-function showEffectModal(cb){ const ef=[{id:'shield',name:'🛡️ Щит Дьявола (Блок 1 яда до конца раунда)'},{id:'reroll',name:'🔁 Переброс кубиков стола (кроме замороженных)'},{id:'forceBluff',name:'🎭 Принудительный блеф следующего игрока'}], l=document.getElementById('modalEffectList'); l.innerHTML=''; ef.forEach(e=>{ const b=document.createElement('button'); b.className='select-item'; b.style.width='100%'; b.style.marginBottom='8px'; b.textContent=e.name; b.style.whiteSpace='normal'; b.style.lineHeight='1.4'; b.onclick=()=>{ cb(e); closeModal('modalEffect'); }; l.appendChild(b); }); document.getElementById('modalEffect').style.display='block'; }
-function closeModal(id){ document.getElementById(id).style.display='none'; }
+function showTargetModal(uids,cb){ const l=document.getElementById('modalTargetList'); if(!l) return; l.innerHTML=''; uids.forEach(u=>{ const p=players[u]; if(!p||!p.name) return; const b=document.createElement('button'); b.className='select-item'; b.style.width='100%'; b.textContent=p.name+(p.isGhost?' 👻':''); b.onclick=()=>{ cb(u); closeModal('modalTarget'); }; l.appendChild(b); }); const modal = document.getElementById('modalTarget'); if(modal) modal.style.display='block'; }
+function showNominalModal(cb){ const l=document.getElementById('modalNominalList'); if(!l) return; l.innerHTML=''; for(let i=1;i<=6;i++){ const b=document.createElement('button'); b.className='select-item'; b.textContent=getDieEmoji(i); b.style.width='45px'; b.style.height='45px'; b.style.fontSize='1.3em'; b.onclick=()=>{ cb(i); closeModal('modalNominal'); }; l.appendChild(b); } const modal = document.getElementById('modalNominal'); if(modal) modal.style.display='block'; }
+function showDynamicNominalModal(cb){ const l=document.getElementById('modalNominalList'); if(!l) return; const iv=setInterval(()=>{ l.innerHTML=''; for(let i=1;i<=6;i++){ const b=document.createElement('button'); b.className='select-item'; b.textContent=getDieEmoji(i); b.style.width='45px'; b.style.height='45px'; b.style.fontSize='1.3em'; if(lastBet&&lastBet.value===i){ b.style.opacity='0.3'; b.style.cursor='not-allowed'; b.disabled=true; }else{ b.onclick=()=>{ cb(i); closeModal('modalNominal'); clearInterval(iv); }; } l.appendChild(b); } },200); const modal = document.getElementById('modalNominal'); if(modal) modal.style.display='block'; }
+function showEffectModal(cb){ const ef=[{id:'shield',name:'🛡️ Щит Дьявола (Блок 1 яда до конца раунда)'},{id:'reroll',name:'🔁 Переброс кубиков стола (кроме замороженных)'},{id:'forceBluff',name:'🎭 Принудительный блеф следующего игрока'}], l=document.getElementById('modalEffectList'); if(!l) return; l.innerHTML=''; ef.forEach(e=>{ const b=document.createElement('button'); b.className='select-item'; b.style.width='100%'; b.style.marginBottom='8px'; b.textContent=e.name; b.style.whiteSpace='normal'; b.style.lineHeight='1.4'; b.onclick=()=>{ cb(e); closeModal('modalEffect'); }; l.appendChild(b); }); const modal = document.getElementById('modalEffect'); if(modal) modal.style.display='block'; }
+function closeModal(id){ const modal = document.getElementById(id); if(modal) modal.style.display='none'; }
 
-function startVoteKick(){ if(Date.now()-lastVoteEndTime<VOTE_COOLDOWN){ const w=Math.ceil((VOTE_COOLDOWN-(Date.now()-lastVoteEndTime))/1000); return showNotification(`Голосование доступно через ${w} сек`,'warning'); } const tg=Object.keys(players).filter(u=>u!==myId); if(!tg.length) return showNotification('Нет других игроков для исключения!','warning'); const ld=document.getElementById('voteTargetsList'); ld.innerHTML=''; tg.forEach(u=>{ const p=players[u]; if(!p||!p.name) return; const b=document.createElement('button'); b.className='select-item'; b.textContent=p.name+(p.isGhost?' 👻':''); b.onclick=()=>{ currentVoteTarget=u; document.getElementById('voteTargetName').textContent=p.name; document.getElementById('voteResult').textContent=''; document.getElementById('modalVote').style.display='block'; startVoteTimer(u); }; ld.appendChild(b); }); }
-function startVoteTimer(tu){ let t=30; const el=document.getElementById('voteTimer'); if(voteTimerInterval) clearInterval(voteTimerInterval); voteTimerInterval=setInterval(()=>{ t--; el.textContent=t; if(t<=0){ clearInterval(voteTimerInterval); resolveVote(tu); } },1000); }
+function startVoteKick(){ if(Date.now()-lastVoteEndTime<VOTE_COOLDOWN){ const w=Math.ceil((VOTE_COOLDOWN-(Date.now()-lastVoteEndTime))/1000); return showNotification(`Голосование доступно через ${w} сек`,'warning'); } const tg=Object.keys(players).filter(u=>u!==myId); if(!tg.length) return showNotification('Нет других игроков для исключения!','warning'); const ld=document.getElementById('voteTargetsList'); if(!ld) return; ld.innerHTML=''; tg.forEach(u=>{ const p=players[u]; if(!p||!p.name) return; const b=document.createElement('button'); b.className='select-item'; b.textContent=p.name+(p.isGhost?' 👻':''); b.onclick=()=>{ currentVoteTarget=u; const targetName = document.getElementById('voteTargetName'); if(targetName) targetName.textContent=p.name; const resultDiv = document.getElementById('voteResult'); if(resultDiv) resultDiv.textContent=''; const modal = document.getElementById('modalVote'); if(modal) modal.style.display='block'; startVoteTimer(u); }; ld.appendChild(b); }); }
+function startVoteTimer(tu){ let t=30; const el=document.getElementById('voteTimer'); if(voteTimerInterval) clearInterval(voteTimerInterval); voteTimerInterval=setInterval(()=>{ t--; if(el) el.textContent=t; if(t<=0){ clearInterval(voteTimerInterval); resolveVote(tu); } },1000); }
 function castVote(v){ if(!currentVoteTarget) return; sendToAll('vote', {target:currentVoteTarget, vote:v}); showNotification(`Голос принят: ${v==='yes'?'ЗА':'ПРОТИВ'}`,'info'); }
-function updateVoteUI(vd){ if(!vd) return; const y=Object.values(vd.votes||{}).filter(v=>v==='yes').length, n=Object.values(vd.votes||{}).filter(v=>v==='no').length; document.getElementById('voteResult').textContent=`✅ ЗА: ${y} | ❌ ПРОТИВ: ${n}`; }
-function resolveVote(tu){ document.getElementById('modalVote').style.display='none'; if(players[tu]){ const yesCount=Object.values(players).filter(p=>p.vote===tu && p.voteValue==='yes').length; const noCount=Object.values(players).filter(p=>p.vote===tu && p.voteValue==='no').length; const total=yesCount+noCount; const kicked=total>0 && yesCount>total/2; if(kicked){ delete players[tu]; appendChat(`🗳️ ${players[tu]?.name||'Игрок'} исключён голосованием! (ЗА: ${yesCount}, ПРОТИВ: ${noCount})`,'system'); }else{ appendChat(`🗳️ ${players[tu]?.name||'Игрок'} остался! (ЗА: ${yesCount}, ПРОТИВ: ${noCount})`,'system'); } lastVoteEndTime=Date.now(); currentVoteTarget=null; } }
+function updateVoteUI(vd){ if(!vd) return; const y=Object.values(vd.votes||{}).filter(v=>v==='yes').length, n=Object.values(vd.votes||{}).filter(v=>v==='no').length; const resultDiv = document.getElementById('voteResult'); if(resultDiv) resultDiv.textContent=`✅ ЗА: ${y} | ❌ ПРОТИВ: ${n}`; }
+function resolveVote(tu){ const modal = document.getElementById('modalVote'); if(modal) modal.style.display='none'; if(players[tu]){ const yesCount=Object.values(players).filter(p=>p.vote===tu && p.voteValue==='yes').length; const noCount=Object.values(players).filter(p=>p.vote===tu && p.voteValue==='no').length; const total=yesCount+noCount; const kicked=total>0 && yesCount>total/2; if(kicked){ delete players[tu]; appendChat(`🗳️ ${players[tu]?.name||'Игрок'} исключён голосованием! (ЗА: ${yesCount}, ПРОТИВ: ${noCount})`,'system'); }else{ appendChat(`🗳️ ${players[tu]?.name||'Игрок'} остался! (ЗА: ${yesCount}, ПРОТИВ: ${noCount})`,'system'); } lastVoteEndTime=Date.now(); currentVoteTarget=null; } }
 
 function setupAudioContext(){ try{ audioContext=new(window.AudioContext||window.webkitAudioContext); }catch(e){} }
 function showConfetti(){ for(let i=0;i<50;i++){ const c=document.createElement('div'); c.className='confetti'; c.style.left=Math.random()*100+'vw'; c.style.background=['#ffd700','#ff0000','#00ff00','#0000ff'][Math.floor(Math.random()*4)]; c.style.animationDuration=(Math.random()*2+2)+'s'; document.body.appendChild(c); setTimeout(()=>c.remove(),4000); } }
@@ -1052,7 +1083,7 @@ function useGhostAbility(id){
         case'oathOfVengeance': const tv=Object.keys(players).filter(u=>u!==myId&&players[u]?.alive&&!players[u]?.isGhost); if(!tv.length) return; showTargetModal(tv,t=>{ players[myId].ghostTarget=t; players[myId].usedAbilities={...(m.usedAbilities||{}),[id]:true}; sendToAll('syncGameState', { fullState: { players, gameState, lastBet, roundNumber, currentPlayerUid, defaultLives, specialDiceEnabled, artifactHistory, blood, usedSpecialThisRound, thiefUsedThisRound, sniperShotUsedThisRound } }); appendChat(`⚔️ [Призрак ${m.name}] выбрал цель для Мести: ${players[t].name}`,'ghost'); }); break;
         case'familiarCurse': const fc=Object.keys(players).filter(u=>u!==myId&&players[u]?.alive&&!players[u]?.isGhost); if(!fc.length) return; showTargetModal(fc,t=>{ players[t].familiarCursed=true; players[myId].usedAbilities={...(m.usedAbilities||{}),[id]:true}; sendToAll('syncGameState', { fullState: { players, gameState, lastBet, roundNumber, currentPlayerUid, defaultLives, specialDiceEnabled, artifactHistory, blood, usedSpecialThisRound, thiefUsedThisRound, sniperShotUsedThisRound } }); }); break;
         case'poltergeist': const ef=['sabotage','blessing','shuffle'],ch=ef[Math.floor(Math.random()*ef.length)],al=Object.keys(players).filter(u=>players[u]?.alive&&!players[u]?.isGhost); if(!al.length) return; if(ch==='sabotage'){ const t=al[Math.floor(Math.random()*al.length)]; players[t].dice=Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1); players[t].evilEyed=false; appendChat(`🌀 [Полтергейст] САБОТАЖ: ${players[t].name} — кубики переброшены!`,'ghost'); } else if(ch==='blessing'){ const t=al[Math.floor(Math.random()*al.length)]; players[t].dice=Array(5).fill(6); players[t].evilEyed=false; appendChat(`🌀 [Полтергейст] БЛАГОСЛОВЕНИЕ: ${players[t].name} — все кубики стали 6!`,'ghost'); } else { al.forEach(u=>{ players[u].dice=Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1); players[u].evilEyed=false; }); appendChat(`🌀 [Полтергейст] ПЕРЕМЕШИВАНИЕ: Всем живым игрокам кубики переброшены!`,'ghost'); } players[myId].usedAbilities={...(m.usedAbilities||{}),[id]:true}; sendToAll('syncGameState', { fullState: { players, gameState, lastBet, roundNumber, currentPlayerUid, defaultLives, specialDiceEnabled, artifactHistory, blood, usedSpecialThisRound, thiefUsedThisRound, sniperShotUsedThisRound } }); break;
-        case'keeperOfSecrets': const cd=document.getElementById('keeperContent'); cd.innerHTML=''; Object.values(players).forEach(p=>{ if(p?.alive&&!p.isGhost){ const d=document.createElement('div'); d.style.marginBottom='10px'; d.style.background='rgba(255,255,255,0.05)'; d.style.padding='8px'; d.style.borderRadius='5px'; d.innerHTML=`<strong style="color:#ffd700">${p.name}</strong>: <span style="font-size:1.2em">${p.dice.map(d=>getDieEmoji(parseInt(d)||1)).join(' ')}</span>`; cd.appendChild(d); } }); document.getElementById('modalKeeper').style.display='block'; break;
+        case'keeperOfSecrets': const cd=document.getElementById('keeperContent'); if(cd) { cd.innerHTML=''; Object.values(players).forEach(p=>{ if(p?.alive&&!p.isGhost){ const d=document.createElement('div'); d.style.marginBottom='10px'; d.style.background='rgba(255,255,255,0.05)'; d.style.padding='8px'; d.style.borderRadius='5px'; d.innerHTML=`<strong style="color:#ffd700">${p.name}</strong>: <span style="font-size:1.2em">${p.dice.map(d=>getDieEmoji(parseInt(d)||1)).join(' ')}</span>`; cd.appendChild(d); } }); document.getElementById('modalKeeper').style.display='block'; } break;
         case'soulReaper': const sr=Object.keys(players).filter(u=>players[u]?.alive&&!players[u]?.isGhost); if(!sr.length) return; let killed=false; sr.forEach(uid=>{ if(Math.random()<0.20){ const p=players[uid],r=Math.random(); let ef=r<0.10?'death':r<0.35?'loseArtifact':r<0.60?'heal':r<0.85?'stun':'blind'; if(ef==='death'){ applyPoison(uid,1,'Жатва Душ'); killed=true; } else if(ef==='loseArtifact'&&p.artifact){ p.artifact=null; appendChat(`💀 ${p.name}: потерял артефакт!`,'ghost'); } else if(ef==='heal'&&p.poisons>0){ p.poisons--; appendChat(`💀 ${p.name}: исцелился!`,'ghost'); } else if(ef==='stun'){ p.stunned=true; appendChat(`💀 ${p.name}: ошеломлён!`,'ghost'); } else if(ef==='blind'){ p.blind=true; appendChat(`💀 ${p.name}: ослеплён!`,'ghost'); } } }); if(killed){ players[myId].alive=true; players[myId].isGhost=false; players[myId].poisons=2; players[myId].blood=0; players[myId].artifact=null; players[myId].dice=Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1); players[myId].usedAbilities={}; appendChat(`💀 [Призрак ${m.name}] Жатва Душ принесла смерть — ПРИЗРАК ВОСКРЕС!`,'ghost'); playSound('resurrection'); } players[myId].usedAbilities={...(m.usedAbilities||{}),[id]:true}; sendToAll('syncGameState', { fullState: { players, gameState, lastBet, roundNumber, currentPlayerUid, defaultLives, specialDiceEnabled, artifactHistory, blood, usedSpecialThisRound, thiefUsedThisRound, sniperShotUsedThisRound } }); break;
     }
     playSound('ghost');
@@ -1060,35 +1091,66 @@ function useGhostAbility(id){
 
 function bindEventListeners(){
     const hm=document.getElementById('hamburgerBtn'), dd=document.getElementById('dropdownMenu');
-    hm.onclick=()=>{ dd.style.display=dd.style.display==='block'?'none':'block'; if(audioContext&&audioContext.state==='suspended') audioContext.resume(); };
-    document.addEventListener('click',e=>{ if(!hm.contains(e.target)&&!dd.contains(e.target)) dd.style.display='none'; });
-    document.getElementById('menuRules').onclick=()=>{ document.getElementById('modalRules').style.display='block'; dd.style.display='none'; };
-    document.getElementById('menuProfile').onclick=()=>{ document.getElementById('profileName').textContent=myName; document.getElementById('profileUid').textContent=myId; document.getElementById('profileStatus').textContent=isGhost?'Призрак':'Жив'; document.getElementById('profileStatus').style.color=isGhost?'#cc00ff':'#00ff88'; document.getElementById('modalProfile').style.display='block'; dd.style.display='none'; };
-    document.getElementById('btnChangeNick').onclick=()=>{ const n=prompt('Новый ник:',myName); if(n&&n.trim()){ const o=myName; myName=n.trim(); localStorage.setItem('ld_playerName',myName); players[myId].name=myName; sendToAll('syncGameState', { fullState: { players, gameState, lastBet, roundNumber, currentPlayerUid, defaultLives, specialDiceEnabled, artifactHistory, blood, usedSpecialThisRound, thiefUsedThisRound, sniperShotUsedThisRound } }); appendChat(`${o} сменил ник на ${myName}`,'system'); } };
-    document.getElementById('menuCreateRoom').onclick=()=>{ createRoom(); dd.style.display='none'; };
-    document.getElementById('menuInvite').onclick=()=>{ copyInviteLink(); dd.style.display='none'; };
-    document.getElementById('menuKick').onclick=()=>{ startVoteKick(); dd.style.display='none'; };
-    document.getElementById('menuSound').onclick=()=>{ soundEnabled=!soundEnabled; document.getElementById('menuSound').textContent=soundEnabled?'🔊 Звук: ВКЛ':'🔇 Звук: ВЫКЛ'; dd.style.display='none'; };
-    document.getElementById('menuArtifacts').onclick=()=>{ if(gameState!=='lobby') return showNotification('Только в лобби!','warning'); specialDiceEnabled=!specialDiceEnabled; document.getElementById('menuArtifacts').textContent=`🎲 Артефакты: ${specialDiceEnabled?'✅':'❌'}`; dd.style.display='none'; };
-    document.getElementById('menuLives').onclick=()=>{ if(gameState!=='lobby') return showNotification('Только в лобби!','warning'); const o=[3,4,5,6,2]; defaultLives=o[(o.indexOf(defaultLives)+1)%o.length]; document.getElementById('menuLives').textContent=`❤️ Жизни: ${defaultLives}`; dd.style.display='none'; };
-    document.getElementById('btnStartGame').onclick=()=>{ if(Object.keys(players).filter(p=>players[p]?.alive&&!players[p]?.isGhost).length<2) return showNotification('Нужно минимум 2 игрока!','warning'); sendToAll('startGame', {}); startNewRound(); };
-    document.getElementById('btnResetGame').onclick=()=>{ if(confirm('Сбросить игру в лобби?')) resetGame(); };
-    document.getElementById('btnPlaceBet').onclick=placeBet;
-    document.getElementById('btnAccuse').onclick=accuse;
-    document.getElementById('btnSendChat').onclick=()=>{ const msg=document.getElementById('chatInput').value.trim(); if(msg){ sendToAll('chat', {name:myName, text:msg}); appendChat(`${myName}: ${msg}`,'normal'); document.getElementById('chatInput').value=''; } };
-    document.getElementById('chatInput').onkeypress=e=>{ if(e.key==='Enter') document.getElementById('btnSendChat').click(); };
-    document.getElementById('ghVengeance').onclick=()=>useGhostAbility('oathOfVengeance');
-    document.getElementById('ghFamiliarCurse').onclick=()=>useGhostAbility('familiarCurse');
-    document.getElementById('ghPoltergeist').onclick=()=>useGhostAbility('poltergeist');
-    document.getElementById('ghKeeper').onclick=()=>useGhostAbility('keeperOfSecrets');
-    document.getElementById('ghReaper').onclick=()=>useGhostAbility('soulReaper');
-    document.getElementById('voteYes').onclick=()=>castVote('yes');
-    document.getElementById('voteNo').onclick=()=>castVote('no');
-    document.querySelectorAll('.close-btn').forEach(b=>b.onclick=function(){ this.closest('.modal').style.display='none'; });
+    if(hm) hm.onclick=()=>{ if(dd) dd.style.display=dd.style.display==='block'?'none':'block'; if(audioContext&&audioContext.state==='suspended') audioContext.resume(); };
+    document.addEventListener('click',e=>{ if(hm && dd && !hm.contains(e.target)&&!dd.contains(e.target) && dd.style.display==='block') dd.style.display='none'; });
+    const menuRules = document.getElementById('menuRules');
+    if(menuRules) menuRules.onclick=()=>{ const modal = document.getElementById('modalRules'); if(modal) modal.style.display='block'; if(dd) dd.style.display='none'; };
+    const menuProfile = document.getElementById('menuProfile');
+    if(menuProfile) menuProfile.onclick=()=>{ const nameSpan = document.getElementById('profileName'); const uidSpan = document.getElementById('profileUid'); const statusSpan = document.getElementById('profileStatus'); if(nameSpan) nameSpan.textContent=myName; if(uidSpan) uidSpan.textContent=myId; if(statusSpan) { statusSpan.textContent=isGhost?'Призрак':'Жив'; statusSpan.style.color=isGhost?'#cc00ff':'#00ff88'; } const modal = document.getElementById('modalProfile'); if(modal) modal.style.display='block'; if(dd) dd.style.display='none'; };
+    const btnChangeNick = document.getElementById('btnChangeNick');
+    if(btnChangeNick) btnChangeNick.onclick=()=>{ const n=prompt('Новый ник:',myName); if(n&&n.trim()){ const o=myName; myName=n.trim(); localStorage.setItem('ld_playerName',myName); if(players[myId]) players[myId].name=myName; sendToAll('syncGameState', { fullState: { players, gameState, lastBet, roundNumber, currentPlayerUid, defaultLives, specialDiceEnabled, artifactHistory, blood, usedSpecialThisRound, thiefUsedThisRound, sniperShotUsedThisRound } }); appendChat(`${o} сменил ник на ${myName}`,'system'); } };
+    const menuCreateRoom = document.getElementById('menuCreateRoom');
+    if(menuCreateRoom) menuCreateRoom.onclick=()=>{ createRoom(); if(dd) dd.style.display='none'; };
+    const menuInvite = document.getElementById('menuInvite');
+    if(menuInvite) menuInvite.onclick=()=>{ copyInviteLink(); if(dd) dd.style.display='none'; };
+    const menuKick = document.getElementById('menuKick');
+    if(menuKick) menuKick.onclick=()=>{ startVoteKick(); if(dd) dd.style.display='none'; };
+    const menuSound = document.getElementById('menuSound');
+    if(menuSound) menuSound.onclick=()=>{ soundEnabled=!soundEnabled; if(menuSound) menuSound.textContent=soundEnabled?'🔊 Звук: ВКЛ':'🔇 Звук: ВЫКЛ'; if(dd) dd.style.display='none'; };
+    const menuArtifacts = document.getElementById('menuArtifacts');
+    if(menuArtifacts) menuArtifacts.onclick=()=>{ if(gameState!=='lobby') return showNotification('Только в лобби!','warning'); specialDiceEnabled=!specialDiceEnabled; if(menuArtifacts) menuArtifacts.textContent=`🎲 Артефакты: ${specialDiceEnabled?'✅':'❌'}`; if(dd) dd.style.display='none'; };
+    const menuLives = document.getElementById('menuLives');
+    if(menuLives) menuLives.onclick=()=>{ if(gameState!=='lobby') return showNotification('Только в лобби!','warning'); const o=[3,4,5,6,2]; defaultLives=o[(o.indexOf(defaultLives)+1)%o.length]; if(menuLives) menuLives.textContent=`❤️ Жизни: ${defaultLives}`; if(dd) dd.style.display='none'; };
+    const btnStartGame = document.getElementById('btnStartGame');
+    if(btnStartGame) btnStartGame.onclick=()=>{ 
+        let aliveCount = Object.keys(players).filter(uid => players[uid] && (players[uid].alive || !players[uid].isGhost) && !players[uid].isBot).length;
+        let botCount = Object.keys(players).filter(uid => players[uid] && players[uid].isBot).length;
+        if((aliveCount >= 1 && botCount >= 1) || aliveCount >= 2) { sendToAll('startGame', {}); startNewRound(); }
+        else showNotification('Нужен хотя бы 1 игрок и 1 бот, или 2 игрока', 'warning');
+        if(dd) dd.style.display='none'; 
+    };
+    const btnResetGame = document.getElementById('btnResetGame');
+    if(btnResetGame) btnResetGame.onclick=()=>{ if(confirm('Сбросить игру в лобби?')) resetGame(); };
+    const btnPlaceBet = document.getElementById('btnPlaceBet');
+    if(btnPlaceBet) btnPlaceBet.onclick=placeBet;
+    const btnAccuse = document.getElementById('btnAccuse');
+    if(btnAccuse) btnAccuse.onclick=accuse;
+    const btnSendChat = document.getElementById('btnSendChat');
+    if(btnSendChat) btnSendChat.onclick=()=>{ const msg=document.getElementById('chatInput')?.value.trim(); if(msg){ sendToAll('chat', {name:myName, text:msg}); appendChat(`${myName}: ${msg}`,'normal'); const input = document.getElementById('chatInput'); if(input) input.value=''; } };
+    const chatInput = document.getElementById('chatInput');
+    if(chatInput) chatInput.onkeypress=e=>{ if(e.key==='Enter') btnSendChat?.click(); };
+    const ghVengeance = document.getElementById('ghVengeance');
+    if(ghVengeance) ghVengeance.onclick=()=>useGhostAbility('oathOfVengeance');
+    const ghFamiliarCurse = document.getElementById('ghFamiliarCurse');
+    if(ghFamiliarCurse) ghFamiliarCurse.onclick=()=>useGhostAbility('familiarCurse');
+    const ghPoltergeist = document.getElementById('ghPoltergeist');
+    if(ghPoltergeist) ghPoltergeist.onclick=()=>useGhostAbility('poltergeist');
+    const ghKeeper = document.getElementById('ghKeeper');
+    if(ghKeeper) ghKeeper.onclick=()=>useGhostAbility('keeperOfSecrets');
+    const ghReaper = document.getElementById('ghReaper');
+    if(ghReaper) ghReaper.onclick=()=>useGhostAbility('soulReaper');
+    const voteYes = document.getElementById('voteYes');
+    if(voteYes) voteYes.onclick=()=>castVote('yes');
+    const voteNo = document.getElementById('voteNo');
+    if(voteNo) voteNo.onclick=()=>castVote('no');
+    document.querySelectorAll('.close-btn').forEach(b=>b.onclick=function(){ const modal = this.closest('.modal'); if(modal) modal.style.display='none'; });
     window.onclick=e=>{ if(e.target.classList.contains('modal')) e.target.style.display='none'; };
-    document.getElementById('menuBotAdd').onclick=()=>{ addBot(); dd.style.display='none'; };
-    document.getElementById('menuBotRemoveAll').onclick=()=>{ removeAllBots(); dd.style.display='none'; };
-    document.getElementById('menuBotDifficulty').onclick = (e) => { e.stopPropagation(); let next = (botDifficulty + 1) % 4; setBotDifficulty(next); dd.style.display='none'; };
+    const menuBotAdd = document.getElementById('menuBotAdd');
+    if(menuBotAdd) menuBotAdd.onclick=()=>{ addBot(); if(dd) dd.style.display='none'; };
+    const menuBotRemoveAll = document.getElementById('menuBotRemoveAll');
+    if(menuBotRemoveAll) menuBotRemoveAll.onclick=()=>{ removeAllBots(); if(dd) dd.style.display='none'; };
+    const menuBotDifficulty = document.getElementById('menuBotDifficulty');
+    if(menuBotDifficulty) menuBotDifficulty.onclick = (e) => { e.stopPropagation(); let next = (botDifficulty + 1) % 4; setBotDifficulty(next); if(dd) dd.style.display='none'; };
 }
 
 window.onload = () => {
@@ -1096,12 +1158,14 @@ window.onload = () => {
     const connectParam = urlParams.get('connect');
     if(connectParam) {
         const modal = document.getElementById('modalJoinIP');
-        document.getElementById('ipAddressInput').value = connectParam;
-        modal.style.display = 'block';
-        document.getElementById('connectIPBtn').onclick = () => {
-            const address = document.getElementById('ipAddressInput').value.trim();
+        const ipInput = document.getElementById('ipAddressInput');
+        if(ipInput) ipInput.value = connectParam;
+        if(modal) modal.style.display = 'block';
+        const connectBtn = document.getElementById('connectIPBtn');
+        if(connectBtn) connectBtn.onclick = () => {
+            const address = document.getElementById('ipAddressInput')?.value.trim();
             if(!address) { showNotification('Введите IP:порт', 'warning'); return; }
-            modal.style.display = 'none';
+            if(modal) modal.style.display = 'none';
             const roomIdFromUrl = urlParams.get('room');
             if(roomIdFromUrl) currentRoomId = roomIdFromUrl;
             else currentRoomId = generateRoomId();
@@ -1109,17 +1173,18 @@ window.onload = () => {
         };
     } else {
         const modal = document.getElementById('modalRoomJoin');
-        modal.style.display = 'block';
-        document.getElementById('confirmJoinBtn').onclick = () => {
-            let name = document.getElementById('playerNameInput').value.trim();
+        if(modal) modal.style.display = 'block';
+        const confirmBtn = document.getElementById('confirmJoinBtn');
+        if(confirmBtn) confirmBtn.onclick = () => {
+            let name = document.getElementById('playerNameInput')?.value.trim();
             if(!name) name = 'Игрок' + Math.floor(Math.random()*900+100);
             myName = name;
             localStorage.setItem('ld_playerName', myName);
-            modal.style.display = 'none';
+            if(modal) modal.style.display = 'none';
             setupAudioContext();
             bindEventListeners();
             appendChat(`🎮 Добро пожаловать, ${myName}! Нажмите "Создать комнату" в меню, чтобы начать`, 'system');
         };
     }
-    document.querySelectorAll('.close-btn').forEach(btn => btn.onclick = function() { this.closest('.modal').style.display = 'none'; });
+    document.querySelectorAll('.close-btn').forEach(btn => btn.onclick = function() { const modal = this.closest('.modal'); if(modal) modal.style.display = 'none'; });
 };
