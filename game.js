@@ -34,7 +34,8 @@ let botDifficultyNames = ['Легкий', 'Средний', 'Сложный', '�
 let expertKnownDice = {};
 let isHost = false;
 let hostId = null;
-let reconnectAttempts = 0;
+let myIP = null;
+let myPort = 9000;
 const VOTE_COOLDOWN = 120000;
 
 const ARTIFACTS = [
@@ -79,11 +80,15 @@ function generateRoomId() {
     return result;
 }
 
-function getExternalIP() {
-    return fetch('https://api.ipify.org?format=json')
-        .then(response => response.json())
-        .then(data => data.ip)
-        .catch(() => null);
+async function getExternalIP() {
+    try {
+        const response = await fetch('https://api.ipify.org?format=json');
+        const data = await response.json();
+        return data.ip;
+    } catch(e) {
+        console.error('Не удалось получить IP:', e);
+        return null;
+    }
 }
 
 function createRoom() {
@@ -96,31 +101,33 @@ function createRoom() {
     const url = new URL(window.location);
     url.searchParams.set('room', roomId);
     window.history.pushState({}, '', url);
-    document.getElementById('roomIdDisplay').innerHTML = `ID комнаты: ${roomId}<br>${window.location.href}`;
+    document.getElementById('roomIdDisplay').innerHTML = `ID комнаты: ${roomId}`;
     initPeerAsHost();
 }
 
-function initPeerAsHost() {
+async function initPeerAsHost() {
     myId = 'host_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
     room = new Peer(myId);
     room.on('open', async () => {
         isHost = true;
         hostId = myId;
-        const ip = await getExternalIP();
-        const port = 9000;
-        const inviteLink = `${window.location.origin}${window.location.pathname}?connect=${ip}:${port}&room=${currentRoomId}`;
-        document.getElementById('connectionStatus').innerHTML = `✅ Хост | IP: ${ip}:${port}`;
+        myIP = await getExternalIP();
+        if(!myIP) {
+            appendChat('⚠️ Не удалось определить ваш IP. Используйте локальный IP или проверьте подключение.', 'system');
+            myIP = 'localhost';
+        }
+        const inviteLink = `${window.location.origin}${window.location.pathname}?connect=${myIP}:${myPort}&room=${currentRoomId}`;
+        document.getElementById('connectionStatus').innerHTML = `✅ Хост | IP: ${myIP}:${myPort}`;
         appendChat(`🏠 Вы создали комнату ${currentRoomId}`, 'system');
-        appendChat(`🔗 Пригласительная ссылка: ${inviteLink}`, 'system');
-        showNotification(`Ссылка скопирована!`, 'success');
-        navigator.clipboard.writeText(inviteLink);
+        appendChat(`🔗 Ваша ссылка-приглашение: ${inviteLink}`, 'system');
+        showNotification(`Комната создана!`, 'success');
         players[myId] = {
             id: myId, name: myName, dice: [], poisons: 0, blood: 0, alive: true, isGhost: false,
             artifact: null, maxLives: defaultLives, isBot: false, usedSpecialThisRound: {},
             lastBetInRound: null, cursed: false, frozen: false, defenderActive: false,
             stunned: false, blind: false, darkPact: false, darkPactShield: false,
             devilShield: false, evilEyed: false, forcedBluff: false, cannotAccuse: false,
-            sniperShotUsedThisRound: false, familiarCursed: false, usedAbilities: {}
+            sniperShotUsedThisRound: false, familiarCursed: false, usedAbilities: {}, devilDealsUsed: 0
         };
         renderUI();
         room.on('connection', (conn) => {
@@ -128,11 +135,9 @@ function initPeerAsHost() {
         });
         room.on('disconnected', () => {
             appendChat('❌ Вы отключились от сети. Перезагрузите страницу.', 'death');
-            showNotification('Соединение потеряно. Перезагрузите страницу.', 'error');
         });
         room.on('close', () => {
             appendChat('🔌 Соединение закрыто. Комната удалена.', 'system');
-            resetGameLocally();
         });
     });
     room.on('error', (err) => {
@@ -144,23 +149,12 @@ function initPeerAsHost() {
     });
 }
 
-function joinRoomByIP() {
-    const modal = document.getElementById('modalJoinIP');
-    modal.style.display = 'block';
-    document.getElementById('connectIPBtn').onclick = () => {
-        const address = document.getElementById('ipAddressInput').value.trim();
-        if(!address) { showNotification('Введите IP:порт', 'warning'); return; }
-        modal.style.display = 'none';
-        const urlParams = new URLSearchParams(window.location.search);
-        const roomIdFromUrl = urlParams.get('room');
-        if(roomIdFromUrl) currentRoomId = roomIdFromUrl;
-        else currentRoomId = generateRoomId();
-        connectToHost(address);
-    };
-}
-
-function connectToHost(hostAddress) {
-    const [ip, port] = hostAddress.split(':');
+function joinRoomByIP(address) {
+    if(room) {
+        appendChat('⚠️ Вы уже в комнате.', 'system');
+        return;
+    }
+    const [ip, port] = address.split(':');
     if(!ip || !port) {
         showNotification('Неверный формат. Используйте IP:порт', 'error');
         return;
@@ -168,12 +162,15 @@ function connectToHost(hostAddress) {
     myId = 'client_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
     room = new Peer(myId);
     room.on('open', () => {
-        const conn = room.connect(hostId || ('host_' + currentRoomId), {
-            reliable: true
-        });
-        setupConnection(conn);
-        document.getElementById('connectionStatus').innerHTML = `🔗 Подключение к ${ip}:${port}`;
-        appendChat(`🔌 Подключение к хосту...`, 'system');
+        const hostPeerId = 'host_' + currentRoomId.split('_')[0]; 
+        const conn = room.connect(hostPeerId, { reliable: true });
+        if(conn) {
+            setupConnection(conn);
+            document.getElementById('connectionStatus').innerHTML = `🔗 Подключение к ${ip}:${port}`;
+            appendChat(`🔌 Подключение к хосту...`, 'system');
+        } else {
+            appendChat(`❌ Не удалось подключиться к ${ip}:${port}`, 'death');
+        }
     });
     room.on('error', (err) => {
         console.error(err);
@@ -184,19 +181,16 @@ function connectToHost(hostAddress) {
 
 function setupConnection(conn) {
     conn.on('open', () => {
-        appendChat(`✅ Подключено к ${conn.peer}`, 'system');
+        appendChat(`✅ Подключено к хосту`, 'system');
         conn.send({ type: 'init', playerId: myId, name: myName, gameState: gameState, roundNumber: roundNumber });
         window.gameConn = conn;
         conn.on('data', (data) => handlePeerData(data, conn.peer));
         conn.on('close', () => {
-            appendChat(`🔌 Игрок ${conn.peer} отключился`, 'system');
-            if(conn.peer === hostId && !isHost) {
-                appendChat(`❌ Хост потерял соединение. Игра окончена. Создайте новую комнату.`, 'death');
+            appendChat(`🔌 Соединение с хостом потеряно`, 'system');
+            if(!isHost) {
+                appendChat(`❌ Хост отключился. Игра окончена. Создайте новую комнату.`, 'death');
                 showNotification('Хост отключился. Игра окончена.', 'error');
                 resetGameLocally();
-            } else {
-                delete players[conn.peer];
-                renderUI();
             }
         });
     });
@@ -213,7 +207,7 @@ function handlePeerData(data, peerId) {
                 lastBetInRound: null, cursed: false, frozen: false, defenderActive: false,
                 stunned: false, blind: false, darkPact: false, darkPactShield: false,
                 devilShield: false, evilEyed: false, forcedBluff: false, cannotAccuse: false,
-                sniperShotUsedThisRound: false, familiarCursed: false, usedAbilities: {}
+                sniperShotUsedThisRound: false, familiarCursed: false, usedAbilities: {}, devilDealsUsed: 0
             };
             if(isNewPlayerGhost) appendChat(`👻 ${data.name} подключился и стал призраком`, 'system');
             else appendChat(`🎉 ${data.name} присоединился к игре`, 'system');
@@ -246,10 +240,6 @@ function handlePeerData(data, peerId) {
     } else if(data.type === 'accuse') {
         if(gameState === 'betting' && currentPlayerUid === peerId && lastBet && lastBet.player !== peerId) {
             resolveAccusation(data.accusedUid);
-        }
-    } else if(data.type === 'useArtifact') {
-        if(gameState === 'betting' && players[peerId] && !players[peerId].isGhost) {
-            applyArtifactEffect(peerId, data.artifact);
         }
     } else if(data.type === 'startGame') {
         if(gameState === 'lobby' && Object.keys(players).length >= 2) startNewRound();
@@ -379,12 +369,34 @@ function removeAllBots() {
 
 function setBotDifficulty(level) {
     botDifficulty = level;
-    for(let botId in bots) {
-        bots[botId].difficulty = level;
-        if(players[botId]) players[botId].botDifficulty = level;
-    }
     document.getElementById('botDifficultyLabel').innerText = botDifficultyNames[level];
     appendChat(`Сложность новых ботов изменена на ${botDifficultyNames[level]}`, 'system');
+}
+
+function copyInviteLink() {
+    if(!isHost) {
+        showNotification('Только хост может приглашать друзей. Сначала создайте комнату!', 'warning');
+        return;
+    }
+    const inviteLink = `${window.location.origin}${window.location.pathname}?connect=${myIP}:${myPort}&room=${currentRoomId}`;
+    navigator.clipboard.writeText(inviteLink);
+    showNotification('Ссылка-приглашение скопирована!', 'success');
+    appendChat(`🔗 Ссылка скопирована: ${inviteLink}`, 'system');
+}
+
+function showJoinIPModal() {
+    const modal = document.getElementById('modalJoinIP');
+    modal.style.display = 'block';
+    document.getElementById('connectIPBtn').onclick = () => {
+        const address = document.getElementById('ipAddressInput').value.trim();
+        if(!address) { showNotification('Введите IP:порт', 'warning'); return; }
+        modal.style.display = 'none';
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomIdFromUrl = urlParams.get('room');
+        if(roomIdFromUrl) currentRoomId = roomIdFromUrl;
+        else currentRoomId = generateRoomId();
+        joinRoomByIP(address);
+    };
 }
 
 function updateExpertKnowledge(botId, targetId, newDice) {
@@ -1053,13 +1065,13 @@ function bindEventListeners(){
     document.getElementById('menuRules').onclick=()=>{ document.getElementById('modalRules').style.display='block'; dd.style.display='none'; };
     document.getElementById('menuProfile').onclick=()=>{ document.getElementById('profileName').textContent=myName; document.getElementById('profileUid').textContent=myId; document.getElementById('profileStatus').textContent=isGhost?'Призрак':'Жив'; document.getElementById('profileStatus').style.color=isGhost?'#cc00ff':'#00ff88'; document.getElementById('modalProfile').style.display='block'; dd.style.display='none'; };
     document.getElementById('btnChangeNick').onclick=()=>{ const n=prompt('Новый ник:',myName); if(n&&n.trim()){ const o=myName; myName=n.trim(); localStorage.setItem('ld_playerName',myName); players[myId].name=myName; sendToAll('syncGameState', { fullState: { players, gameState, lastBet, roundNumber, currentPlayerUid, defaultLives, specialDiceEnabled, artifactHistory, blood, usedSpecialThisRound, thiefUsedThisRound, sniperShotUsedThisRound } }); appendChat(`${o} сменил ник на ${myName}`,'system'); } };
-    document.getElementById('menuInvite').onclick=()=>{ if(isHost){ const inviteLink = `${window.location.origin}${window.location.pathname}?connect=${document.getElementById('connectionStatus').innerHTML.split('IP: ')[1]}&room=${currentRoomId}`; navigator.clipboard.writeText(inviteLink); showNotification('Ссылка скопирована!','success'); } else { showNotification('Только хост может приглашать','warning'); } dd.style.display='none'; };
+    document.getElementById('menuCreateRoom').onclick=()=>{ createRoom(); dd.style.display='none'; };
+    document.getElementById('menuInvite').onclick=()=>{ copyInviteLink(); dd.style.display='none'; };
     document.getElementById('menuKick').onclick=()=>{ startVoteKick(); dd.style.display='none'; };
     document.getElementById('menuSound').onclick=()=>{ soundEnabled=!soundEnabled; document.getElementById('menuSound').textContent=soundEnabled?'🔊 Звук: ВКЛ':'🔇 Звук: ВЫКЛ'; dd.style.display='none'; };
     document.getElementById('menuArtifacts').onclick=()=>{ if(gameState!=='lobby') return showNotification('Только в лобби!','warning'); specialDiceEnabled=!specialDiceEnabled; document.getElementById('menuArtifacts').textContent=`🎲 Артефакты: ${specialDiceEnabled?'✅':'❌'}`; dd.style.display='none'; };
     document.getElementById('menuLives').onclick=()=>{ if(gameState!=='lobby') return showNotification('Только в лобби!','warning'); const o=[3,4,5,6,2]; defaultLives=o[(o.indexOf(defaultLives)+1)%o.length]; document.getElementById('menuLives').textContent=`❤️ Жизни: ${defaultLives}`; dd.style.display='none'; };
-    document.getElementById('btnCreateRoom').onclick=()=>{ createRoom(); };
-    document.getElementById('btnJoinRoom').onclick=()=>{ joinRoomByIP(); };
+    document.getElementById('btnStartGame').onclick=()=>{ if(Object.keys(players).filter(p=>players[p]?.alive&&!players[p]?.isGhost).length<2) return showNotification('Нужно минимум 2 игрока!','warning'); sendToAll('startGame', {}); startNewRound(); };
     document.getElementById('btnResetGame').onclick=()=>{ if(confirm('Сбросить игру в лобби?')) resetGame(); };
     document.getElementById('btnPlaceBet').onclick=placeBet;
     document.getElementById('btnAccuse').onclick=accuse;
@@ -1074,9 +1086,9 @@ function bindEventListeners(){
     document.getElementById('voteNo').onclick=()=>castVote('no');
     document.querySelectorAll('.close-btn').forEach(b=>b.onclick=function(){ this.closest('.modal').style.display='none'; });
     window.onclick=e=>{ if(e.target.classList.contains('modal')) e.target.style.display='none'; };
-    document.getElementById('botAddBtn').onclick=()=>{ addBot(); };
-    document.getElementById('botRemoveAll').onclick=()=>{ removeAllBots(); };
-    document.getElementById('menuBotDifficulty').onclick = (e) => { e.stopPropagation(); let next = (botDifficulty + 1) % 4; setBotDifficulty(next); };
+    document.getElementById('menuBotAdd').onclick=()=>{ addBot(); dd.style.display='none'; };
+    document.getElementById('menuBotRemoveAll').onclick=()=>{ removeAllBots(); dd.style.display='none'; };
+    document.getElementById('menuBotDifficulty').onclick = (e) => { e.stopPropagation(); let next = (botDifficulty + 1) % 4; setBotDifficulty(next); dd.style.display='none'; };
 }
 
 window.onload = () => {
@@ -1093,7 +1105,7 @@ window.onload = () => {
             const roomIdFromUrl = urlParams.get('room');
             if(roomIdFromUrl) currentRoomId = roomIdFromUrl;
             else currentRoomId = generateRoomId();
-            connectToHost(address);
+            joinRoomByIP(address);
         };
     } else {
         const modal = document.getElementById('modalRoomJoin');
@@ -1106,7 +1118,7 @@ window.onload = () => {
             modal.style.display = 'none';
             setupAudioContext();
             bindEventListeners();
-            appendChat(`🎮 Добро пожаловать, ${myName}! Нажмите "Создать комнату" или "Подключиться по IP"`, 'system');
+            appendChat(`🎮 Добро пожаловать, ${myName}! Нажмите "Создать комнату" в меню, чтобы начать`, 'system');
         };
     }
     document.querySelectorAll('.close-btn').forEach(btn => btn.onclick = function() { this.closest('.modal').style.display = 'none'; });
