@@ -3,9 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>LIAR'S DICE — P2P IP</title>
+<title>LIAR'S DICE — Firebase</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;outline:none}
 body{font-family:'Press Start 2P',cursive;margin:0;padding:0;background:linear-gradient(135deg,#1a2a6c,#b21f1f,#1a2a6c);background-size:400% 400%;animation:gradientBG 15s ease infinite;color:#fff;min-height:100vh;overflow-x:hidden;font-size:11px;line-height:1.4;letter-spacing:0.5px}
@@ -22,7 +23,7 @@ h1{text-align:center;font-size:1.2em;margin:5px 0 10px;text-shadow:0 0 8px rgba(
 .game-header{display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.45);padding:8px 10px;border-radius:6px;margin-bottom:6px;border:2px solid rgba(255,255,255,0.15);flex-wrap:wrap;gap:8px}
 .game-actions{display:flex;flex-direction:column;gap:4px;flex-shrink:0}
 .game-actions .action-btn{padding:4px 8px;font-size:0.65em;min-width:0;width:100%;line-height:1.2}
-.room-display{font-weight:bold;font-size:0.7em;color:#aaddff;flex-grow:1;text-align:center;word-break:break-all}
+.room-display{font-weight:bold;font-size:0.8em;color:#aaddff;flex-grow:1;text-align:center}
 .controls{display:flex;gap:8px;position:relative}
 .hamburger{font-size:1.6em;cursor:pointer;padding:4px 6px;z-index:1002;transition:transform 0.2s;border-radius:4px}.hamburger:hover{transform:scale(1.1);background:rgba(255,255,255,0.1)}
 .dropdown-menu{display:none;position:absolute;top:100%;right:0;width:85vw;max-width:320px;background:linear-gradient(180deg,#2c3e50,#1a252f);box-shadow:0 8px 24px rgba(0,0,0,0.6);z-index:1001;border-radius:8px;border:2px solid rgba(255,255,255,0.15);overflow:hidden;animation:slideDown 0.25s ease}@keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
@@ -84,10 +85,7 @@ select{width:45px;height:42px;background:#fff;border:2px solid #aaa;border-radiu
 .confetti{position:fixed;width:10px;height:10px;pointer-events:none;z-index:1001;animation:fall 3s linear forwards}@keyframes fall{0%{transform:translateY(-10vh) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
 @media(max-width:480px){h1{font-size:1em}.game-header{padding:6px 8px;font-size:0.9em}.die{width:50px;height:50px;font-size:4.5em}.die.special{width:44px;height:44px;font-size:3.6em}.player-card{padding:5px 8px;font-size:0.75em}.controls-row{gap:5px;padding:6px}select{width:40px;height:38px;font-size:1.2em}.action-btn{min-width:80px;padding:6px 10px;font-size:0.75em}.chat-log{height:90px;font-size:0.65em}.modal-content{margin:10% auto;padding:12px;width:95%}}
 @media(max-height:650px){.chat-log{height:70px}.player-list{gap:3px}.dice-container{margin:6px 0;padding:8px}}
-body.lobby .player-poisons,
-body.lobby .player-last-bet {
-    display: none !important;
-}
+body.lobby .player-poisons, body.lobby .player-last-bet { display: none !important; }
 </style>
 </head>
 <body class="lobby">
@@ -98,21 +96,19 @@ body.lobby .player-last-bet {
 <button class="action-btn btn-success" id="btnStartGame">▶ СТАРТ</button>
 <button class="action-btn btn-warning" id="btnResetGame">↺ СБРОС</button>
 </div>
-<div class="room-display" id="roomDisplay">Статус: <span id="connectionStatus">Не подключён</span><br><span id="roomIdDisplay" style="font-size:0.7em;"></span></div>
+<div class="room-display">ROOM: <span id="roomIdDisplay">-</span></div>
 <div class="controls"><div class="hamburger" id="hamburgerBtn">☰</div><div class="dropdown-menu" id="dropdownMenu">
 <div class="dropdown-item" id="menuArtifacts">🎲 Артефакты: ✅</div>
 <div class="dropdown-item" id="menuLives">❤️ Жизни: 3</div>
 <div class="dropdown-item" id="menuBotDifficulty">🤖 Сложность новых ботов: <span id="botDifficultyLabel">Средняя</span></div>
 <div class="dropdown-item" id="menuBotAdd">🤖 [➕ Добавить бота]</div>
 <div class="dropdown-item" id="menuBotRemoveAll">🤖 [🗑️ Удалить всех ботов]</div>
-<div class="dropdown-item" id="menuCreateRoom">🏠 СОЗДАТЬ КОМНАТУ</div>
-<div class="dropdown-item" id="menuInvite">🔗 СКОПИРОВАТЬ ССЫЛКУ-ПРИГЛАШЕНИЕ</div>
+<div class="dropdown-item" id="menuInvite">🔗 Скопировать ссылку</div>
 <div class="dropdown-item" id="menuProfile">👤 Профиль</div>
 <div class="dropdown-item" id="menuRules">📜 Правила</div>
-<div class="dropdown-item" id="menuKick">🗳️ Исключить игрока</div>
 <div class="dropdown-item" id="menuSound">🔊 Звук: ВКЛ</div>
 </div></div></div>
-<div class="status-bar"><div class="game-status" id="gameStatusText">Ожидание подключения...</div><div class="last-bet-display" id="lastBetDisplay">Последняя ставка: —</div></div>
+<div class="status-bar"><div class="game-status" id="gameStatusText">Ожидание игроков...</div><div class="last-bet-display" id="lastBetDisplay">Последняя ставка: —</div></div>
 <div class="accusation-panel" id="accusationPanel"><div class="accusation-header">⚖️ ПРОВЕРКА СТАВКИ</div><div class="accusation-phrase" id="accusationPhrase"></div><div class="accusation-dice-summary" id="accusationDiceSummary"></div><div class="accusation-result" id="accusationResult"></div><div class="accusation-effects" id="accusationEffects"></div></div>
 <div class="player-list" id="playerList"></div>
 <div class="dice-container" id="diceContainer"></div>
@@ -130,7 +126,6 @@ body.lobby .player-last-bet {
 <div class="modal" id="modalNotify"><div class="modal-content"><h2 id="notifyTitle">Уведомление</h2><p id="notifyMessage"></p><button class="action-btn btn-primary" onclick="document.getElementById('modalNotify').style.display='none'" style="width:100%; margin-top:10px;">OK</button></div></div>
 <div class="modal" id="modalKeeper"><div class="modal-content"><span class="close-btn">&times;</span><h2>👁️ ХРАНИТЕЛЬ ТАЙН</h2><p style="text-align:center; color:#cc00ff; font-size:0.85em;">Вы видите кубики всех живых игроков</p><div id="keeperContent" style="margin-top:10px; max-height:350px; overflow-y:auto;"></div></div></div>
 <div class="modal" id="modalArtifactInfo"><div class="modal-content"><span class="close-btn">&times;</span><h2 id="artifactInfoTitle">Артефакт</h2><p id="artifactInfoDesc"></p></div></div>
-<div class="modal" id="modalRoomJoin"><div class="modal-content"><span class="close-btn">&times;</span><h2>Вход в игру</h2><p><input type="text" id="playerNameInput" placeholder="Ваше имя" style="width:100%; padding:8px; font-family:inherit; font-size:0.9em;"></p><button class="action-btn btn-primary" id="confirmJoinBtn" style="width:100%;">Начать игру</button></div></div>
 <script src="game.js"></script>
 </body>
 </html>
