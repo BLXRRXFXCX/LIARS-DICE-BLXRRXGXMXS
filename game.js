@@ -111,18 +111,20 @@ async function initPeerAsHost() {
     room = new Peer(myId);
     room.on('open', async () => {
         isHost = true;
-        hostId = myId;
+        hostPeerId = myId;
+        myPeerId = myId;
         myIP = await getExternalIP();
         if(!myIP) {
             appendChat('⚠️ Не удалось определить ваш IP. Используйте локальный IP или проверьте подключение.', 'system');
             myIP = 'localhost';
         }
-        const inviteLink = `${window.location.origin}${window.location.pathname}?connect=${myIP}:${myPort}&room=${currentRoomId}`;
+        const inviteLink = `${window.location.origin}${window.location.pathname}?connect=${myIP}:${myPort}&peer=${myId}&room=${currentRoomId}`;
         const statusEl = document.getElementById('connectionStatus');
-        if(statusEl) statusEl.innerHTML = `✅ Хост | IP: ${myIP}:${myPort}`;
+        if(statusEl) statusEl.innerHTML = `✅ Хост | IP: ${myIP}:${myPort} | Peer: ${myId.substring(0,8)}...`;
         appendChat(`🏠 Вы создали комнату ${currentRoomId}`, 'system');
         appendChat(`🔗 Ваша ссылка-приглашение: ${inviteLink}`, 'system');
         showNotification(`Комната создана!`, 'success');
+        
         players[myId] = {
             id: myId, name: myName, dice: [], poisons: 0, blood: 0, alive: true, isGhost: false,
             artifact: null, maxLives: defaultLives, isBot: false, usedSpecialThisRound: {},
@@ -132,7 +134,9 @@ async function initPeerAsHost() {
             sniperShotUsedThisRound: false, familiarCursed: false, usedAbilities: {}, devilDealsUsed: 0
         };
         renderUI();
+        
         room.on('connection', (conn) => {
+            connections[conn.peer] = conn;
             setupConnection(conn);
         });
         room.on('disconnected', () => {
@@ -151,7 +155,7 @@ async function initPeerAsHost() {
     });
 }
 
-function joinRoomByIP(address) {
+function joinRoomByIP(address, hostPeerIdFromUrl) {
     if(room) {
         appendChat('⚠️ Вы уже в комнате.', 'system');
         return;
@@ -161,24 +165,30 @@ function joinRoomByIP(address) {
         showNotification('Неверный формат. Используйте IP:порт', 'error');
         return;
     }
+    if(!hostPeerIdFromUrl) {
+        showNotification('Ошибка: отсутствует Peer ID хоста', 'error');
+        return;
+    }
     myId = 'client_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
     room = new Peer(myId);
     room.on('open', () => {
-        const hostPeerId = 'host_' + (currentRoomId || generateRoomId());
-        const conn = room.connect(hostPeerId, { reliable: true });
+        myPeerId = myId;
+        appendChat(`🔌 Подключение к хосту ${hostPeerIdFromUrl}...`, 'system');
+        const conn = room.connect(hostPeerIdFromUrl, { reliable: true });
         if(conn) {
+            connections[hostPeerIdFromUrl] = conn;
             setupConnection(conn);
             const statusEl = document.getElementById('connectionStatus');
-            if(statusEl) statusEl.innerHTML = `🔗 Подключение к ${ip}:${port}`;
-            appendChat(`🔌 Подключение к хосту...`, 'system');
+            if(statusEl) statusEl.innerHTML = `🔗 Подключено к ${ip}:${port}`;
         } else {
             appendChat(`❌ Не удалось подключиться к ${ip}:${port}`, 'death');
+            showNotification('Не удалось подключиться. Проверьте ссылку.', 'error');
         }
     });
     room.on('error', (err) => {
         console.error(err);
         appendChat(`❌ Ошибка подключения: ${err.type}`, 'death');
-        showNotification('Не удалось подключиться. Проверьте IP и порт.', 'error');
+        showNotification('Не удалось подключиться. Проверьте ссылку.', 'error');
     });
 }
 
@@ -1169,7 +1179,8 @@ window.onload = () => {
             const roomIdFromUrl = urlParams.get('room');
             if(roomIdFromUrl) currentRoomId = roomIdFromUrl;
             else currentRoomId = generateRoomId();
-            joinRoomByIP(address);
+           const hostPeer = urlParams.get('peer');
+joinRoomByIP(address, hostPeer);
         };
     } else {
         const modal = document.getElementById('modalRoomJoin');
