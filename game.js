@@ -1,7 +1,6 @@
 let room = null;
 let myId = null;
 let myName = '';
-let currentRoomId = '';
 let players = {};
 let gameState = 'lobby';
 let lastBet = null;
@@ -73,12 +72,6 @@ function showNotification(msg, type='info') { const tt={error:'❌ Ошибка'
 function appendChat(msg, t='normal') { const e=document.createElement('div'); e.className=`chat-msg msg-${t}`; e.textContent=msg; const log=document.getElementById('chatLog'); if(log) { log.insertBefore(e,log.firstChild); if(log.children.length>60) log.removeChild(log.lastChild); } }
 function playSound(type) { if(!soundEnabled||!audioContext) return; try{ const o=audioContext.createOscillator(),g=audioContext.createGain(); o.connect(g); g.connect(audioContext.destination); const n=audioContext.currentTime; const p={bet:[440,220,0.1,'square'],accuse:[880,440,0.3,'sawtooth'],poison:[300,150,0.2,'sine'],death:[220,110,0.5,'sine'],devil:[150,100,0.4,'sawtooth'],devilWin:[440,880,0.3,'square'],devilLose:[200,100,0.4,'sawtooth'],ghost:[660,880,0.3,'sine'],resurrection:[330,990,0.6,'sine'],artifact:[523,784,0.2,'square'],round:[440,880,0.3,'square'],blood:[392,523,0.2,'sine'],win:[523,659,784,1046,0.8,'square']}[type]||[440,220,0.1,'sine']; if(type==='win'){ p.forEach((f,i)=>{ const oc=audioContext.createOscillator(),gc=audioContext.createGain(); oc.connect(gc); gc.connect(audioContext.destination); oc.frequency.value=f; oc.type='square'; gc.gain.setValueAtTime(0.2,n+i*0.1); gc.gain.exponentialRampToValueAtTime(0.01,n+i*0.1+0.3); oc.start(n+i*0.1); oc.stop(n+i*0.1+0.3); }); }else{ o.frequency.setValueAtTime(p[0],n); o.frequency.exponentialRampToValueAtTime(p[1],n+p[2]); o.type=p[3]; g.gain.setValueAtTime(0.2,n); g.gain.exponentialRampToValueAtTime(0.01,n+p[2]); o.start(n); o.stop(n+p[2]); } }catch(e){} }
 
-function generateRoomId() {
-    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let result = '';
-    for(let i = 0; i < 6; i++) result += chars.charAt(Math.floor(Math.random() * chars.length));
-    return result;
-}
 
 async function getExternalIP() {
     try {
@@ -96,13 +89,8 @@ function createRoom() {
         appendChat('⚠️ Вы уже в комнате. Сначала закройте её.', 'system');
         return;
     }
-    const roomId = generateRoomId();
-    currentRoomId = roomId;
-    const url = new URL(window.location);
-    url.searchParams.set('room', roomId);
-    window.history.pushState({}, '', url);
     const roomDisplay = document.getElementById('roomIdDisplay');
-    if(roomDisplay) roomDisplay.innerHTML = `ID комнаты: ${roomId}`;
+    if(roomDisplay) roomDisplay.innerHTML = `Комната активна`;
     initPeerAsHost();
 }
 
@@ -118,10 +106,10 @@ async function initPeerAsHost() {
             appendChat('⚠️ Не удалось определить ваш IP. Используйте локальный IP или проверьте подключение.', 'system');
             myIP = 'localhost';
         }
-        const inviteLink = `${window.location.origin}${window.location.pathname}?connect=${myIP}:${myPort}&peer=${myId}&room=${currentRoomId}`;
+        const inviteLink = `${window.location.origin}${window.location.pathname}?connect=${myIP}:${myPort}&peer=${myId}`;
         const statusEl = document.getElementById('connectionStatus');
         if(statusEl) statusEl.innerHTML = `✅ Хост | IP: ${myIP}:${myPort} | Peer: ${myId.substring(0,8)}...`;
-        appendChat(`🏠 Вы создали комнату ${currentRoomId}`, 'system');
+        appendChat(`🏠 Вы создали комнату`, 'system');
         appendChat(`🔗 Ваша ссылка-приглашение: ${inviteLink}`, 'system');
         showNotification(`Комната создана!`, 'success');
         
@@ -399,7 +387,7 @@ function copyInviteLink() {
         showNotification('Только хост может приглашать друзей. Сначала создайте комнату!', 'warning');
         return;
     }
-    const inviteLink = `${window.location.origin}${window.location.pathname}?connect=${myIP}:${myPort}&room=${currentRoomId}`;
+    const inviteLink = `${window.location.origin}${window.location.pathname}?connect=${myIP}:${myPort}`;
     navigator.clipboard.writeText(inviteLink);
     showNotification('Ссылка-приглашение скопирована!', 'success');
     appendChat(`🔗 Ссылка скопирована: ${inviteLink}`, 'system');
@@ -1167,22 +1155,13 @@ window.onload = () => {
     const urlParams = new URLSearchParams(window.location.search);
     const connectParam = urlParams.get('connect');
     if(connectParam) {
-        const modal = document.getElementById('modalJoinIP');
-        const ipInput = document.getElementById('ipAddressInput');
-        if(ipInput) ipInput.value = connectParam;
-        if(modal) modal.style.display = 'block';
-        const connectBtn = document.getElementById('connectIPBtn');
-        if(connectBtn) connectBtn.onclick = () => {
-            const address = document.getElementById('ipAddressInput')?.value.trim();
-            if(!address) { showNotification('Введите IP:порт', 'warning'); return; }
-            if(modal) modal.style.display = 'none';
-            const roomIdFromUrl = urlParams.get('room');
-            if(roomIdFromUrl) currentRoomId = roomIdFromUrl;
-            else currentRoomId = generateRoomId();
-           const hostPeer = urlParams.get('peer');
-joinRoomByIP(address, hostPeer);
-        };
-    } else {
+    const hostPeer = urlParams.get('peer');
+    if(!hostPeer) {
+        showNotification('Ошибка: ссылка не содержит Peer ID хоста', 'error');
+        return;
+    }
+    joinRoomByIP(connectParam, hostPeer);
+} else {
         const modal = document.getElementById('modalRoomJoin');
         if(modal) modal.style.display = 'block';
         const confirmBtn = document.getElementById('confirmJoinBtn');
