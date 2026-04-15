@@ -1402,8 +1402,7 @@ function botTurn(botId) {
             return;
         }
         if(bot.artifact && bot.artifact.type === 'active' && botUseArtifact(botId)) {
-            isBotThinking = false;
-            return;
+        
         }
         if(bot.isGhost && botUseGhostAbility(botId)) {
             isBotThinking = false;
