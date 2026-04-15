@@ -900,11 +900,6 @@ if(settings) {
             artifactHistory.push(ar.id + '_' + uid);
             let dc = Array(5).fill(0).map(() => Math.floor(Math.random() * 6) + 1);
             if(p.evilEyed) dc = dc.map(() => Math.random() < 0.7 ? Math.floor(Math.random() * 3) + 1 : Math.floor(Math.random() * 3) + 4);
-            const settingsSnapshot = await roomRef.child('settings').once('value');
-const settings = settingsSnapshot.val();
-if(settings && settings.specialDiceEnabled !== undefined) {
-    specialDiceEnabled = settings.specialDiceEnabled;
-}
             const artData = specialDiceEnabled ? ar : null;
             updates[`players/${uid}/dice`] = dc;
             updates[`players/${uid}/artifact`] = artData;
