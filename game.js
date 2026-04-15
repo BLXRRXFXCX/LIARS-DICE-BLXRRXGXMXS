@@ -236,6 +236,13 @@ function setupRoomListeners() {
         players = data.players || {};
         gameState = data.state || 'lobby';
         // Открываем/закрываем панель обвинения для всех игроков
+        // Синхронизируем настройки жизней из Firebase
+if(data.settings && data.settings.defaultLives) {
+    defaultLives = data.settings.defaultLives;
+    const menuLives = document.getElementById('menuLives');
+    if(menuLives) menuLives.textContent = `❤️ Жизни: ${defaultLives}`;
+}
+        
 if(gameState === 'accusing') {
     const panel = document.getElementById('accusationPanel');
     if(panel) panel.style.display = 'block';
@@ -885,6 +892,7 @@ async function startNewRound() {
 const settings = settingsSnapshot.val();
 if(settings) {
     specialDiceEnabled = settings.specialDiceEnabled !== false;
+    if(settings.defaultLives) defaultLives = settings.defaultLives;
 }
     if(gameState !== 'betting' && gameState !== 'lobby') return;
     const aliveCount = Object.keys(players).filter(u => players[u]?.alive && !players[u]?.isGhost).length;
@@ -2185,14 +2193,23 @@ function bindEventListeners() {
         roomRef.child('settings').update({ specialDiceEnabled: specialDiceEnabled });
         if(dd) dd.style.display = 'none';
     };
-    const menuLives = document.getElementById('menuLives');
-    if(menuLives) menuLives.onclick = () => {
-        if(gameState !== 'lobby') return showNotification('Только в лобби!', 'warning');
-        const o = [3,4,5,6,2];
-        defaultLives = o[(o.indexOf(defaultLives) + 1) % o.length];
-        menuLives.textContent = `❤️ Жизни: ${defaultLives}`;
-        if(dd) dd.style.display = 'none';
-    };
+   const menuLives = document.getElementById('menuLives');
+if(menuLives) menuLives.onclick = () => {
+    if(gameState !== 'lobby') return showNotification('Только в лобби!', 'warning');
+    const o = [3,4,5,6,2];
+    defaultLives = o[(o.indexOf(defaultLives) + 1) % o.length];
+    menuLives.textContent = `❤️ Жизни: ${defaultLives}`;
+    // СОХРАНЯЕМ В FIREBASE
+    roomRef.child('settings').update({ defaultLives: defaultLives });
+    // ОБНОВЛЯЕМ У ВСЕХ ИГРОКОВ В ЛОББИ
+    Object.keys(players).forEach(uid => {
+        if(players[uid] && !players[uid].isBot) {
+            roomRef.child('players').child(uid).update({ maxLives: defaultLives });
+        }
+    });
+    if(dd) dd.style.display = 'none';
+};
+    
     const btnStartGame = document.getElementById('btnStartGame');
     if(btnStartGame) btnStartGame.onclick = () => {
         if(gameState !== 'lobby') {
