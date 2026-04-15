@@ -14,6 +14,8 @@ const db = firebase.database();
 let roomRef = null;
 let myUid = '';
 let myName = '';
+let myAvatar = '🎲';
+let myColor = '#ffffff';
 let currentRoomId = '';
 let players = {};
 let gameState = 'lobby';
@@ -45,6 +47,8 @@ let lastVoteEndTime = 0;
 let turnCounter = 0;
 let isHost = false;
 const VOTE_COOLDOWN = 120000;
+const AVATARS = ['🎲', '🎭', '👻', '🤖', '🧙', '🧝', '🧛', '🧟', '🐉', '🦄', '🌟', '🔥', '💀', '👑', '🎯', '🧿', '🕵️', '🧪', '🛡️', '🔫'];
+const COLORS = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff', '#ff8800', '#88ff00', '#ff0088', '#0088ff', '#ffffff', '#cccccc', '#ffaa88', '#88ffaa', '#aa88ff', '#ff8888', '#88ff88', '#8888ff', '#ffaa00', '#00ffaa'];
 
 const ARTIFACTS = [
     {id:'target',emoji:'🎯',name:'В ЯБЛОЧКО!',type:'active',description:'Уничтожает 1 кубик выбранного номинала у противника',hidden:false},
@@ -91,10 +95,17 @@ function showNotification(msg, type='info') {
     } else { alert(msg); }
 }
 
-function appendChat(msg, t='normal') {
+function appendChat(msg, t='normal', senderColor='#ffffff', senderAvatar='') {
     const e=document.createElement('div');
     e.className=`chat-msg msg-${t}`;
-    e.textContent=msg;
+    if(t === 'normal' && senderColor) {
+        e.style.color = senderColor;
+    }
+    if(senderAvatar) {
+        e.innerHTML = `${senderAvatar} <span style="color:${senderColor}">${msg.split(':')[0]}</span>:${msg.split(':').slice(1).join(':')}`;
+    } else {
+        e.textContent = msg;
+    }
     const log=document.getElementById('chatLog');
     if(log) {
         log.insertBefore(e,log.firstChild);
@@ -158,14 +169,39 @@ function createRoom() {
     }).catch(e => console.error(e));
 }
 
+function newRoom() {
+    if(roomRef) {
+        roomRef.child('players').child(myUid).onDisconnect().cancel();
+        roomRef = null;
+    }
+    createRoom();
+}
+
 function enterRoom(roomId) {
     currentRoomId = roomId;
     roomRef = db.ref('rooms/' + roomId);
-    myUid = 'uid_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+    const savedUid = localStorage.getItem('ld_myUid');
+    const savedName = localStorage.getItem('ld_playerName');
+    const savedAvatar = localStorage.getItem('ld_avatar');
+    const savedColor = localStorage.getItem('ld_color');
+    if(savedUid && savedName && players[savedUid] === undefined) {
+        myUid = savedUid;
+        myName = savedName;
+        myAvatar = savedAvatar || '🎲';
+        myColor = savedColor || '#ffffff';
+    } else {
+        myUid = 'uid_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
+        myName = localStorage.getItem('ld_playerName') || 'Игрок';
+        myAvatar = localStorage.getItem('ld_avatar') || '🎲';
+        myColor = localStorage.getItem('ld_color') || '#ffffff';
+        localStorage.setItem('ld_myUid', myUid);
+    }
     isHost = true;
     const playerData = {
         name: myName,
         uid: myUid,
+        avatar: myAvatar,
+        color: myColor,
         dice: [],
         poisons: 0,
         blood: 0,
@@ -181,6 +217,9 @@ function enterRoom(roomId) {
     };
     roomRef.child('players').child(myUid).set(playerData);
     roomRef.child('players').child(myUid).onDisconnect().update({ connected: false });
+    setTimeout(() => {
+        roomRef.child('players').child(myUid).update({ connected: true });
+    }, 1000);
     setupRoomListeners();
     appendChat(`🎉 ${myName} вошёл в комнату ${roomId}`, 'system');
 }
@@ -212,10 +251,20 @@ function setupRoomListeners() {
             }
         }
         renderUI();
+        if(gameState === 'betting' && currentPlayerUid && players[currentPlayerUid]?.isBot && currentPlayerUid !== myUid && !isBotThinking) {
+            botTurn(currentPlayerUid);
+        }
     });
     roomRef.child('chat').limitToLast(60).on('child_added', (s) => {
         const msg = s.val();
-        if(msg) appendChat(`${msg.sender}: ${msg.text}`, msg.type || 'normal');
+        if(msg && msg.sender !== myName) {
+            const player = Object.values(players).find(p => p.name === msg.sender);
+            const color = player?.color || '#ffffff';
+            const avatar = player?.avatar || '';
+            appendChat(`${msg.sender}: ${msg.text}`, msg.type || 'normal', color, avatar);
+        } else if(msg && msg.sender === myName) {
+            appendChat(`${msg.sender}: ${msg.text}`, msg.type || 'normal', myColor, myAvatar);
+        }
     });
 }
 
@@ -275,20 +324,18 @@ function renderPlayerList() {
         c.className = 'player-card no-select';
         if(uid === cu && gameState === 'betting' && !p.isGhost) c.classList.add('active');
         if(p.frozen) c.classList.add('frozen');
-        if(p.cursed) c.classList.add('cursed');
-        if(p.evilEyed && uid === myUid) c.classList.add('evilEyed');
+        if(p.cursed || p.evilEyed) c.classList.add('cursed');
         const i = document.createElement('div');
         i.className = 'player-info';
+        const avatarSpan = document.createElement('span');
+        avatarSpan.className = 'player-avatar';
+        avatarSpan.textContent = p.avatar || '🎲';
+        i.appendChild(avatarSpan);
         const n = document.createElement('span');
         const ls = Math.min(p.poisons, p.maxLives || 3);
         n.className = `player-name shadow-${ls}`;
+        n.style.color = p.color || '#ffffff';
         n.textContent = p.name || 'Игрок';
-        if(p.isBot) {
-            const diffSpan = document.createElement('span');
-            diffSpan.className = `player-difficulty difficulty-${p.botDifficulty || 2}`;
-            diffSpan.textContent = botDifficultyNames[p.botDifficulty || 2];
-            n.appendChild(diffSpan);
-        }
         if(p.isGhost) {
             const ghostSpan = document.createElement('span');
             ghostSpan.textContent = ' 👻';
@@ -349,7 +396,10 @@ function renderDiceRow() {
     if(!m) return;
     if(m.artifact) {
         const a = document.createElement('div');
-        a.className = `die special ${m.artifact.type === 'passive' ? 'passive' : ''}`;
+        let usedClass = '';
+        if(usedSpecialThisRound[m.artifact.id] && m.artifact.type === 'active') usedClass = 'used';
+        else if(m.artifact.type === 'passive' && m.artifactUsed) usedClass = 'used';
+        a.className = `die special ${m.artifact.type === 'passive' ? 'passive' : ''} ${usedClass}`;
         a.textContent = m.artifact.emoji;
         const infoBtn = document.createElement('div');
         infoBtn.className = 'artifact-info-btn';
@@ -458,6 +508,7 @@ function isMyTurn() {
 }
 
 function placeBet() {
+    if(gameState !== 'betting') return;
     const c = parseInt(document.getElementById('betCount').value);
     const v = parseInt(document.getElementById('betValue').value);
     const m = players[myUid];
@@ -479,15 +530,19 @@ function placeBet() {
     players[myUid].lastBetInRound = nb;
     if(m.cursed) players[myUid].cursed = false;
     if(m.forcedBluff) players[myUid].forcedBluff = false;
-    roomRef.update({ lastBet: nb });
-    roomRef.child('players').child(myUid).update({ lastBetInRound: nb });
+    roomRef.update({ lastBet: nb, turnCounter: turnCounter + 1 });
+    roomRef.child('players').child(myUid).update({ lastBetInRound: nb, cursed: false, forcedBluff: false });
+    turnCounter++;
     renderUI();
-    nextTurn();
     playSound('bet');
+    nextTurn();
 }
 
 function accuse() {
+    if(gameState !== 'betting') return;
     if(!lastBet || lastBet.player === myUid) return;
+    gameState = 'accusing';
+    roomRef.update({ state: 'accusing' });
     const t = players[lastBet.player]?.name || 'Противник';
     const p = [
         `${myName} бьёт по столу: "${t}, ложь!"`,
@@ -515,7 +570,7 @@ function accuse() {
     if(panel) panel.style.display = 'block';
     playSound('accuse');
     if(accusationTimer) clearTimeout(accusationTimer);
-    accusationTimer = setTimeout(() => resolveAccusation(lastBet.player), 5000);
+    accusationTimer = setTimeout(() => resolveAccusation(lastBet.player), 7000);
 }
 
 function resolveAccusation(accusedUid) {
@@ -572,6 +627,7 @@ function resolveAccusation(accusedUid) {
             players[accusedUid].darkPact = false;
             players[accusedUid].darkPactShield = true;
             players[accusedUid].darkPactRound = roundNumber + 1;
+            roomRef.child('players').child(accusedUid).update({ darkPact: false, darkPactShield: true, darkPactRound: roundNumber + 1 });
             addEffectLine(`🟡 ${accused.name}: Тёмный Договор → щит на след. раунд`, e);
         }
     }
@@ -582,8 +638,10 @@ function resolveAccusation(accusedUid) {
         gameState = 'betting';
         roomRef.update({ state: 'betting' });
         checkDeath();
-        setTimeout(startNewRound, 2500);
-    }, 5000 + (el * 3000));
+        setTimeout(() => {
+            startNewRound();
+        }, 2500);
+    }, 7000 + (el * 3000));
 }
 
 function addEffectLine(t, c) {
@@ -600,11 +658,13 @@ function applyPoison(uid, amt, reason) {
     if(p.devilShield && p.devilShieldRound === roundNumber) {
         appendChat(`🛡️ ${p.name} защищён ЩИТОМ ДЬЯВОЛА!`, 'system');
         delete p.devilShield;
+        roomRef.child('players').child(uid).update({ devilShield: false });
         return;
     }
     if(p.defenderActive) {
         appendChat(`🛡️ ${p.name} защищён ЗАЩИТНИКОМ!`, 'system');
         p.defenderActive = false;
+        roomRef.child('players').child(uid).update({ defenderActive: false });
         return;
     }
     let rem = amt;
@@ -612,12 +672,14 @@ function applyPoison(uid, amt, reason) {
         const u = Math.min(p.blood, rem);
         rem -= u;
         p.blood -= u;
+        roomRef.child('players').child(uid).update({ blood: p.blood });
     }
     if(rem > 0) {
         p.poisons += rem;
         appendChat(`☠️ ${p.name} получает +${rem} яд (${reason})`, 'death');
         playSound('poison');
         roomRef.child('players').child(uid).update({ poisons: p.poisons });
+        renderUI();
     }
     checkDeath();
 }
@@ -629,6 +691,7 @@ function applyBlood(uid, amt) {
     appendChat(`🩸 ${p.name} получает +${amt} кровь!`, 'system');
     playSound('blood');
     roomRef.child('players').child(uid).update({ blood: p.blood });
+    renderUI();
 }
 
 function checkDeath() {
@@ -784,19 +847,22 @@ function checkVengeance(uid) {
 }
 
 function startNewRound() {
+    if(gameState !== 'betting' && gameState !== 'lobby') return;
     const aliveCount = Object.keys(players).filter(u => players[u]?.alive && !players[u]?.isGhost).length;
-    const botCount = Object.keys(players).filter(u => players[u]?.isBot).length;
-    if(aliveCount < 2 && botCount === 0) return;
+    const botCountTotal = Object.keys(players).filter(u => players[u]?.isBot).length;
+    if(aliveCount < 2 && botCountTotal === 0) return;
     roundNumber++;
     turnCounter++;
     thiefUsedThisRound = false;
     sniperShotUsedThisRound = false;
     usedSpecialThisRound = {};
+    spyMemory = {};
     const updates = {};
     Object.keys(players).forEach(uid => {
         const p = players[uid];
         if(p?.alive && !p.isGhost) {
-            const av = ARTIFACTS.filter(a => !artifactHistory.includes(a.id + '_' + uid));
+            const lastTwoArtifacts = artifactHistory.filter(a => a.endsWith('_' + uid)).slice(-2);
+            const av = ARTIFACTS.filter(a => !lastTwoArtifacts.includes(a.id + '_' + uid));
             const ar = av.length > 0 ? av[Math.floor(Math.random() * av.length)] : ARTIFACTS[Math.floor(Math.random() * ARTIFACTS.length)];
             artifactHistory.push(ar.id + '_' + uid);
             let dc = Array(5).fill(0).map(() => Math.floor(Math.random() * 6) + 1);
@@ -819,6 +885,7 @@ function startNewRound() {
             updates[`players/${uid}/cannotAccuse`] = false;
             updates[`players/${uid}/sniperShotUsedThisRound`] = false;
             updates[`players/${uid}/poisons`] = 0;
+            updates[`players/${uid}/blood`] = p.blood || 0;
         }
     });
     updates.round = roundNumber;
@@ -831,7 +898,9 @@ function startNewRound() {
     roomRef.update(updates);
     appendChat(`🎲 === РАУНД ${roundNumber} НАЧАЛСЯ! ===`, 'system');
     playSound('round');
-    if(aliveUids.length && players[aliveUids[0]]?.isBot && aliveUids[0] !== myUid) botTurn(aliveUids[0]);
+    if(aliveUids.length && players[aliveUids[0]]?.isBot && aliveUids[0] !== myUid) {
+        botTurn(aliveUids[0]);
+    }
 }
 
 function nextTurn() {
@@ -844,7 +913,9 @@ function nextTurn() {
     turnCounter++;
     roomRef.update({ currentPlayerUid: currentPlayerUid, turnCounter: turnCounter });
     renderUI();
-    if(currentPlayerUid && players[currentPlayerUid]?.isBot && currentPlayerUid !== myUid) botTurn(currentPlayerUid);
+    if(currentPlayerUid && players[currentPlayerUid]?.isBot && currentPlayerUid !== myUid && !isBotThinking) {
+        botTurn(currentPlayerUid);
+    }
 }
 
 function addBot() {
@@ -856,16 +927,18 @@ function addBot() {
         showNotification('Можно добавлять ботов только в лобби или после окончания игры', 'warning');
         return;
     }
-    const botCount = Object.keys(players).filter(u => players[u]?.isBot).length;
-    if(botCount >= 5) {
+    const botCountTotal = Object.keys(players).filter(u => players[u]?.isBot).length;
+    if(botCountTotal >= 5) {
         showNotification('Максимум 5 ботов в комнате', 'warning');
         return;
     }
     const botId = 'bot_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
-    const botName = '🤖 ' + botDifficultyNames[botDifficulty];
+    const botName = '🤖 Бот';
     const botData = {
         name: botName,
         uid: botId,
+        avatar: '🤖',
+        color: '#aaaaaa',
         dice: [],
         poisons: 0,
         blood: 0,
@@ -897,7 +970,7 @@ function addBot() {
     };
     bots[botId] = { difficulty: botDifficulty, knownDice: {} };
     roomRef.child('players').child(botId).set(botData);
-    appendChat(`🤖 ${botName} присоединился к игре`, 'system');
+    appendChat(`🤖 Бот (${botDifficultyNames[botDifficulty]}) присоединился к игре`, 'system');
 }
 
 function removeAllBots() {
@@ -930,6 +1003,21 @@ function copyInviteLink() {
     navigator.clipboard.writeText(link);
     showNotification('Ссылка-приглашение скопирована!', 'success');
     appendChat(`🔗 Ссылка скопирована: ${link}`, 'system');
+}
+
+function saveProfile() {
+    const newName = document.getElementById('profileNameInput')?.value.trim();
+    if(newName && newName !== myName) {
+        myName = newName;
+        localStorage.setItem('ld_playerName', myName);
+        roomRef.child('players').child(myUid).update({ name: myName });
+        appendChat(`Игрок сменил ник на ${myName}`, 'system');
+    }
+    localStorage.setItem('ld_avatar', myAvatar);
+    localStorage.setItem('ld_color', myColor);
+    roomRef.child('players').child(myUid).update({ avatar: myAvatar, color: myColor });
+    showNotification('Профиль сохранён!', 'success');
+    document.getElementById('modalProfile').style.display = 'none';
 }
 
 function updateExpertKnowledge(botId, targetId, newDice) {
@@ -1051,9 +1139,10 @@ function botMakeDecision(botId) {
     const betData = { player: botId, count: newCount, value: newValue, timestamp: Date.now() };
     lastBet = betData;
     players[botId].lastBetInRound = betData;
-    roomRef.update({ lastBet: betData });
+    roomRef.update({ lastBet: betData, turnCounter: turnCounter + 1 });
     roomRef.child('players').child(botId).update({ lastBetInRound: betData });
     appendChat(`🤖 ${bot.name} ставит ${newCount}×${getDieEmoji(newValue)}`, 'system');
+    turnCounter++;
     nextTurn();
 }
 
@@ -1280,12 +1369,10 @@ function botTurn(botId) {
         }
         if(bot.artifact && bot.artifact.type === 'active' && botUseArtifact(botId)) {
             isBotThinking = false;
-            nextTurn();
             return;
         }
         if(bot.isGhost && botUseGhostAbility(botId)) {
             isBotThinking = false;
-            nextTurn();
             return;
         }
         botMakeDecision(botId);
@@ -1537,15 +1624,23 @@ function useArtifact(id) {
     if(!art || (art.type === 'active' && usedSpecialThisRound[id])) return;
     switch(id) {
         case 'target':
-            showNominalModal(n => {
-                const tg = Object.keys(players).filter(u => u !== myUid && players[u]?.alive && !players[u]?.isGhost && players[u].dice.includes(n));
-                if(!tg.length) return showNotification('Нет целей!', 'warning');
-                const t = tg[Math.floor(Math.random() * tg.length)];
-                if(players[t].dice.length <= 1) return showNotification('Нельзя уничтожить последний кубик!', 'warning');
-                const i = players[t].dice.indexOf(n);
-                players[t].dice.splice(i, 1);
-                roomRef.child('players').child(t).update({ dice: players[t].dice });
-                appendChat(`🎯 ${m.name} использовал В ЯБЛОЧКО! Уничтожен кубик ${getDieEmoji(n)} у ${players[t].name}`, 'system');
+            showTargetModalFirst(Object.keys(players).filter(u => u !== myUid && players[u]?.alive && !players[u]?.isGhost), (target) => {
+                showNominalModal((nominal) => {
+                    const tg = [target];
+                    const t = tg[0];
+                    if(players[t].dice.length <= 1) {
+                        showNotification('Нельзя уничтожить последний кубик!', 'warning');
+                        return;
+                    }
+                    const i = players[t].dice.indexOf(nominal);
+                    if(i === -1) {
+                        showNotification(`У ${players[t].name} нет кубика ${getDieEmoji(nominal)}!`, 'warning');
+                        return;
+                    }
+                    players[t].dice.splice(i, 1);
+                    roomRef.child('players').child(t).update({ dice: players[t].dice });
+                    appendChat(`🎯 ${m.name} использовал В ЯБЛОЧКО! Уничтожен кубик ${getDieEmoji(nominal)} у ${players[t].name}`, 'system');
+                });
             });
             break;
         case 'fireball':
@@ -1586,8 +1681,10 @@ function useArtifact(id) {
             const bv = Math.floor(Math.random() * 6) + 1;
             lastBet = { player: myUid, count: bc, value: bv };
             players[myUid].lastBetInRound = lastBet;
-            roomRef.update({ lastBet: lastBet });
+            roomRef.update({ lastBet: lastBet, turnCounter: turnCounter + 1 });
             roomRef.child('players').child(myUid).update({ lastBetInRound: lastBet });
+            turnCounter++;
+            nextTurn();
             break;
         case 'clone':
             const tc = Object.keys(players).filter(u => u !== myUid && players[u]?.alive && !players[u]?.isGhost);
@@ -1607,15 +1704,15 @@ function useArtifact(id) {
             });
             break;
         case 'spy':
-            if(spyMemory[myUid] && spyMemory[myUid].value) {
-                showNotification(`🔍 Шпион: вы уже знаете кубик ${players[spyMemory[myUid].target]?.name} → ${getDieEmoji(spyMemory[myUid].value)}`, 'info');
+            if(spyMemory[myUid] && spyMemory[myUid].value && roundNumber === spyMemory[myUid].round) {
+                showNotification(`🔍 Шпион: у ${players[spyMemory[myUid].target]?.name} выпал кубик ${getDieEmoji(spyMemory[myUid].value)}`, 'info');
                 break;
             }
             const sp = Object.keys(players).filter(u => u !== myUid && players[u]?.alive && !players[u]?.isGhost);
             if(!sp.length) return showNotification('Нет целей!', 'warning');
             showTargetModal(sp, t => {
                 const val = players[t].dice[Math.floor(Math.random() * players[t].dice.length)];
-                spyMemory[myUid] = { target: t, value: val };
+                spyMemory[myUid] = { target: t, value: val, round: roundNumber };
                 showNotification(`🕵️ Шпион: у ${players[t].name} выпал кубик ${getDieEmoji(val)}`, 'info');
                 appendChat(`🕵️ ${m.name} использовал Шпиона на ${players[t].name}`, 'system');
             });
@@ -1650,8 +1747,10 @@ function useArtifact(id) {
                 }
                 lastBet = { player: myUid, count: nc, value: nv };
                 players[myUid].lastBetInRound = lastBet;
-                roomRef.update({ lastBet: lastBet });
+                roomRef.update({ lastBet: lastBet, turnCounter: turnCounter + 1 });
                 roomRef.child('players').child(myUid).update({ lastBetInRound: lastBet });
+                turnCounter++;
+                nextTurn();
                 appendChat(`🎭 ${m.name} использовал ДВОЙНИК! Скопирована ставка ${players[t].name}: ${nc}×${getDieEmoji(nv)}`, 'system');
             });
             break;
@@ -1756,6 +1855,27 @@ function showTargetModal(uids, cb) {
     if(modal) modal.style.display = 'block';
 }
 
+function showTargetModalFirst(uids, cb) {
+    const l = document.getElementById('modalTargetList');
+    if(!l) return;
+    l.innerHTML = '';
+    uids.forEach(u => {
+        const p = players[u];
+        if(!p || !p.name) return;
+        const b = document.createElement('button');
+        b.className = 'select-item';
+        b.style.width = '100%';
+        b.textContent = p.name + (p.isGhost ? ' 👻' : '');
+        b.onclick = () => {
+            cb(u);
+            closeModal('modalTarget');
+        };
+        l.appendChild(b);
+    });
+    const modal = document.getElementById('modalTarget');
+    if(modal) modal.style.display = 'block';
+}
+
 function showNominalModal(cb) {
     const l = document.getElementById('modalNominalList');
     if(!l) return;
@@ -1764,9 +1884,9 @@ function showNominalModal(cb) {
         const b = document.createElement('button');
         b.className = 'select-item';
         b.textContent = getDieEmoji(i);
-        b.style.width = '45px';
-        b.style.height = '45px';
-        b.style.fontSize = '1.3em';
+        b.style.width = '60px';
+        b.style.height = '60px';
+        b.style.fontSize = '1.8em';
         b.onclick = () => {
             cb(i);
             closeModal('modalNominal');
@@ -1786,9 +1906,9 @@ function showDynamicNominalModal(cb) {
             const b = document.createElement('button');
             b.className = 'select-item';
             b.textContent = getDieEmoji(i);
-            b.style.width = '45px';
-            b.style.height = '45px';
-            b.style.fontSize = '1.3em';
+            b.style.width = '60px';
+            b.style.height = '60px';
+            b.style.fontSize = '1.8em';
             if(lastBet && lastBet.value === i) {
                 b.style.opacity = '0.3';
                 b.style.cursor = 'not-allowed';
@@ -1909,34 +2029,78 @@ function bindEventListeners() {
     };
     const menuProfile = document.getElementById('menuProfile');
     if(menuProfile) menuProfile.onclick = () => {
-        const nameSpan = document.getElementById('profileName');
+        const nameInput = document.getElementById('profileNameInput');
         const uidSpan = document.getElementById('profileUid');
         const statusSpan = document.getElementById('profileStatus');
-        if(nameSpan) nameSpan.textContent = myName;
+        if(nameInput) nameInput.value = myName;
         if(uidSpan) uidSpan.textContent = myUid;
         if(statusSpan) {
             statusSpan.textContent = isGhost ? 'Призрак' : 'Жив';
             statusSpan.style.color = isGhost ? '#cc00ff' : '#00ff88';
         }
+        const avatarContainer = document.getElementById('avatarSelect');
+        if(avatarContainer) {
+            avatarContainer.innerHTML = '';
+            AVATARS.forEach(av => {
+                const btn = document.createElement('button');
+                btn.textContent = av;
+                btn.style.fontSize = '1.5em';
+                btn.style.margin = '3px';
+                btn.style.padding = '5px';
+                btn.style.cursor = 'pointer';
+                btn.style.background = myAvatar === av ? '#ffd700' : '#333';
+                btn.style.border = 'none';
+                btn.style.borderRadius = '5px';
+                btn.onclick = () => {
+                    myAvatar = av;
+                    document.querySelectorAll('#avatarSelect button').forEach(b => b.style.background = '#333');
+                    btn.style.background = '#ffd700';
+                };
+                avatarContainer.appendChild(btn);
+            });
+        }
+        const colorContainer = document.getElementById('colorSelect');
+        if(colorContainer) {
+            colorContainer.innerHTML = '';
+            COLORS.forEach(col => {
+                const btn = document.createElement('button');
+                btn.textContent = '●';
+                btn.style.color = col;
+                btn.style.fontSize = '1.5em';
+                btn.style.margin = '3px';
+                btn.style.padding = '5px';
+                btn.style.cursor = 'pointer';
+                btn.style.background = myColor === col ? '#ffd700' : '#333';
+                btn.style.border = 'none';
+                btn.style.borderRadius = '5px';
+                btn.onclick = () => {
+                    myColor = col;
+                    document.querySelectorAll('#colorSelect button').forEach(b => b.style.background = '#333');
+                    btn.style.background = '#ffd700';
+                };
+                colorContainer.appendChild(btn);
+            });
+        }
         const modal = document.getElementById('modalProfile');
         if(modal) modal.style.display = 'block';
         if(dd) dd.style.display = 'none';
     };
-    const btnChangeNick = document.getElementById('btnChangeNick');
-    if(btnChangeNick) btnChangeNick.onclick = () => {
-        const n = prompt('Новый ник:', myName);
-        if(n && n.trim()) {
-            const o = myName;
-            myName = n.trim();
-            localStorage.setItem('ld_playerName', myName);
-            roomRef.child('players').child(myUid).update({ name: myName });
-            appendChat(`${o} сменил ник на ${myName}`, 'system');
-        }
-    };
+    const btnSaveProfile = document.getElementById('btnSaveProfile');
+    if(btnSaveProfile) btnSaveProfile.onclick = saveProfile;
     const menuInvite = document.getElementById('menuInvite');
     if(menuInvite) menuInvite.onclick = () => {
         copyInviteLink();
         if(dd) dd.style.display = 'none';
+    };
+    const menuNewRoom = document.getElementById('menuNewRoom');
+    if(menuNewRoom) menuNewRoom.onclick = () => {
+        if(confirm('Создать новую комнату? Вы покинете текущую.')) {
+            if(roomRef) {
+                roomRef.child('players').child(myUid).onDisconnect().cancel();
+            }
+            newRoom();
+            if(dd) dd.style.display = 'none';
+        }
     };
     const menuKick = document.getElementById('menuKick');
     if(menuKick) menuKick.onclick = () => {
@@ -1966,6 +2130,10 @@ function bindEventListeners() {
     };
     const btnStartGame = document.getElementById('btnStartGame');
     if(btnStartGame) btnStartGame.onclick = () => {
+        if(gameState !== 'lobby') {
+            showNotification('Игра уже идёт!', 'warning');
+            return;
+        }
         const aliveCount = Object.keys(players).filter(uid => players[uid] && (players[uid].alive || !players[uid].isGhost) && !players[uid].isBot).length;
         const botCountTotal = Object.keys(players).filter(uid => players[uid] && players[uid].isBot).length;
         if((aliveCount >= 1 && botCountTotal >= 1) || aliveCount >= 2) {
@@ -2046,6 +2214,8 @@ window.onload = () => {
         localStorage.setItem('ld_playerName', name);
     }
     myName = name;
+    myAvatar = localStorage.getItem('ld_avatar') || '🎲';
+    myColor = localStorage.getItem('ld_color') || '#ffffff';
     if(roomFromUrl) {
         currentRoomId = roomFromUrl;
         document.getElementById('roomIdDisplay').textContent = currentRoomId;
