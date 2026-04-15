@@ -235,6 +235,34 @@ function setupRoomListeners() {
         }
         players = data.players || {};
         gameState = data.state || 'lobby';
+        // Открываем/закрываем панель обвинения для всех игроков
+if(gameState === 'accusing') {
+    const panel = document.getElementById('accusationPanel');
+    if(panel) panel.style.display = 'block';
+    
+    // Заполняем данные для панели (если есть ставка)
+    if(lastBet && lastBet.player) {
+        const accused = players[lastBet.player];
+        const phraseEl = document.getElementById('accusationPhrase');
+        if(phraseEl && accused) {
+            phraseEl.textContent = `${accused.name} обвинён в блефе! Проверка...`;
+        }
+        // Показываем кубики на столе
+        let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
+        Object.values(players).forEach(p => {
+            if(p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d) || 1]++);
+        });
+        const sm = Object.keys(ct).filter(k => ct[k] > 0).map(k => `${ct[k]}x${getDieEmoji(k)}`).join('  ');
+        const summaryEl = document.getElementById('accusationDiceSummary');
+        if(summaryEl) summaryEl.textContent = `📊 Всего на столе: ${sm || 'Нет кубиков'}`;
+    }
+} else {
+    // Если состояние не 'accusing' — скрываем панель
+    const panel = document.getElementById('accusationPanel');
+    if(panel && panel.style.display === 'block') {
+        panel.style.display = 'none';
+    }
+}
         lastBet = data.lastBet || null;
         roundNumber = data.round || 0;
         artifactHistory = data.artifactHistory || [];
@@ -847,6 +875,11 @@ function checkVengeance(uid) {
 }
 
 function startNewRound() {
+    const settingsSnapshot = await roomRef.child('settings').once('value');
+const settings = settingsSnapshot.val();
+if(settings) {
+    specialDiceEnabled = settings.specialDiceEnabled !== false;
+}
     if(gameState !== 'betting' && gameState !== 'lobby') return;
     const aliveCount = Object.keys(players).filter(u => players[u]?.alive && !players[u]?.isGhost).length;
     const botCountTotal = Object.keys(players).filter(u => players[u]?.isBot).length;
@@ -867,6 +900,11 @@ function startNewRound() {
             artifactHistory.push(ar.id + '_' + uid);
             let dc = Array(5).fill(0).map(() => Math.floor(Math.random() * 6) + 1);
             if(p.evilEyed) dc = dc.map(() => Math.random() < 0.7 ? Math.floor(Math.random() * 3) + 1 : Math.floor(Math.random() * 3) + 4);
+            const settingsSnapshot = await roomRef.child('settings').once('value');
+const settings = settingsSnapshot.val();
+if(settings && settings.specialDiceEnabled !== undefined) {
+    specialDiceEnabled = settings.specialDiceEnabled;
+}
             const artData = specialDiceEnabled ? ar : null;
             updates[`players/${uid}/dice`] = dc;
             updates[`players/${uid}/artifact`] = artData;
@@ -899,8 +937,9 @@ function startNewRound() {
     appendChat(`🎲 === РАУНД ${roundNumber} НАЧАЛСЯ! ===`, 'system');
     playSound('round');
     if(aliveUids.length && players[aliveUids[0]]?.isBot && aliveUids[0] !== myUid) {
-        botTurn(aliveUids[0]);
-    }
+    currentPlayerUid = aliveUids[0];
+    botTurn(aliveUids[0]);
+}
 }
 
 function nextTurn() {
@@ -2118,6 +2157,7 @@ function bindEventListeners() {
         if(gameState !== 'lobby') return showNotification('Только в лобби!', 'warning');
         specialDiceEnabled = !specialDiceEnabled;
         menuArtifacts.textContent = `🎲 Артефакты: ${specialDiceEnabled ? '✅' : '❌'}`;
+        roomRef.child('settings').update({ specialDiceEnabled: specialDiceEnabled });
         if(dd) dd.style.display = 'none';
     };
     const menuLives = document.getElementById('menuLives');
