@@ -874,7 +874,7 @@ function checkVengeance(uid) {
     });
 }
 
-function startNewRound() {
+async function startNewRound() {
     const settingsSnapshot = await roomRef.child('settings').once('value');
 const settings = settingsSnapshot.val();
 if(settings) {
