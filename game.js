@@ -294,6 +294,12 @@ if(gameState === 'accusing') {
             appendChat(`${msg.sender}: ${msg.text}`, msg.type || 'normal', myColor, myAvatar);
         }
     });
+roomRef.child('votes').on('value', (s) => {
+    const votes = s.val();
+    if(votes && currentVoteTarget && votes[currentVoteTarget]) {
+        updateVoteUI(votes[currentVoteTarget]);
+    }
+});    
 }
 
 function renderUI() {
@@ -1494,6 +1500,12 @@ function startVoteKick() {
 function startVoteTimer(tu) {
     let t = 30;
     const el = document.getElementById('voteTimer');
+    roomRef.child('votes').child(tu).set({
+        startTime: Date.now(),
+        votes: {},
+        target: tu,
+        initiator: myUid
+    });
     if(voteTimerInterval) clearInterval(voteTimerInterval);
     voteTimerInterval = setInterval(() => {
         t--;
@@ -1507,14 +1519,33 @@ function startVoteTimer(tu) {
 
 function castVote(v) {
     if(!currentVoteTarget) return;
+    roomRef.child('votes').child(currentVoteTarget).child('votes').child(myUid).set(v);
     showNotification(`Голос принят: ${v === 'yes' ? 'ЗА' : 'ПРОТИВ'}`, 'info');
 }
 
 function resolveVote(tu) {
-    const modal = document.getElementById('modalVote');
-    if(modal) modal.style.display = 'none';
-    lastVoteEndTime = Date.now();
-    currentVoteTarget = null;
+    document.getElementById('modalVote').style.display = 'none';
+    roomRef.child('votes').child(tu).once('value', (s) => {
+        const vd = s.val();
+        if(!vd) return;
+        const votes = vd.votes || {};
+        let yes = 0, no = 0;
+        Object.values(votes).forEach(v => {
+            if(v === 'yes') yes++;
+            if(v === 'no') no++;
+        });
+        const total = yes + no;
+        const kicked = total > 0 && yes > total / 2;
+        if(kicked && players[tu]) {
+            roomRef.child('players').child(tu).remove();
+            appendChat(`🗳️ ${players[tu].name} исключён голосованием! (ЗА: ${yes}, ПРОТИВ: ${no})`, 'system');
+        } else {
+            appendChat(`🗳️ ${players[tu]?.name || 'Игрок'} остался! (ЗА: ${yes}, ПРОТИВ: ${no})`, 'system');
+        }
+        roomRef.child('votes').child(tu).remove();
+        lastVoteEndTime = Date.now();
+        currentVoteTarget = null;
+    });
 }
 
 function setupAudioContext() {
