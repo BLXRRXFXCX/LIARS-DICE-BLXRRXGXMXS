@@ -1415,9 +1415,11 @@ function botTurn(botId) {
             isBotThinking = false;
             return;
         }
-        if(bot.artifact && bot.artifact.type === 'active' && botUseArtifact(botId)) {
+       if(bot.artifact && bot.artifact.type === 'active') {
+    botUseArtifact(botId);
+}
+// Убрать пустой блок и return
         
-        }
         if(bot.isGhost && botUseGhostAbility(botId)) {
             isBotThinking = false;
             return;
