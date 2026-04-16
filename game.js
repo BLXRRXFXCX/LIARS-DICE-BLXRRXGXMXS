@@ -644,6 +644,7 @@ roomRef.update({
 }
 
 function resolveAccusation(accusedUid) {
+    roomRef.update({ accusationResult: null });
     let totalDice = 0;
     let wildDieSaved = false;
     const tv = lastBet.value;
@@ -774,13 +775,14 @@ function checkDeath() {
         if(!p || p.isGhost) return;
         const ml = p.maxLives || 3;
         if(p.poisons >= ml && p.alive) {
-            if(p.devilDealsUsed >= 2) {
-                turnToGhost(uid);
-            } else {
-                if(uid === myUid) startDevilDeal(uid);
-                else appendChat(`😈 ${p.name} отправляется на Сделку с Дьяволом...`, 'death');
-            }
-        }
+    // Для ботов — лимит 2 сделки, для игроков — без лимита
+    if(p.isBot && p.devilDealsUsed >= 2) {
+        turnToGhost(uid);
+    } else {
+        if(uid === myUid) startDevilDeal(uid);
+        else appendChat(`😈 ${p.name} отправляется на Сделку с Дьяволом...`, 'death');
+    }
+}
     });
     const humans = Object.values(players).filter(p => p?.alive && !p.isGhost);
     if(humans.length === 1) {
@@ -812,6 +814,7 @@ function turnToGhost(uid) {
     appendChat(`👻 ${players[uid].name} стал призраком (лимит сделок исчерпан)!`, 'death');
     playSound('ghost');
     checkVengeance(uid);
+    renderUI(); // ДОБАВЛЕНО
 }
 
 function startDevilDeal(uid) {
@@ -871,28 +874,28 @@ function resolveDevilDeal(chosen) {
     else if(p.isBot && bots[p.id]?.difficulty === 2) isCorrect = (Math.random() < 0.7);
     else if(p.isBot && bots[p.id]?.difficulty === 1) isCorrect = (chosen === [realCount, realCount + 1, realCount - 1].sort()[1]);
     else if(p.isBot && bots[p.id]?.difficulty === 0) isCorrect = (Math.random() < 0.33);
-    if(isCorrect) {
-        const update = {
-            poisons: 2,
-            devilDealsUsed: (p.devilDealsUsed || 0) + 1,
-            artifact: null,
-            alive: true,
-            isGhost: false,
-            blood: 0,
-            cursed: false,
-            frozen: false,
-            defenderActive: false,
-            devilShield: false,
-            dice: Array(5).fill(0).map(() => Math.floor(Math.random() * 6) + 1)
-        };
-        roomRef.child('players').child(uid).update(update);
-        appendChat(`😈 ${p.name} ВЫИГРАЛ сделку! 2 яда, 1 жизнь`, 'system');
-        playSound('devilWin');
-    } else {
-        turnToGhost(uid);
-        appendChat(`😈 ${p.name} ПРОИГРАЛ сделку и стал ПРИЗРАКОМ!`, 'death');
-        playSound('devilLose');
-    }
+   if(isCorrect) {
+    const update = {
+        poisons: 2,
+        devilDealsUsed: p.isBot ? (p.devilDealsUsed || 0) + 1 : (p.devilDealsUsed || 0), // Для игроков не увеличиваем
+        artifact: null,
+        alive: true,
+        isGhost: false,
+        blood: 0,
+        cursed: false,
+        frozen: false,
+        defenderActive: false,
+        devilShield: false,
+        dice: Array(5).fill(0).map(() => Math.floor(Math.random() * 6) + 1)
+    };
+    roomRef.child('players').child(uid).update(update);
+    appendChat(`😈 ${p.name} ВЫИГРАЛ сделку! 2 яда, 1 жизнь`, 'system');
+    playSound('devilWin');
+} else {
+    turnToGhost(uid);
+    appendChat(`😈 ${p.name} ПРОИГРАЛ сделку и стал ПРИЗРАКОМ!`, 'death');
+    playSound('devilLose');
+}
     gameState = 'betting';
     devilDealData = null;
     roomRef.update({ state: 'betting', devilDealData: null });
