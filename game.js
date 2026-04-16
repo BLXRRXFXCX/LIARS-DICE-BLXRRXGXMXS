@@ -702,11 +702,15 @@ function resolveAccusation(accusedUid) {
         }
     }
     const el = e?.querySelectorAll('div').length || 0;
-    setTimeout(() => {
+        setTimeout(() => {
         const panel = document.getElementById('accusationPanel');
         if(panel) panel.style.display = 'none';
         gameState = 'betting';
-        roomRef.update({ state: 'betting' });
+        roomRef.update({ 
+            state: 'betting',
+            accusingData: null,
+            accusationResult: null 
+        });
         checkDeath();
         setTimeout(() => {
             startNewRound();
