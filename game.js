@@ -369,7 +369,7 @@ function updateLastBetDisplay() {
     if(!displayEl) return;
     if(lastBet && players[lastBet.player]) {
         const p = players[lastBet.player];
-        displayEl.textContent = `${p.name}: ${lastBet.count}×${getDieEmoji(lastBet.value)}`;
+        displayEl.innerHTML = `${p.name}: ${lastBet.count}×<span style="font-size:1.3em;">${getDieEmoji(lastBet.value)}</span>`;
     } else {
         displayEl.textContent = 'Последняя ставка: —';
     }
