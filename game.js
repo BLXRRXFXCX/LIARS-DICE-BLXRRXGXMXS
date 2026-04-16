@@ -254,9 +254,10 @@ if(gameState === 'accusing') {
     const panel = document.getElementById('accusationPanel');
     if(panel) panel.style.display = 'block';
     
-    // Заполняем данные для панели (если есть ставка)
-    if(lastBet && lastBet.player) {
-        const accused = players[lastBet.player];
+    // Получаем данные обвинения из Firebase
+    const accusingData = data.accusingData;
+    if(accusingData && lastBet) {
+        const accused = players[accusingData.accused];
         const phraseEl = document.getElementById('accusationPhrase');
         if(phraseEl && accused) {
             phraseEl.textContent = `${accused.name} обвинён в блефе! Проверка...`;
@@ -269,6 +270,20 @@ if(gameState === 'accusing') {
         const sm = Object.keys(ct).filter(k => ct[k] > 0).map(k => `${ct[k]}x${getDieEmoji(k)}`).join('  ');
         const summaryEl = document.getElementById('accusationDiceSummary');
         if(summaryEl) summaryEl.textContent = `📊 Всего на столе: ${sm || 'Нет кубиков'}`;
+    }
+    
+    // Показываем результаты, если они уже есть
+    const accusationResult = data.accusationResult;
+    if(accusationResult) {
+        const resultEl = document.getElementById('accusationResult');
+        const effectsEl = document.getElementById('accusationEffects');
+        if(resultEl) {
+            resultEl.textContent = accusationResult.resultText;
+            resultEl.className = accusationResult.resultClass;
+        }
+        if(effectsEl && accusationResult.effects) {
+            effectsEl.innerHTML = accusationResult.effects;
+        }
     }
 } else {
     // Если состояние не 'accusing' — скрываем панель
@@ -589,7 +604,15 @@ function accuse() {
     if(gameState !== 'betting') return;
     if(!lastBet || lastBet.player === myUid) return;
     gameState = 'accusing';
-    roomRef.update({ state: 'accusing' });
+roomRef.update({ 
+    state: 'accusing',
+    accusingData: {
+        accuser: myUid,
+        accused: lastBet.player,
+        bet: lastBet,
+        timestamp: Date.now()
+    }
+});
     const t = players[lastBet.player]?.name || 'Противник';
     const p = [
         `${myName} бьёт по столу: "${t}, ложь!"`,
