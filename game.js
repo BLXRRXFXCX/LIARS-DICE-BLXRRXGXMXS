@@ -195,6 +195,13 @@ function enterRoom(roomId) {
         myAvatar = localStorage.getItem('ld_avatar') || '🎲';
         myColor = localStorage.getItem('ld_color') || '#ffffff';
         localStorage.setItem('ld_myUid', myUid);
+        // Сброс временных данных при входе в новую комнату
+blood = 0;
+devilDealsUsed = 0;
+isGhost = false;
+usedSpecialThisRound = {};
+thiefUsedThisRound = false;
+sniperShotUsedThisRound = false;
     }
     isHost = true;
     const playerData = {
@@ -419,7 +426,6 @@ function renderPlayerList() {
         bs.textContent = p.lastBetInRound ? `${p.lastBetInRound.count}×${getDieEmoji(p.lastBetInRound.value)}` : '—';
         c.appendChild(i);
         c.appendChild(pd);
-        c.appendChild(bs);
         container.appendChild(c);
     });
 }
@@ -931,8 +937,8 @@ if(settings) {
             updates[`players/${uid}/forcedBluff`] = false;
             updates[`players/${uid}/cannotAccuse`] = false;
             updates[`players/${uid}/sniperShotUsedThisRound`] = false;
-            updates[`players/${uid}/poisons`] = 0;
             updates[`players/${uid}/blood`] = p.blood || 0;
+            updates[`players/${uid}/poisons`] = p.poisons;
         }
     });
     updates.round = roundNumber;
@@ -1192,6 +1198,7 @@ function botMakeDecision(botId) {
     appendChat(`🤖 ${bot.name} ставит ${newCount}×${getDieEmoji(newValue)}`, 'system');
     turnCounter++;
     nextTurn();
+    isBotThinking = false;
 }
 
 function getBestValue(dice) {
@@ -1415,17 +1422,13 @@ function botTurn(botId) {
             isBotThinking = false;
             return;
         }
-       if(bot.artifact && bot.artifact.type === 'active') {
-    botUseArtifact(botId);
-}
-// Убрать пустой блок и return
-        
-        if(bot.isGhost && botUseGhostAbility(botId)) {
-            isBotThinking = false;
-            return;
+        if(bot.artifact && bot.artifact.type === 'active') {
+            botUseArtifact(botId);
+        }
+        if(bot.isGhost) {
+            botUseGhostAbility(botId);
         }
         botMakeDecision(botId);
-        isBotThinking = false;
     }, delay);
 }
 
