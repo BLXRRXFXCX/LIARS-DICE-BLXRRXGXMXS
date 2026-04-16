@@ -644,7 +644,7 @@ roomRef.update({
 }
 
 function resolveAccusation(accusedUid) {
-    roomRef.update({ accusationResult: null });
+    roomRef.update({ accusationResult: null, accusingData: null });
     let totalDice = 0;
     let wildDieSaved = false;
     const tv = lastBet.value;
@@ -1442,7 +1442,18 @@ function botTurn(botId) {
     isBotThinking = true;
     let difficulty = bots[botId]?.difficulty ?? 2;
     let delay = [8000, 6000, 6000, 4000][difficulty] + Math.random() * 2000;
+    
+    // Принудительный сброс через 30 секунд (защита от зависания)
+    let safetyTimeout = setTimeout(() => {
+        if(isBotThinking) {
+            console.warn(`Бот ${botId} завис, принудительный сброс`);
+            isBotThinking = false;
+            botMakeDecision(botId);
+        }
+    }, 30000);
+    
     setTimeout(() => {
+        clearTimeout(safetyTimeout);
         if(gameState !== 'betting' || currentPlayerUid !== botId) {
             isBotThinking = false;
             return;
