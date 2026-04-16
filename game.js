@@ -1512,7 +1512,7 @@ function startVoteKick() {
         const w = Math.ceil((VOTE_COOLDOWN - (Date.now() - lastVoteEndTime)) / 1000);
         return showNotification(`Голосование доступно через ${w} сек`, 'warning');
     }
-    const tg = Object.keys(players).filter(u => u !== myUid && !players[u]?.isBot);
+    const tg = Object.keys(players).filter(u => u !== myUid && players[u]?.alive && !players[u]?.isBot);
     if(!tg.length) return showNotification('Нет других игроков для исключения!', 'warning');
     const ld = document.getElementById('voteTargetsList');
     if(!ld) return;
@@ -2207,10 +2207,10 @@ function bindEventListeners() {
         }
     };
     const menuKick = document.getElementById('menuKick');
-    if(menuKick) menuKick.onclick = () => {
-        startVoteKick();
-        if(dd) dd.style.display = 'none';
-    };
+if(menuKick) menuKick.onclick = () => {
+    startVoteKick();
+    if(dd) dd.style.display = 'none';
+};
     const menuSound = document.getElementById('menuSound');
     if(menuSound) menuSound.onclick = () => {
         soundEnabled = !soundEnabled;
