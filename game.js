@@ -1839,25 +1839,23 @@ function useArtifact(id) {
             });
             break;
         case 'double':
-            if(!lastBet) return showNotification('Нет ставок для копирования!', 'warning');
-            const td = Object.keys(players).filter(u => u !== myUid && players[u]?.lastBetInRound);
-            if(!td.length) return;
-            showTargetModal(td, t => {
-                let lb = players[t].lastBetInRound;
-                let nc = lb.count, nv = lb.value;
-                if(lastBet && (nc < lastBet.count || (nc === lastBet.count && nv <= lastBet.value))) {
-                    if(nc < Object.keys(players).filter(u => players[u]?.alive && !players[u]?.isGhost).length * 5) nc++;
-                    else { nv = Math.min(6, nv + 1); nc = 1; }
-                }
-                lastBet = { player: myUid, count: nc, value: nv };
-                players[myUid].lastBetInRound = lastBet;
-                roomRef.update({ lastBet: lastBet, turnCounter: turnCounter + 1 });
-                roomRef.child('players').child(myUid).update({ lastBetInRound: lastBet });
-                turnCounter++;
-                nextTurn();
-                appendChat(`🎭 ${m.name} использовал ДВОЙНИК! Скопирована ставка ${players[t].name}: ${nc}×${getDieEmoji(nv)}`, 'system');
-            });
-            break;
+    if(!lastBet) return showNotification('Нет ставок для копирования!', 'warning');
+    const td = Object.keys(players).filter(u => u !== myUid && players[u]?.lastBetInRound);
+    if(!td.length) return showNotification('Нет игроков с последней ставкой!', 'warning');
+    showTargetModal(td, t => {
+        let lb = players[t].lastBetInRound;
+        let nc = lb.count;
+        let nv = lb.value;
+        // КОПИРУЕМ СТАВКУ КАК ЕСТЬ, БЕЗ ПОВЫШЕНИЯ
+        lastBet = { player: myUid, count: nc, value: nv };
+        players[myUid].lastBetInRound = lastBet;
+        roomRef.update({ lastBet: lastBet, turnCounter: turnCounter + 1 });
+        roomRef.child('players').child(myUid).update({ lastBetInRound: lastBet });
+        turnCounter++;
+        nextTurn();
+        appendChat(`🎭 ${m.name} использовал ДВОЙНИК! Скопирована ставка ${players[t].name}: ${nc}×${getDieEmoji(nv)}`, 'system');
+    });
+    break;
         case 'evilEye':
             const te = Object.keys(players).filter(u => u !== myUid && players[u]?.alive && !players[u]?.isGhost && !players[u]?.evilEyed);
             if(!te.length) return;
