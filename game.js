@@ -195,13 +195,12 @@ function enterRoom(roomId) {
         myAvatar = localStorage.getItem('ld_avatar') || '🎲';
         myColor = localStorage.getItem('ld_color') || '#ffffff';
         localStorage.setItem('ld_myUid', myUid);
-        // Сброс временных данных при входе в новую комнату
-blood = 0;
-devilDealsUsed = 0;
-isGhost = false;
-usedSpecialThisRound = {};
-thiefUsedThisRound = false;
-sniperShotUsedThisRound = false;
+        blood = 0;
+        devilDealsUsed = 0;
+        isGhost = false;
+        usedSpecialThisRound = {};
+        thiefUsedThisRound = false;
+        sniperShotUsedThisRound = false;
     }
     isHost = true;
     const playerData = {
@@ -220,13 +219,11 @@ sniperShotUsedThisRound = false;
         devilDealsUsed: 0,
         connected: true,
         lastSeenTurn: 0,
-        maxLives: defaultLives
+        maxLives: defaultLives,
+        joinedAt: Date.now()
     };
     roomRef.child('players').child(myUid).set(playerData);
-    roomRef.child('players').child(myUid).onDisconnect().update({ connected: false });
-    setTimeout(() => {
-        roomRef.child('players').child(myUid).update({ connected: true });
-    }, 1000);
+    roomRef.child('players').child(myUid).onDisconnect().remove();
     setupRoomListeners();
     appendChat(`🎉 ${myName} вошёл в комнату ${roomId}`, 'system');
 }
@@ -235,78 +232,56 @@ function setupRoomListeners() {
     roomRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if(!data) return;
-        const hasPlayers = Object.values(data.players || {}).some(p => p?.connected === true);
-        if(!hasPlayers && gameState !== 'lobby') {
-            roomRef.update({ state: 'lobby', round: 0, lastBet: null, artifactHistory: [] });
-            appendChat('🔄 Комната сброшена (все игроки вышли)', 'system');
-        }
         players = data.players || {};
         gameState = data.state || 'lobby';
-        // Открываем/закрываем панель обвинения для всех игроков
-        // Синхронизируем настройки жизней из Firebase
-if(data.settings && data.settings.defaultLives) {
-    defaultLives = data.settings.defaultLives;
-    const menuLives = document.getElementById('menuLives');
-    if(menuLives) menuLives.textContent = `❤️ Жизни: ${defaultLives}`;
-}
-        
-if(gameState === 'accusing') {
-    const panel = document.getElementById('accusationPanel');
-    if(panel) panel.style.display = 'block';
-    
-    // Получаем данные обвинения из Firebase
-    const accusingData = data.accusingData;
-    if(accusingData && lastBet) {
-        const accused = players[accusingData.accused];
-        const phraseEl = document.getElementById('accusationPhrase');
-        if(phraseEl && accused) {
-            phraseEl.textContent = `${accused.name} обвинён в блефе! Проверка...`;
+        if(data.settings && data.settings.defaultLives) {
+            defaultLives = data.settings.defaultLives;
+            const menuLives = document.getElementById('menuLives');
+            if(menuLives) menuLives.textContent = `❤️ Жизни: ${defaultLives}`;
         }
-        // Показываем кубики на столе
-        let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
-        Object.values(players).forEach(p => {
-            if(p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d) || 1]++);
-        });
-        const sm = Object.keys(ct).filter(k => ct[k] > 0).map(k => `${ct[k]}x${getDieEmoji(k)}`).join('  ');
-        const summaryEl = document.getElementById('accusationDiceSummary');
-        if(summaryEl) summaryEl.textContent = `📊 Всего на столе: ${sm || 'Нет кубиков'}`;
-    }
-    
-    // Показываем результаты, если они уже есть
-    const accusationResult = data.accusationResult;
-    if(accusationResult) {
-        const resultEl = document.getElementById('accusationResult');
-        const effectsEl = document.getElementById('accusationEffects');
-        if(resultEl) {
-            resultEl.textContent = accusationResult.resultText;
-            resultEl.className = accusationResult.resultClass;
-        }
-        if(effectsEl && accusationResult.effects) {
-            effectsEl.innerHTML = accusationResult.effects;
-        }
-    }
-} else {
-    // Если состояние не 'accusing' — скрываем панель
-    const panel = document.getElementById('accusationPanel');
-    if(panel && panel.style.display === 'block') {
-        panel.style.display = 'none';
-    }
-}
         lastBet = data.lastBet || null;
         roundNumber = data.round || 0;
         artifactHistory = data.artifactHistory || [];
         turnCounter = data.turnCounter || 0;
-        const me = players[myUid];
-        if(me && me.connected === false && me.alive && !me.isGhost) {
-            const turnsMissed = turnCounter - (me.lastSeenTurn || 0);
-            if(turnsMissed >= 2) {
-                appendChat(`👻 Вы пропустили 2 хода и стали призраком`, 'death');
-                roomRef.child('players').child(myUid).update({ isGhost: true, alive: false, dice: [] });
-            } else {
-                appendChat(`✅ Вы вернулись в игру!`, 'system');
-                roomRef.child('players').child(myUid).update({ connected: true });
+        currentPlayerUid = data.currentPlayerUid || null;
+        
+        if(gameState === 'accusing') {
+            const panel = document.getElementById('accusationPanel');
+            if(panel) panel.style.display = 'block';
+            const accusingData = data.accusingData;
+            if(accusingData && lastBet) {
+                const accused = players[accusingData.accused];
+                const phraseEl = document.getElementById('accusationPhrase');
+                if(phraseEl && accused) {
+                    phraseEl.textContent = `${accused.name} обвинён в блефе! Проверка...`;
+                }
+                let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
+                Object.values(players).forEach(p => {
+                    if(p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d) || 1]++);
+                });
+                const sm = Object.keys(ct).filter(k => ct[k] > 0).map(k => `${ct[k]}x${getDieEmoji(k)}`).join('  ');
+                const summaryEl = document.getElementById('accusationDiceSummary');
+                if(summaryEl) summaryEl.textContent = `📊 Всего на столе: ${sm || 'Нет кубиков'}`;
+            }
+            const accusationResult = data.accusationResult;
+            if(accusationResult) {
+                const resultEl = document.getElementById('accusationResult');
+                const effectsEl = document.getElementById('accusationEffects');
+                if(resultEl) {
+                    resultEl.textContent = accusationResult.resultText;
+                    resultEl.className = accusationResult.resultClass;
+                }
+                if(effectsEl && accusationResult.effects) {
+                    effectsEl.innerHTML = accusationResult.effects;
+                }
+            }
+        } else {
+            const panel = document.getElementById('accusationPanel');
+            if(panel && panel.style.display === 'block') {
+                panel.style.display = 'none';
             }
         }
+        
         renderUI();
         if(gameState === 'betting' && currentPlayerUid && players[currentPlayerUid]?.isBot && currentPlayerUid !== myUid && !isBotThinking) {
             botTurn(currentPlayerUid);
@@ -323,12 +298,12 @@ if(gameState === 'accusing') {
             appendChat(`${msg.sender}: ${msg.text}`, msg.type || 'normal', myColor, myAvatar);
         }
     });
-roomRef.child('votes').on('value', (s) => {
-    const votes = s.val();
-    if(votes && currentVoteTarget && votes[currentVoteTarget]) {
-        updateVoteUI(votes[currentVoteTarget]);
-    }
-});    
+    roomRef.child('votes').on('value', (s) => {
+        const votes = s.val();
+        if(votes && currentVoteTarget && votes[currentVoteTarget]) {
+            updateVoteUI(votes[currentVoteTarget]);
+        }
+    });
 }
 
 function renderUI() {
@@ -380,7 +355,8 @@ function renderPlayerList() {
     if(!container) return;
     container.innerHTML = '';
     const cu = getCurrentPlayerUid();
-    Object.keys(players).forEach(uid => {
+    const sortedUids = Object.keys(players).sort((a, b) => (players[a].joinedAt || 0) - (players[b].joinedAt || 0));
+    sortedUids.forEach(uid => {
         const p = players[uid];
         if(!p) return;
         const c = document.createElement('div');
@@ -436,9 +412,6 @@ function renderPlayerList() {
                 pd.appendChild(sp);
             }
         }
-        const bs = document.createElement('span');
-        bs.className = 'player-last-bet';
-        bs.textContent = p.lastBetInRound ? `${p.lastBetInRound.count}×${getDieEmoji(p.lastBetInRound.value)}` : '—';
         c.appendChild(i);
         c.appendChild(pd);
         container.appendChild(c);
@@ -571,6 +544,7 @@ function isMyTurn() {
 
 function placeBet() {
     if(gameState !== 'betting') return;
+    if(!isMyTurn()) { showNotification('Сейчас не ваш ход!', 'warning'); return; }
     const c = parseInt(document.getElementById('betCount').value);
     const v = parseInt(document.getElementById('betValue').value);
     const m = players[myUid];
@@ -602,17 +576,18 @@ function placeBet() {
 
 function accuse() {
     if(gameState !== 'betting') return;
+    if(!isMyTurn()) { showNotification('Сейчас не ваш ход!', 'warning'); return; }
     if(!lastBet || lastBet.player === myUid) return;
     gameState = 'accusing';
-roomRef.update({ 
-    state: 'accusing',
-    accusingData: {
-        accuser: myUid,
-        accused: lastBet.player,
-        bet: lastBet,
-        timestamp: Date.now()
-    }
-});
+    roomRef.update({ 
+        state: 'accusing',
+        accusingData: {
+            accuser: myUid,
+            accused: lastBet.player,
+            bet: lastBet,
+            timestamp: Date.now()
+        }
+    });
     const t = players[lastBet.player]?.name || 'Противник';
     const p = [
         `${myName} бьёт по столу: "${t}, ложь!"`,
@@ -640,11 +615,10 @@ roomRef.update({
     if(panel) panel.style.display = 'block';
     playSound('accuse');
     if(accusationTimer) clearTimeout(accusationTimer);
-    accusationTimer = setTimeout(() => resolveAccusation(lastBet.player), 7000);
+    accusationTimer = setTimeout(() => resolveAccusation(lastBet.player), 3000);
 }
 
 function resolveAccusation(accusedUid) {
-    roomRef.update({ accusationResult: null, accusingData: null });
     let totalDice = 0;
     let wildDieSaved = false;
     const tv = lastBet.value;
@@ -667,21 +641,21 @@ function resolveAccusation(accusedUid) {
             r.className = 'accusation-result effect-green';
         }
         applyPoison(accusedUid, 1, 'Ложная ставка');
-        addEffectLine(`🔴 ${accused?.name || 'Цель'}: +1 яд`, e);
+        addEffectLine(`🔴 ${accused?.name || 'Цель'} получает +1 яд`, e);
         if(accused?.artifact?.id === 'bloodthirst') {
             applyBlood(myUid, 1);
             applyPoison(accusedUid, 2, 'Кровожадность');
-            addEffectLine(`🟢 ${myName}: +1 кровь | 🔴 ${accused.name}: +2 яда`, e);
+            addEffectLine(`🟢 ${myName} получает +1 кровь | 🔴 ${accused.name} получает +2 яда`, e);
         } else if(accused?.artifact?.id === 'deceiver') {
             applyPoison(myUid, 2, 'Обманщик');
-            addEffectLine(`🟣 ${accused.name}: Обманщик активирован | 🔴 ${myName}: +2 яда`, e);
+            addEffectLine(`🟣 ${accused.name}: Обманщик активирован | 🔴 ${myName} получает +2 яда`, e);
         } else if(accused?.darkPact) {
             applyPoison(accusedUid, 2, 'Тёмный Договор');
-            addEffectLine(`🟣 ${accused.name}: +2 яда (Договор)`, e);
+            addEffectLine(`🟣 ${accused.name} получает +2 яда (Договор)`, e);
         }
         if(wildDieSaved && !isLie) {
             applyPoison(myUid, 2, 'Дикий Кубик спас ставку');
-            addEffectLine(`🔵 Дикий Кубик сработал! +2 яда обвинителю`, e);
+            addEffectLine(`🔵 Дикий Кубик сработал! ${myName} получает +2 яда`, e);
         }
     } else {
         if(r) {
@@ -689,10 +663,10 @@ function resolveAccusation(accusedUid) {
             r.className = 'accusation-result effect-red';
         }
         applyPoison(myUid, 1, 'Ошибочное обвинение');
-        addEffectLine(`🔴 ${myName}: +1 яд`, e);
+        addEffectLine(`🔴 ${myName} получает +1 яд`, e);
         if(accused?.artifact?.id === 'bloodthirst') {
             applyBlood(accusedUid, 1);
-            addEffectLine(`🟢 ${accused.name}: +1 кровь`, e);
+            addEffectLine(`🟢 ${accused.name} получает +1 кровь`, e);
         }
         if(accused?.darkPact) {
             players[accusedUid].darkPact = false;
@@ -702,8 +676,16 @@ function resolveAccusation(accusedUid) {
             addEffectLine(`🟡 ${accused.name}: Тёмный Договор → щит на след. раунд`, e);
         }
     }
-    const el = e?.querySelectorAll('div').length || 0;
-        setTimeout(() => {
+    const effectsHTML = e?.innerHTML || '';
+    roomRef.update({ 
+        accusationResult: {
+            isLie: isLie,
+            effects: effectsHTML,
+            resultText: r?.textContent || '',
+            resultClass: r?.className || ''
+        }
+    });
+    setTimeout(() => {
         const panel = document.getElementById('accusationPanel');
         if(panel) panel.style.display = 'none';
         gameState = 'betting';
@@ -713,10 +695,8 @@ function resolveAccusation(accusedUid) {
             accusationResult: null 
         });
         checkDeath();
-        setTimeout(() => {
-            startNewRound();
-        }, 2500);
-    }, 7000 + (el * 3000));
+        startNewRound();
+    }, 2000);
 }
 
 function addEffectLine(t, c) {
@@ -748,6 +728,7 @@ function applyPoison(uid, amt, reason) {
         rem -= u;
         p.blood -= u;
         roomRef.child('players').child(uid).update({ blood: p.blood });
+        appendChat(`🩸 ${p.name} потратил ${u} крови`, 'system');
     }
     if(rem > 0) {
         p.poisons += rem;
@@ -775,14 +756,13 @@ function checkDeath() {
         if(!p || p.isGhost) return;
         const ml = p.maxLives || 3;
         if(p.poisons >= ml && p.alive) {
-    // Для ботов — лимит 2 сделки, для игроков — без лимита
-    if(p.isBot && p.devilDealsUsed >= 2) {
-        turnToGhost(uid);
-    } else {
-        if(uid === myUid) startDevilDeal(uid);
-        else appendChat(`😈 ${p.name} отправляется на Сделку с Дьяволом...`, 'death');
-    }
-}
+            if(p.isBot && p.devilDealsUsed >= 2) {
+                turnToGhost(uid);
+            } else {
+                if(uid === myUid) startDevilDeal(uid);
+                else appendChat(`😈 ${p.name} отправляется на Сделку с Дьяволом...`, 'death');
+            }
+        }
     });
     const humans = Object.values(players).filter(p => p?.alive && !p.isGhost);
     if(humans.length === 1) {
@@ -811,10 +791,10 @@ function turnToGhost(uid) {
         dice: []
     };
     roomRef.child('players').child(uid).update(update);
-    appendChat(`👻 ${players[uid].name} стал призраком (лимит сделок исчерпан)!`, 'death');
+    appendChat(`👻 ${players[uid].name} стал призраком!`, 'death');
     playSound('ghost');
     checkVengeance(uid);
-    renderUI(); // ДОБАВЛЕНО
+    renderUI();
 }
 
 function startDevilDeal(uid) {
@@ -874,28 +854,28 @@ function resolveDevilDeal(chosen) {
     else if(p.isBot && bots[p.id]?.difficulty === 2) isCorrect = (Math.random() < 0.7);
     else if(p.isBot && bots[p.id]?.difficulty === 1) isCorrect = (chosen === [realCount, realCount + 1, realCount - 1].sort()[1]);
     else if(p.isBot && bots[p.id]?.difficulty === 0) isCorrect = (Math.random() < 0.33);
-   if(isCorrect) {
-    const update = {
-        poisons: 2,
-        devilDealsUsed: p.isBot ? (p.devilDealsUsed || 0) + 1 : (p.devilDealsUsed || 0), // Для игроков не увеличиваем
-        artifact: null,
-        alive: true,
-        isGhost: false,
-        blood: 0,
-        cursed: false,
-        frozen: false,
-        defenderActive: false,
-        devilShield: false,
-        dice: Array(5).fill(0).map(() => Math.floor(Math.random() * 6) + 1)
-    };
-    roomRef.child('players').child(uid).update(update);
-    appendChat(`😈 ${p.name} ВЫИГРАЛ сделку! 2 яда, 1 жизнь`, 'system');
-    playSound('devilWin');
-} else {
-    turnToGhost(uid);
-    appendChat(`😈 ${p.name} ПРОИГРАЛ сделку и стал ПРИЗРАКОМ!`, 'death');
-    playSound('devilLose');
-}
+    if(isCorrect) {
+        const update = {
+            poisons: 2,
+            devilDealsUsed: p.isBot ? (p.devilDealsUsed || 0) + 1 : (p.devilDealsUsed || 0),
+            artifact: null,
+            alive: true,
+            isGhost: false,
+            blood: 0,
+            cursed: false,
+            frozen: false,
+            defenderActive: false,
+            devilShield: false,
+            dice: Array(5).fill(0).map(() => Math.floor(Math.random() * 6) + 1)
+        };
+        roomRef.child('players').child(uid).update(update);
+        appendChat(`😈 ${p.name} ВЫИГРАЛ сделку! 2 яда, 1 жизнь`, 'system');
+        playSound('devilWin');
+    } else {
+        turnToGhost(uid);
+        appendChat(`😈 ${p.name} ПРОИГРАЛ сделку и стал ПРИЗРАКОМ!`, 'death');
+        playSound('devilLose');
+    }
     gameState = 'betting';
     devilDealData = null;
     roomRef.update({ state: 'betting', devilDealData: null });
@@ -925,11 +905,11 @@ function checkVengeance(uid) {
 
 async function startNewRound() {
     const settingsSnapshot = await roomRef.child('settings').once('value');
-const settings = settingsSnapshot.val();
-if(settings) {
-    specialDiceEnabled = settings.specialDiceEnabled !== false;
-    if(settings.defaultLives) defaultLives = settings.defaultLives;
-}
+    const settings = settingsSnapshot.val();
+    if(settings) {
+        specialDiceEnabled = settings.specialDiceEnabled !== false;
+        if(settings.defaultLives) defaultLives = settings.defaultLives;
+    }
     if(gameState !== 'betting' && gameState !== 'lobby') return;
     const aliveCount = Object.keys(players).filter(u => players[u]?.alive && !players[u]?.isGhost).length;
     const botCountTotal = Object.keys(players).filter(u => players[u]?.isBot).length;
@@ -977,14 +957,16 @@ if(settings) {
     updates.turnCounter = turnCounter;
     updates.artifactHistory = artifactHistory;
     const aliveUids = Object.keys(players).filter(u => players[u]?.alive && !players[u]?.isGhost);
-    if(aliveUids.length) updates.currentPlayerUid = aliveUids[0];
+    if(aliveUids.length) {
+        updates.currentPlayerUid = aliveUids[0];
+        currentPlayerUid = aliveUids[0];
+    }
     roomRef.update(updates);
     appendChat(`🎲 === РАУНД ${roundNumber} НАЧАЛСЯ! ===`, 'system');
     playSound('round');
-    if(aliveUids.length && players[aliveUids[0]]?.isBot && aliveUids[0] !== myUid) {
-    currentPlayerUid = aliveUids[0];
-    botTurn(aliveUids[0]);
-}
+    if(currentPlayerUid && players[currentPlayerUid]?.isBot && currentPlayerUid !== myUid && !isBotThinking) {
+        botTurn(currentPlayerUid);
+    }
 }
 
 function nextTurn() {
@@ -1050,7 +1032,8 @@ function addBot() {
         cannotAccuse: false,
         sniperShotUsedThisRound: false,
         familiarCursed: false,
-        usedAbilities: {}
+        usedAbilities: {},
+        joinedAt: Date.now()
     };
     bots[botId] = { difficulty: botDifficulty, knownDice: {} };
     roomRef.child('players').child(botId).set(botData);
@@ -1072,6 +1055,7 @@ function removeAllBots() {
         }
     });
     bots = {};
+    expertKnownDice = {};
     appendChat(`🤖 Все боты удалены`, 'system');
 }
 
@@ -1442,16 +1426,12 @@ function botTurn(botId) {
     isBotThinking = true;
     let difficulty = bots[botId]?.difficulty ?? 2;
     let delay = [8000, 6000, 6000, 4000][difficulty] + Math.random() * 2000;
-    
-    // Принудительный сброс через 30 секунд (защита от зависания)
     let safetyTimeout = setTimeout(() => {
         if(isBotThinking) {
             console.warn(`Бот ${botId} завис, принудительный сброс`);
             isBotThinking = false;
-            botMakeDecision(botId);
         }
     }, 30000);
-    
     setTimeout(() => {
         clearTimeout(safetyTimeout);
         if(gameState !== 'betting' || currentPlayerUid !== botId) {
@@ -1526,8 +1506,8 @@ function startVoteKick() {
         const w = Math.ceil((VOTE_COOLDOWN - (Date.now() - lastVoteEndTime)) / 1000);
         return showNotification(`Голосование доступно через ${w} сек`, 'warning');
     }
-    const tg = Object.keys(players).filter(u => u !== myUid && players[u]?.alive && !players[u]?.isBot);
-    if(!tg.length) return showNotification('Нет других игроков для исключения!', 'warning');
+    const tg = Object.keys(players).filter(u => u !== myUid && !players[u]?.isBot && players[u]?.alive);
+    if(!tg.length) return showNotification('Нет других живых игроков для исключения!', 'warning');
     const ld = document.getElementById('voteTargetsList');
     if(!ld) return;
     ld.innerHTML = '';
@@ -1577,6 +1557,14 @@ function castVote(v) {
     showNotification(`Голос принят: ${v === 'yes' ? 'ЗА' : 'ПРОТИВ'}`, 'info');
 }
 
+function updateVoteUI(vd) {
+    if(!vd) return;
+    const yes = Object.values(vd.votes || {}).filter(v => v === 'yes').length;
+    const no = Object.values(vd.votes || {}).filter(v => v === 'no').length;
+    const resultDiv = document.getElementById('voteResult');
+    if(resultDiv) resultDiv.textContent = `✅ ЗА: ${yes} | ❌ ПРОТИВ: ${no}`;
+}
+
 function resolveVote(tu) {
     document.getElementById('modalVote').style.display = 'none';
     roomRef.child('votes').child(tu).once('value', (s) => {
@@ -1588,6 +1576,7 @@ function resolveVote(tu) {
             if(v === 'yes') yes++;
             if(v === 'no') no++;
         });
+        if(votes[tu] === 'yes') yes--;
         const total = yes + no;
         const kicked = total > 0 && yes > total / 2;
         if(kicked && players[tu]) {
@@ -1737,6 +1726,10 @@ function useGhostAbility(id) {
 
 function useArtifact(id) {
     if(gameState !== 'betting') return;
+    if(!isMyTurn()) {
+        showNotification('Артефакт можно использовать только в свой ход!', 'warning');
+        return;
+    }
     const m = players[myUid];
     const art = ARTIFACTS.find(a => a.id === id);
     if(!art || (art.type === 'active' && usedSpecialThisRound[id])) return;
@@ -1744,8 +1737,7 @@ function useArtifact(id) {
         case 'target':
             showTargetModalFirst(Object.keys(players).filter(u => u !== myUid && players[u]?.alive && !players[u]?.isGhost), (target) => {
                 showNominalModal((nominal) => {
-                    const tg = [target];
-                    const t = tg[0];
+                    const t = target;
                     if(players[t].dice.length <= 1) {
                         showNotification('Нельзя уничтожить последний кубик!', 'warning');
                         return;
@@ -1802,7 +1794,7 @@ function useArtifact(id) {
             roomRef.update({ lastBet: lastBet, turnCounter: turnCounter + 1 });
             roomRef.child('players').child(myUid).update({ lastBetInRound: lastBet });
             turnCounter++;
-            nextTurn();
+            renderUI();
             break;
         case 'clone':
             const tc = Object.keys(players).filter(u => u !== myUid && players[u]?.alive && !players[u]?.isGhost);
@@ -1853,23 +1845,22 @@ function useArtifact(id) {
             });
             break;
         case 'double':
-    if(!lastBet) return showNotification('Нет ставок для копирования!', 'warning');
-    const td = Object.keys(players).filter(u => u !== myUid && players[u]?.lastBetInRound);
-    if(!td.length) return showNotification('Нет игроков с последней ставкой!', 'warning');
-    showTargetModal(td, t => {
-        let lb = players[t].lastBetInRound;
-        let nc = lb.count;
-        let nv = lb.value;
-        // КОПИРУЕМ СТАВКУ КАК ЕСТЬ, БЕЗ ПОВЫШЕНИЯ
-        lastBet = { player: myUid, count: nc, value: nv };
-        players[myUid].lastBetInRound = lastBet;
-        roomRef.update({ lastBet: lastBet, turnCounter: turnCounter + 1 });
-        roomRef.child('players').child(myUid).update({ lastBetInRound: lastBet });
-        turnCounter++;
-        nextTurn();
-        appendChat(`🎭 ${m.name} использовал ДВОЙНИК! Скопирована ставка ${players[t].name}: ${nc}×${getDieEmoji(nv)}`, 'system');
-    });
-    break;
+            if(!lastBet) return showNotification('Нет ставок для копирования!', 'warning');
+            const td = Object.keys(players).filter(u => u !== myUid && players[u]?.lastBetInRound);
+            if(!td.length) return showNotification('Нет игроков с последней ставкой!', 'warning');
+            showTargetModal(td, t => {
+                let lb = players[t].lastBetInRound;
+                let nc = lb.count;
+                let nv = lb.value;
+                lastBet = { player: myUid, count: nc, value: nv };
+                players[myUid].lastBetInRound = lastBet;
+                roomRef.update({ lastBet: lastBet, turnCounter: turnCounter + 1 });
+                roomRef.child('players').child(myUid).update({ lastBetInRound: lastBet });
+                turnCounter++;
+                renderUI();
+                appendChat(`🎭 ${m.name} использовал ДВОЙНИК! Скопирована ставка ${players[t].name}: ${nc}×${getDieEmoji(nv)}`, 'system');
+            });
+            break;
         case 'evilEye':
             const te = Object.keys(players).filter(u => u !== myUid && players[u]?.alive && !players[u]?.isGhost && !players[u]?.evilEyed);
             if(!te.length) return;
@@ -2116,6 +2107,8 @@ function resetGame() {
             updates[`players/${uid}/familiarCursed`] = false;
             updates[`players/${uid}/usedAbilities`] = {};
             updates[`players/${uid}/devilDealsUsed`] = 0;
+            updates[`players/${uid}/thiefUsedThisRound`] = false;
+            updates[`players/${uid}/sniperShotUsedThisRound`] = false;
             if(p.isBot) updates[`players/${uid}/botDifficulty`] = botDifficulty;
         }
     });
@@ -2219,10 +2212,10 @@ function bindEventListeners() {
         }
     };
     const menuKick = document.getElementById('menuKick');
-if(menuKick) menuKick.onclick = () => {
-    startVoteKick();
-    if(dd) dd.style.display = 'none';
-};
+    if(menuKick) menuKick.onclick = () => {
+        startVoteKick();
+        if(dd) dd.style.display = 'none';
+    };
     const menuSound = document.getElementById('menuSound');
     if(menuSound) menuSound.onclick = () => {
         soundEnabled = !soundEnabled;
@@ -2237,23 +2230,20 @@ if(menuKick) menuKick.onclick = () => {
         roomRef.child('settings').update({ specialDiceEnabled: specialDiceEnabled });
         if(dd) dd.style.display = 'none';
     };
-   const menuLives = document.getElementById('menuLives');
-if(menuLives) menuLives.onclick = () => {
-    if(gameState !== 'lobby') return showNotification('Только в лобби!', 'warning');
-    const o = [3,4,5,6,2];
-    defaultLives = o[(o.indexOf(defaultLives) + 1) % o.length];
-    menuLives.textContent = `❤️ Жизни: ${defaultLives}`;
-    // СОХРАНЯЕМ В FIREBASE
-    roomRef.child('settings').update({ defaultLives: defaultLives });
-    // ОБНОВЛЯЕМ У ВСЕХ ИГРОКОВ В ЛОББИ
-    Object.keys(players).forEach(uid => {
-        if(players[uid] && !players[uid].isBot) {
-            roomRef.child('players').child(uid).update({ maxLives: defaultLives });
-        }
-    });
-    if(dd) dd.style.display = 'none';
-};
-    
+    const menuLives = document.getElementById('menuLives');
+    if(menuLives) menuLives.onclick = () => {
+        if(gameState !== 'lobby') return showNotification('Только в лобби!', 'warning');
+        const o = [3,4,5,6,2];
+        defaultLives = o[(o.indexOf(defaultLives) + 1) % o.length];
+        menuLives.textContent = `❤️ Жизни: ${defaultLives}`;
+        roomRef.child('settings').update({ defaultLives: defaultLives });
+        Object.keys(players).forEach(uid => {
+            if(players[uid] && !players[uid].isBot) {
+                roomRef.child('players').child(uid).update({ maxLives: defaultLives });
+            }
+        });
+        if(dd) dd.style.display = 'none';
+    };
     const btnStartGame = document.getElementById('btnStartGame');
     if(btnStartGame) btnStartGame.onclick = () => {
         if(gameState !== 'lobby') {
