@@ -625,29 +625,43 @@ function accuse() {
 
 function resolveAccusation(accusedUid) {
     roomRef.update({ accusationResult: null, accusingData: null });
-    let totalDice = 0;
-    let wildDieSaved = false;
     const tv = lastBet.value;
     const accused = players[accusedUid];
+    
+    // 1. Считаем количество кубиков БЕЗ учёта дикого кубика
+    let totalDiceWithoutWild = 0;
     Object.values(players).forEach(p => {
         if(!p?.alive || p.isGhost) return;
-        p.dice.forEach(d => { if(parseInt(d) === tv) totalDice++; });
+        p.dice.forEach(d => { if(parseInt(d) === tv) totalDiceWithoutWild++; });
     });
+    
+    // 2. Определяем, была ли ставка ложной без дикого кубика
+    let isLieWithoutWild = totalDiceWithoutWild < lastBet.count;
+    
+    // 3. Добавляем дикий кубик (если есть)
+    let wildDieSaved = false;
+    let totalDice = totalDiceWithoutWild;
     if(accused?.artifact?.id === 'wildDie') {
         totalDice++;
         wildDieSaved = true;
     }
+    
+    // 4. Итоговая правдивость ставки
     let isLie = totalDice < lastBet.count;
     if(accused?.cursed || accused?.familiarCursed) isLie = true;
+    
     const r = document.getElementById('accusationResult');
     const e = document.getElementById('accusationEffects');
+    
     if(isLie) {
+        // СТАВКА ЛОЖНАЯ
         if(r) {
             r.textContent = '✅ ЛОЖНАЯ СТАВКА!';
             r.className = 'accusation-result effect-green';
         }
         applyPoison(accusedUid, 1, 'Ложная ставка');
         addEffectLine(`🔴 ${accused?.name || 'Цель'} получает +1 яд`, e);
+        
         if(accused?.artifact?.id === 'bloodthirst') {
             applyBlood(myUid, 1);
             applyPoison(accusedUid, 2, 'Кровожадность');
@@ -659,17 +673,22 @@ function resolveAccusation(accusedUid) {
             applyPoison(accusedUid, 1, 'Тёмный Договор (доп. яд)');
             addEffectLine(`🟣 ${accused.name}: Тёмный Договор → +1 доп. яд (всего +2)`, e);
         }
-        if(wildDieSaved && !isLie) {
+        
+        // ДИКИЙ КУБИК: если без него ставка была ложной, а с ним стала правдивой
+        // то обвинитель получает +2 яда (ошибка + артефакт)
+        if(wildDieSaved && isLieWithoutWild && !isLie) {
             applyPoison(myUid, 2, 'Дикий Кубик спас ставку');
-            addEffectLine(`🔵 Дикий Кубик сработал! ${myName} получает +2 яда`, e);
+            addEffectLine(`🔵 Дикий Кубик сработал! ${myName} получает +2 яда (ошибка + артефакт)`, e);
         }
     } else {
+        // СТАВКА ПРАВДИВАЯ
         if(r) {
             r.textContent = '❌ ПРАВДИВАЯ СТАВКА!';
             r.className = 'accusation-result effect-red';
         }
         applyPoison(myUid, 1, 'Ошибочное обвинение');
         addEffectLine(`🔴 ${myName} получает +1 яд`, e);
+        
         if(accused?.artifact?.id === 'bloodthirst') {
             applyBlood(accusedUid, 1);
             addEffectLine(`🟢 ${accused.name} получает +1 кровь`, e);
@@ -682,6 +701,7 @@ function resolveAccusation(accusedUid) {
             addEffectLine(`🟡 ${accused.name}: Тёмный Договор → щит на след. раунд`, e);
         }
     }
+    
     const effectsHTML = e?.innerHTML || '';
     roomRef.update({ 
         accusationResult: {
@@ -691,6 +711,7 @@ function resolveAccusation(accusedUid) {
             resultClass: r?.className || ''
         }
     });
+    
     setTimeout(() => {
         const panel = document.getElementById('accusationPanel');
         if(panel) panel.style.display = 'none';
@@ -1449,12 +1470,18 @@ function botTurn(botId) {
     isBotThinking = true;
     let difficulty = bots[botId]?.difficulty ?? 2;
     let delay = [8000, 6000, 6000, 4000][difficulty] + Math.random() * 2000;
+    // Максимальное время на ход бота — 12 секунд (12000 мс)
+    let maxDelay = 12000;
+    
     let safetyTimeout = setTimeout(() => {
         if(isBotThinking) {
-            console.warn(`Бот ${botId} завис, принудительный сброс`);
+            console.warn(`Бот ${botId} завис, принудительный сброс и передача хода`);
             isBotThinking = false;
+            // Принудительно передаём ход следующему игроку
+            nextTurn();
         }
-    }, 30000);
+    }, maxDelay);
+    
     setTimeout(() => {
         clearTimeout(safetyTimeout);
         if(gameState !== 'betting' || currentPlayerUid !== botId) {
@@ -1464,6 +1491,7 @@ function botTurn(botId) {
         let bot = players[botId];
         if(!bot || bot.isGhost) {
             isBotThinking = false;
+            nextTurn();
             return;
         }
         if(bot.artifact && bot.artifact.type === 'active') {
@@ -1473,7 +1501,7 @@ function botTurn(botId) {
             botUseGhostAbility(botId);
         }
         botMakeDecision(botId);
-    }, delay);
+    }, Math.min(delay, maxDelay - 1000));
 }
 
 function accuseFromBot(botId) {
