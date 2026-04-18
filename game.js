@@ -335,8 +335,10 @@ function getCurrentPlayerName() {
 function getCurrentPlayerUid() {
     const au = Object.keys(players).filter(u => players[u]?.alive && !players[u]?.isGhost);
     if(!au.length) return null;
-    const li = au.indexOf(lastBet?.player);
-    return au[(li + 1) % au.length];
+    au.sort((a, b) => (players[a].joinedAt || 0) - (players[b].joinedAt || 0));
+    if(!lastBet || !lastBet.player) return au[0];
+    const currentIndex = au.indexOf(lastBet.player);
+    return au[(currentIndex + 1) % au.length];
 }
 
 function updateLastBetDisplay() {
@@ -538,8 +540,11 @@ function isMyTurn() {
     if(isGhost || gameState !== 'betting') return false;
     const au = Object.keys(players).filter(u => players[u]?.alive && !players[u]?.isGhost);
     if(!au.length) return false;
-    const li = au.indexOf(lastBet?.player);
-    return au.indexOf(myUid) === (li + 1) % au.length;
+    au.sort((a, b) => (players[a].joinedAt || 0) - (players[b].joinedAt || 0));
+    if(!lastBet || !lastBet.player) return au[0] === myUid;
+    const currentIndex = au.indexOf(lastBet.player);
+    const nextPlayer = au[(currentIndex + 1) % au.length];
+    return nextPlayer === myUid;
 }
 
 function placeBet() {
@@ -651,8 +656,8 @@ function resolveAccusation(accusedUid) {
             applyPoison(myUid, 2, 'Обманщик');
             addEffectLine(`🟣 ${accused.name}: Обманщик активирован | 🔴 ${myName} получает +2 яда`, e);
         } else if(accused?.darkPact) {
-            applyPoison(accusedUid, 2, 'Тёмный Договор');
-            addEffectLine(`🟣 ${accused.name} получает +2 яда (Договор)`, e);
+            applyPoison(accusedUid, 1, 'Тёмный Договор (доп. яд)');
+            addEffectLine(`🟣 ${accused.name}: Тёмный Договор → +1 доп. яд (всего +2)`, e);
         }
         if(wildDieSaved && !isLie) {
             applyPoison(myUid, 2, 'Дикий Кубик спас ставку');
@@ -761,7 +766,7 @@ function checkDeath() {
                 turnToGhost(uid);
             } else {
                 if(uid === myUid) startDevilDeal(uid);
-                else appendChat(`😈 ${p.name} отправляется на Сделку с Дьяволом...`, 'death');
+                else if(!p.isBot) appendChat(`😈 ${p.name} отправляется на Сделку с Дьяволом...`, 'death');
             }
         }
     });
@@ -796,6 +801,10 @@ function turnToGhost(uid) {
     playSound('ghost');
     checkVengeance(uid);
     renderUI();
+    if(uid === myUid) {
+        document.getElementById('ghostAbilitiesPanel').style.display = 'flex';
+        updateGhostButtons();
+    }
 }
 
 function startDevilDeal(uid) {
@@ -870,6 +879,7 @@ function resolveDevilDeal(chosen) {
             dice: Array(5).fill(0).map(() => Math.floor(Math.random() * 6) + 1)
         };
         roomRef.child('players').child(uid).update(update);
+        renderUI();
         appendChat(`😈 ${p.name} ВЫИГРАЛ сделку! 2 яда, 1 жизнь`, 'system');
         playSound('devilWin');
     } else {
@@ -959,8 +969,18 @@ async function startNewRound() {
     updates.artifactHistory = artifactHistory;
     const aliveUids = Object.keys(players).filter(u => players[u]?.alive && !players[u]?.isGhost);
     if(aliveUids.length) {
-        updates.currentPlayerUid = aliveUids[0];
-        currentPlayerUid = aliveUids[0];
+        aliveUids.sort((a, b) => (players[a].joinedAt || 0) - (players[b].joinedAt || 0));
+        if(lastBet && lastBet.player) {
+            const lastPlayerIndex = aliveUids.indexOf(lastBet.player);
+            if(lastPlayerIndex !== -1) {
+                updates.currentPlayerUid = aliveUids[(lastPlayerIndex + 1) % aliveUids.length];
+            } else {
+                updates.currentPlayerUid = aliveUids[0];
+            }
+        } else {
+            updates.currentPlayerUid = aliveUids[0];
+        }
+        currentPlayerUid = updates.currentPlayerUid;
     }
     roomRef.update(updates);
     appendChat(`🎲 === РАУНД ${roundNumber} НАЧАЛСЯ! ===`, 'system');
@@ -974,6 +994,7 @@ function nextTurn() {
     if(gameState !== 'betting') return;
     const aliveUids = Object.keys(players).filter(uid => players[uid]?.alive && !players[uid]?.isGhost);
     if(aliveUids.length === 0) return;
+    aliveUids.sort((a, b) => (players[a].joinedAt || 0) - (players[b].joinedAt || 0));
     let idx = aliveUids.indexOf(currentPlayerUid);
     let nextIdx = (idx + 1) % aliveUids.length;
     currentPlayerUid = aliveUids[nextIdx];
@@ -1480,7 +1501,7 @@ function accuseFromBot(botId) {
         } else if(accused?.artifact?.id === 'deceiver') {
             applyPoison(botId, 2, 'Обманщик (бот)');
         } else if(accused?.darkPact) {
-            applyPoison(accusedUid, 2, 'Тёмный Договор (бот)');
+            applyPoison(accusedUid, 1, 'Тёмный Договор (бот)');
         }
         if(wildDieSaved && !isLie) {
             applyPoison(botId, 2, 'Дикий Кубик спас ставку (бот)');
@@ -1732,7 +1753,6 @@ function useArtifact(id) {
     const art = ARTIFACTS.find(a => a.id === id);
     if(!art || (art.type === 'active' && usedSpecialThisRound[id])) return;
     
-    // Только артефакты, которые делают ставку, требуют свой ход
     const bettingArtifacts = ['deceiver', 'double'];
     if(bettingArtifacts.includes(id) && !isMyTurn()) {
         showNotification('Этот артефакт можно использовать только в свой ход!', 'warning');
@@ -1782,12 +1802,10 @@ function useArtifact(id) {
             break;
         case 'thief':
             if(thiefUsedThisRound) return showNotification('Вор уже использован в этом раунде!', 'warning');
-            // Ищем только игроков с НЕИСПОЛЬЗОВАННЫМИ активными артефактами
             const tt = Object.keys(players).filter(u => u !== myUid && players[u]?.artifact && players[u].artifact.type === 'active' && !usedSpecialThisRound[players[u].artifact.id]);
             if(!tt.length) return showNotification('Нет доступных для кражи неиспользованных артефактов!', 'warning');
             showTargetModal(tt, t => {
                 const st = players[t].artifact;
-                // Помечаем украденный артефакт как неиспользованный для нового владельца
                 if(usedSpecialThisRound[st.id]) delete usedSpecialThisRound[st.id];
                 roomRef.child('players').child(myUid).update({ artifact: st, usedSpecialThisRound: usedSpecialThisRound });
                 roomRef.child('players').child(t).update({ artifact: null });
