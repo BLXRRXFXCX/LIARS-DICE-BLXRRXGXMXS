@@ -619,6 +619,7 @@ function accuse() {
 }
 
 function resolveAccusation(accusedUid) {
+    roomRef.update({ accusationResult: null, accusingData: null });
     let totalDice = 0;
     let wildDieSaved = false;
     const tv = lastBet.value;
@@ -1263,7 +1264,7 @@ function botUseArtifact(botId) {
             if(bot.poisons > 0) bestTarget = botId;
             else bestTarget = targets.find(u => players[u].poisons > 0) || null;
         } else if(art.id === 'thief') {
-            let withArt = targets.filter(u => players[u].artifact);
+            let withArt = targets.filter(u => players[u].artifact && players[u].artifact.type === 'active' && !usedSpecialThisRound[players[u].artifact.id]);
             if(withArt.length) bestTarget = withArt[0];
         } else if(art.id === 'double') {
             let withLastBet = targets.filter(u => players[u].lastBetInRound);
@@ -1296,7 +1297,8 @@ function botUseArtifact(botId) {
         appendChat(`🤖 ${bot.name} использовал ${art.name}`, 'system');
     } else if(art.id === 'thief' && bestTarget && players[bestTarget].artifact) {
         let stolen = players[bestTarget].artifact;
-        roomRef.child('players').child(botId).update({ artifact: stolen });
+        if(usedSpecialThisRound[stolen.id]) delete usedSpecialThisRound[stolen.id];
+        roomRef.child('players').child(botId).update({ artifact: stolen, usedSpecialThisRound: usedSpecialThisRound });
         roomRef.child('players').child(bestTarget).update({ artifact: null });
         appendChat(`🤖 ${bot.name} украл ${stolen.emoji} у ${players[bestTarget].name}`, 'system');
     } else if(art.id === 'curse' && bestTarget) {
@@ -1726,13 +1728,17 @@ function useGhostAbility(id) {
 
 function useArtifact(id) {
     if(gameState !== 'betting') return;
-    if(!isMyTurn()) {
-        showNotification('Артефакт можно использовать только в свой ход!', 'warning');
-        return;
-    }
     const m = players[myUid];
     const art = ARTIFACTS.find(a => a.id === id);
     if(!art || (art.type === 'active' && usedSpecialThisRound[id])) return;
+    
+    // Только артефакты, которые делают ставку, требуют свой ход
+    const bettingArtifacts = ['deceiver', 'double'];
+    if(bettingArtifacts.includes(id) && !isMyTurn()) {
+        showNotification('Этот артефакт можно использовать только в свой ход!', 'warning');
+        return;
+    }
+    
     switch(id) {
         case 'target':
             showTargetModalFirst(Object.keys(players).filter(u => u !== myUid && players[u]?.alive && !players[u]?.isGhost), (target) => {
@@ -1776,11 +1782,14 @@ function useArtifact(id) {
             break;
         case 'thief':
             if(thiefUsedThisRound) return showNotification('Вор уже использован в этом раунде!', 'warning');
-            const tt = Object.keys(players).filter(u => u !== myUid && players[u]?.artifact);
-            if(!tt.length) return showNotification('Не у кого красть!', 'warning');
+            // Ищем только игроков с НЕИСПОЛЬЗОВАННЫМИ активными артефактами
+            const tt = Object.keys(players).filter(u => u !== myUid && players[u]?.artifact && players[u].artifact.type === 'active' && !usedSpecialThisRound[players[u].artifact.id]);
+            if(!tt.length) return showNotification('Нет доступных для кражи неиспользованных артефактов!', 'warning');
             showTargetModal(tt, t => {
                 const st = players[t].artifact;
-                roomRef.child('players').child(myUid).update({ artifact: st });
+                // Помечаем украденный артефакт как неиспользованный для нового владельца
+                if(usedSpecialThisRound[st.id]) delete usedSpecialThisRound[st.id];
+                roomRef.child('players').child(myUid).update({ artifact: st, usedSpecialThisRound: usedSpecialThisRound });
                 roomRef.child('players').child(t).update({ artifact: null });
                 thiefUsedThisRound = true;
                 appendChat(`🥷 ${m.name} украл ${st.emoji} у ${players[t].name}!`, 'system');
