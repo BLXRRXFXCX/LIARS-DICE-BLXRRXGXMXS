@@ -946,6 +946,10 @@ async function startNewRound() {
     const aliveCount = Object.keys(players).filter(u => players[u]?.alive && !players[u]?.isGhost).length;
     const botCountTotal = Object.keys(players).filter(u => players[u]?.isBot).length;
     if(aliveCount < 2 && botCountTotal === 0) return;
+    
+    // СОХРАНЯЕМ ПОСЛЕДНЮЮ СТАВКУ ДО ТОГО, КАК ОНА БУДЕТ ОБНУЛЕНА
+    const lastBetCopy = lastBet;
+    
     roundNumber++;
     turnCounter++;
     thiefUsedThisRound = false;
@@ -953,6 +957,7 @@ async function startNewRound() {
     usedSpecialThisRound = {};
     spyMemory = {};
     const updates = {};
+    
     Object.keys(players).forEach(uid => {
         const p = players[uid];
         if(p?.alive && !p.isGhost) {
@@ -981,18 +986,22 @@ async function startNewRound() {
             updates[`players/${uid}/sniperShotUsedThisRound`] = false;
             updates[`players/${uid}/blood`] = p.blood || 0;
             updates[`players/${uid}/poisons`] = p.poisons;
+            updates[`players/${uid}/maxLives`] = p.maxLives || defaultLives;
         }
     });
+    
     updates.round = roundNumber;
     updates.state = 'betting';
-    updates.lastBet = null;
+    updates.lastBet = null;  // ОБНУЛЯЕМ СТАВКУ
     updates.turnCounter = turnCounter;
     updates.artifactHistory = artifactHistory;
+    
+    // ОПРЕДЕЛЯЕМ, КТО НАЧИНАЕТ РАУНД (ИСПОЛЬЗУЯ СОХРАНЁННУЮ КОПИЮ lastBetCopy)
     const aliveUids = Object.keys(players).filter(u => players[u]?.alive && !players[u]?.isGhost);
     if(aliveUids.length) {
         aliveUids.sort((a, b) => (players[a].joinedAt || 0) - (players[b].joinedAt || 0));
-        if(lastBet && lastBet.player) {
-            const lastPlayerIndex = aliveUids.indexOf(lastBet.player);
+        if(lastBetCopy && lastBetCopy.player) {
+            const lastPlayerIndex = aliveUids.indexOf(lastBetCopy.player);
             if(lastPlayerIndex !== -1) {
                 updates.currentPlayerUid = aliveUids[(lastPlayerIndex + 1) % aliveUids.length];
             } else {
@@ -1003,6 +1012,7 @@ async function startNewRound() {
         }
         currentPlayerUid = updates.currentPlayerUid;
     }
+    
     roomRef.update(updates);
     appendChat(`🎲 === РАУНД ${roundNumber} НАЧАЛСЯ! ===`, 'system');
     playSound('round');
