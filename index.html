@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>LIAR'S DICE — Firebase</title>
+<title>LIAR'S DICE — v8.5</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-database-compat.js"></script>
@@ -13,11 +13,17 @@ body{font-family:'Press Start 2P',cursive;margin:0;padding:0;background:linear-g
 @keyframes gradientBG{0%{background-position:0% 50%}25%{background-position:50% 75%}50%{background-position:100% 50%}75%{background-position:50% 25%}100%{background-position:0% 50%}}
 ::-webkit-scrollbar{width:8px;height:8px}::-webkit-scrollbar-track{background:rgba(0,0,0,0.2);border-radius:4px}::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.3);border-radius:4px}
 .no-select{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none}
-body.lobby{background:linear-gradient(135deg,#ffcc00,#4caf50,#ffcc00);background-size:400% 400%;animation:lobbyGrad 15s ease infinite}@keyframes lobbyGrad{0%{background-position:0% 50%}25%{background-position:50% 75%}50%{background-position:100% 50%}75%{background-position:50% 25%}100%{background-position:0% 50%}}
-body.playing{background:linear-gradient(135deg,#1e3c72,#2a5298,#1e3c72);background-size:400% 400%;animation:playGrad 15s ease infinite}@keyframes playGrad{0%{background-position:0% 50%}25%{background-position:50% 75%}50%{background-position:100% 50%}75%{background-position:50% 25%}100%{background-position:0% 50%}}
-body.devil_deal{background:linear-gradient(135deg,#110000,#8b0000,#110000);background-size:400% 400%;animation:devilGrad 15s ease infinite}@keyframes devilGrad{0%{background-position:0% 50%}25%{background-position:50% 75%}50%{background-position:100% 50%}75%{background-position:50% 25%}100%{background-position:0% 50%}}
-body.accusing{background:linear-gradient(135deg,#330000,#660000,#330000);background-size:400% 400%;animation:accGrad 15s ease infinite}@keyframes accGrad{0%{background-position:0% 50%}25%{background-position:50% 75%}50%{background-position:100% 50%}75%{background-position:50% 25%}100%{background-position:0% 50%}}
-body.victory{background:linear-gradient(135deg,#000,#ffd700,#000);background-size:400% 400%;animation:victGrad 15s ease infinite}@keyframes victGrad{0%{background-position:0% 50%}25%{background-position:50% 75%}50%{background-position:100% 50%}75%{background-position:50% 25%}100%{background-position:0% 50%}}
+body.lobby{background:linear-gradient(135deg,#ffcc00,#4caf50,#ffcc00);background-size:400% 400%;animation:lobbyGrad 15s ease infinite}
+body.playing{background:linear-gradient(135deg,#1e3c72,#2a5298,#1e3c72);background-size:400% 400%;animation:playGrad 15s ease infinite}
+body.devil_deal{background:linear-gradient(135deg,#110000,#8b0000,#110000);background-size:400% 400%;animation:devilGrad 15s ease infinite}
+body.accusing{background:linear-gradient(135deg,#330000,#660000,#330000);background-size:400% 400%;animation:accGrad 15s ease infinite}
+body.victory{background:linear-gradient(135deg,#000,#ffd700,#000);background-size:400% 400%;animation:victGrad 15s ease infinite}
+body.offline{filter:grayscale(50%);opacity:0.9}
+@keyframes lobbyGrad{0%{background-position:0% 50%}25%{background-position:50% 75%}50%{background-position:100% 50%}75%{background-position:50% 25%}100%{background-position:0% 50%}}
+@keyframes playGrad{0%{background-position:0% 50%}25%{background-position:50% 75%}50%{background-position:100% 50%}75%{background-position:50% 25%}100%{background-position:0% 50%}}
+@keyframes devilGrad{0%{background-position:0% 50%}25%{background-position:50% 75%}50%{background-position:100% 50%}75%{background-position:50% 25%}100%{background-position:0% 50%}}
+@keyframes accGrad{0%{background-position:0% 50%}25%{background-position:50% 75%}50%{background-position:100% 50%}75%{background-position:50% 25%}100%{background-position:0% 50%}}
+@keyframes victGrad{0%{background-position:0% 50%}25%{background-position:50% 75%}50%{background-position:100% 50%}75%{background-position:50% 25%}100%{background-position:0% 50%}}
 .container{max-width:100%;margin:0 auto;padding:8px 8px 25px}
 h1{text-align:center;font-size:1.4em;margin:5px 0 10px;text-shadow:0 0 8px rgba(255,255,255,0.6),2px 2px 4px rgba(0,0,0,0.7);color:#ffd700}
 .game-header{display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.45);padding:8px 10px;border-radius:6px;margin-bottom:6px;border:2px solid rgba(255,255,255,0.15);flex-wrap:wrap;gap:8px}
@@ -25,84 +31,133 @@ h1{text-align:center;font-size:1.4em;margin:5px 0 10px;text-shadow:0 0 8px rgba(
 .game-actions .action-btn{padding:4px 8px;font-size:0.75em;min-width:0;width:100%;line-height:1.2}
 .room-display{font-weight:bold;font-size:0.9em;color:#aaddff;flex-grow:1;text-align:center}
 .controls{display:flex;gap:8px;position:relative}
-.hamburger{font-size:1.8em;cursor:pointer;padding:4px 6px;z-index:1002;transition:transform 0.2s;border-radius:4px}.hamburger:hover{transform:scale(1.1);background:rgba(255,255,255,0.1)}
-.dropdown-menu{display:none;position:absolute;top:100%;right:0;width:85vw;max-width:320px;background:linear-gradient(180deg,#2c3e50,#1a252f);box-shadow:0 8px 24px rgba(0,0,0,0.6);z-index:1001;border-radius:8px;border:2px solid rgba(255,255,255,0.15);overflow:hidden;animation:slideDown 0.25s ease}@keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
-.dropdown-item{color:#e0e0e0;padding:12px 15px;display:block;cursor:pointer;font-size:0.9em;border-bottom:1px solid rgba(255,255,255,0.08);transition:background 0.2s}.dropdown-item:last-child{border-bottom:none}.dropdown-item:hover{background:rgba(255,255,255,0.12);color:#fff}
+.hamburger{font-size:1.8em;cursor:pointer;padding:4px 6px;z-index:1002;transition:transform 0.2s;border-radius:4px}
+.hamburger:hover{transform:scale(1.1);background:rgba(255,255,255,0.1)}
+.dropdown-menu{display:none;position:absolute;top:100%;right:0;width:85vw;max-width:320px;background:linear-gradient(180deg,#2c3e50,#1a252f);box-shadow:0 8px 24px rgba(0,0,0,0.6);z-index:1001;border-radius:8px;border:2px solid rgba(255,255,255,0.15);overflow:hidden;animation:slideDown 0.25s ease}
+@keyframes slideDown{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.dropdown-item{color:#e0e0e0;padding:12px 15px;display:block;cursor:pointer;font-size:0.9em;border-bottom:1px solid rgba(255,255,255,0.08);transition:background 0.2s}
+.dropdown-item:last-child{border-bottom:none}
+.dropdown-item:hover{background:rgba(255,255,255,0.12);color:#fff}
 .status-bar{display:flex;justify-content:space-between;align-items:center;background:rgba(0,0,0,0.35);padding:6px 10px;border-radius:5px;margin-bottom:6px;font-size:0.9em;border:1px solid rgba(255,255,255,0.1);flex-wrap:wrap;gap:4px}
-.game-status{color:#fff;font-weight:bold}.last-bet-display{color:#ffd700;font-weight:bold;white-space:nowrap;font-size:1.1em}
-.accusation-panel{display:none;background:linear-gradient(135deg,#2a0000,#550000);padding:12px 15px;border-radius:8px;margin-bottom:8px;border:3px solid #cc0000;box-shadow:0 0 15px rgba(204,0,0,0.4);animation:panelApp 0.3s cubic-bezier(0.4,0,0.2,1);position:relative;overflow:hidden}@keyframes panelApp{from{opacity:0;transform:translateY(-10px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+.game-status{color:#fff;font-weight:bold}
+.last-bet-display{color:#ffd700;font-weight:bold;white-space:nowrap;font-size:1.1em}
+.connection-status{font-size:0.75em;padding:2px 6px;border-radius:4px;display:inline-block;margin-left:8px}
+.connection-status.online{color:#00ff88}
+.connection-status.offline{color:#ff4444;animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+.accusation-panel{display:none;background:linear-gradient(135deg,#2a0000,#550000);padding:12px 15px;border-radius:8px;margin-bottom:8px;border:3px solid #cc0000;box-shadow:0 0 15px rgba(204,0,0,0.4);animation:panelApp 0.3s cubic-bezier(0.4,0,0.2,1);position:relative;overflow:hidden}
+@keyframes panelApp{from{opacity:0;transform:translateY(-10px) scale(0.98)}to{opacity:1;transform:translateY(0) scale(1)}}
 .accusation-header{text-align:center;font-size:1.1em;font-weight:bold;color:#ffd700;margin-bottom:8px}
 .accusation-phrase{text-align:center;font-style:italic;font-size:0.9em;color:#e0e0e0;margin-bottom:10px}
 .accusation-dice-summary{text-align:center;font-size:0.95em;color:#aaddff;margin:8px 0}
-.accusation-result{text-align:center;font-size:1.2em;font-weight:bold;margin:10px 0;text-shadow:0 0 12px currentColor;animation:resPulse 1s infinite alternate}@keyframes resPulse{from{transform:scale(1)}to{transform:scale(1.02)}}
+.accusation-result{text-align:center;font-size:1.2em;font-weight:bold;margin:10px 0;text-shadow:0 0 12px currentColor;animation:resPulse 1s infinite alternate}
+@keyframes resPulse{from{transform:scale(1)}to{transform:scale(1.02)}}
 .effect-green{color:#00ff88}.effect-red{color:#ff4444}.effect-yellow{color:#ffcc00}.effect-blue{color:#00ccff}.effect-purple{color:#cc00ff}
-.accusation-effects{background:rgba(0,0,0,0.4);padding:8px 10px;border-radius:6px;margin-top:8px;font-size:0.85em;line-height:1.6}.accusation-effects div{margin:3px 0}
+.accusation-effects{background:rgba(0,0,0,0.4);padding:8px 10px;border-radius:6px;margin-top:8px;font-size:0.85em;line-height:1.6}
+.accusation-effects div{margin:3px 0}
 .player-list{display:flex;flex-direction:column;gap:5px;margin-bottom:8px}
 .player-card{background:rgba(255,255,255,0.08);padding:7px 10px;border-radius:6px;display:flex;justify-content:space-between;align-items:center;border:1px solid rgba(255,255,255,0.12);transition:all 0.3s;font-size:0.9em;flex-wrap:nowrap;overflow:hidden}
-.player-card.active{background:rgba(0,255,234,0.15);border-color:#00ffea;box-shadow:inset 0 0 12px rgba(0,255,234,0.3);animation:actPulse 1.5s infinite alternate}@keyframes actPulse{from{box-shadow:inset 0 0 8px rgba(0,255,234,0.2)}to{box-shadow:inset 0 0 18px rgba(0,255,234,0.4)}}
-.player-card.frozen{border-color:#00ffff;background:rgba(0,255,255,0.1)}.player-card.cursed,.player-card.evilEyed{border-color:#aa66ff;background:rgba(170,102,255,0.15)}
+.player-card.active{background:rgba(0,255,234,0.15);border-color:#00ffea;box-shadow:inset 0 0 12px rgba(0,255,234,0.3);animation:actPulse 1.5s infinite alternate}
+@keyframes actPulse{from{box-shadow:inset 0 0 8px rgba(0,255,234,0.2)}to{box-shadow:inset 0 0 18px rgba(0,255,234,0.4)}}
+.player-card.frozen{border-color:#00ffff;background:rgba(0,255,255,0.1)}
+.player-card.cursed,.player-card.evilEyed{border-color:#aa66ff;background:rgba(170,102,255,0.15)}
 .player-info{display:flex;align-items:center;gap:6px;flex:1;min-width:0}
 .player-avatar{font-size:1.2em;margin-right:2px}
 .player-name{font-weight:bold;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-shadow:1px 1px 2px rgba(0,0,0,0.8)}
 .shadow-0{color:#00ff88}.shadow-1{color:#ffff00}.shadow-2{color:#ff4444}
-.sands-of-time{display:none;animation:flipClock 2s infinite linear;font-size:1.1em}@keyframes flipClock{0%{transform:rotateX(0deg)}100%{transform:rotateX(360deg)}}
+.sands-of-time{display:none;animation:flipClock 2s infinite linear;font-size:1.1em}
+@keyframes flipClock{0%{transform:rotateX(0deg)}100%{transform:rotateX(360deg)}}
 .player-poisons{display:flex;gap:3px;margin-left:5px;flex-shrink:0}
-.icon-poison{color:#dc3545}.icon-life{color:#00ff88}.icon-blood{color:#ff0044;animation:bloodGlow 1.5s infinite alternate}@keyframes bloodGlow{from{opacity:0.8;transform:scale(1)}to{opacity:1;transform:scale(1.15)}}.icon-ghost{color:#8888aa}.icon-dead{color:#555}
-.player-poisons { display: flex; gap: 3px; margin-left: auto; }
+.icon-poison{color:#dc3545}.icon-life{color:#00ff88}.icon-blood{color:#ff0044;animation:bloodGlow 1.5s infinite alternate}
+@keyframes bloodGlow{from{opacity:0.8;transform:scale(1)}to{opacity:1;transform:scale(1.15)}}
+.icon-ghost{color:#8888aa}.icon-dead{color:#555}
+.player-poisons{display:flex;gap:3px;margin-left:auto}
 .dice-container{display:none;justify-content:center;align-items:center;gap:8px;margin:10px 0;padding:12px;background:rgba(255,255,255,0.08);border-radius:8px;border:1px solid rgba(255,255,255,0.15);flex-wrap:wrap;min-height:75px}
 .die{display:flex;align-items:center;justify-content:center;line-height:1;width:65px;height:85px;background:#fff;border-radius:12px;box-shadow:0 4px 8px rgba(0,0,0,0.4);font-size:5em;color:#111;transition:transform 0.2s,box-shadow 0.2s;cursor:default;line-height:1}
 .die:hover{transform:translateY(-3px);box-shadow:0 6px 12px rgba(0,0,0,0.5)}
-.die.special{display: flex;align-items: center;justify-content: center; line-height: 1;margin: 0;padding: 0;background:linear-gradient(135deg,#ffd700,#ffaa00);box-shadow:0 0 15px rgba(255,215,0,0.5);animation:artPulse 2s infinite alternate;cursor:pointer;width:65px;height:85px;font-size:3.5em}@keyframes artPulse{from{box-shadow:0 0 10px rgba(255,215,0,0.3)}to{box-shadow:0 0 20px rgba(255,215,0,0.7)}}
+.die.special{display:flex;align-items:center;justify-content:center;line-height:1;margin:0;padding:0;background:linear-gradient(135deg,#ffd700,#ffaa00);box-shadow:0 0 15px rgba(255,215,0,0.5);animation:artPulse 2s infinite alternate;cursor:pointer;width:65px;height:85px;font-size:3.5em}
+@keyframes artPulse{from{box-shadow:0 0 10px rgba(255,215,0,0.3)}to{box-shadow:0 0 20px rgba(255,215,0,0.7)}}
 .die.special.passive{background:linear-gradient(135deg,#aa66ff,#8844dd);box-shadow:0 0 12px rgba(170,102,255,0.4)}
 .die.special.used{background:#666;color:#aaa;filter:grayscale(100%);opacity:0.6;text-decoration:line-through;cursor:not-allowed;animation:none;box-shadow:none}
 .artifact-info-btn{width:24px;height:24px;background:#ffd700;color:#000;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:0.7em;margin-right:5px;font-weight:bold;box-shadow:0 2px 4px rgba(0,0,0,0.3)}
 .artifact-info-btn:hover{background:#ffcc00;transform:scale(1.1)}
-.die.frozen{background:linear-gradient(135deg,#e0ffff,#b0e0ff);border:2px solid #00ffff;animation:iceGleam 2s infinite alternate}@keyframes iceGleam{from{filter:brightness(1)}to{filter:brightness(1.15)}}
-.die.stunned{animation:shake 0.4s infinite}@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
+.die.frozen{background:linear-gradient(135deg,#e0ffff,#b0e0ff);border:2px solid #00ffff;animation:iceGleam 2s infinite alternate}
+@keyframes iceGleam{from{filter:brightness(1)}to{filter:brightness(1.15)}}
+.die.stunned{animation:shake 0.4s infinite}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}
 .controls-row{display:flex;justify-content:center;align-items:center;gap:8px;margin:8px 0;padding:8px;background:rgba(0,0,0,0.25);border-radius:6px;flex-wrap:wrap}
-select{width:55px;height:48px;background:#fff;border:2px solid #aaa;border-radius:6px;font-family:inherit;font-size:1.6em;text-align:center;cursor:pointer}select:disabled{background:#ccc;color:#666;cursor:not-allowed}
-.action-btn{padding:8px 14px;font-family:inherit;font-size:0.9em;border:none;border-radius:6px;cursor:pointer;transition:all 0.2s;box-shadow:0 3px 6px rgba(0,0,0,0.3);min-width:100px}.action-btn:disabled{opacity:0.5;cursor:not-allowed;box-shadow:none;transform:none!important}
-.btn-primary{background:linear-gradient(180deg,#007bff,#0056b3);color:#fff}.btn-success{background:linear-gradient(180deg,#28a745,#1e7e34);color:#fff}.btn-warning{background:linear-gradient(180deg,#ffc107,#e0a800);color:#000}.btn-danger{background:linear-gradient(180deg,#dc3545,#a71d2a);color:#fff}.action-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,0.4)}
+select{width:55px;height:48px;background:#fff;border:2px solid #aaa;border-radius:6px;font-family:inherit;font-size:1.6em;text-align:center;cursor:pointer}
+select:disabled{background:#ccc;color:#666;cursor:not-allowed}
+.action-btn{padding:8px 14px;font-family:inherit;font-size:0.9em;border:none;border-radius:6px;cursor:pointer;transition:all 0.2s;box-shadow:0 3px 6px rgba(0,0,0,0.3);min-width:100px}
+.action-btn:disabled{opacity:0.5;cursor:not-allowed;box-shadow:none;transform:none!important}
+.btn-primary{background:linear-gradient(180deg,#007bff,#0056b3);color:#fff}
+.btn-success{background:linear-gradient(180deg,#28a745,#1e7e34);color:#fff}
+.btn-warning{background:linear-gradient(180deg,#ffc107,#e0a800);color:#000}
+.btn-danger{background:linear-gradient(180deg,#dc3545,#a71d2a);color:#fff}
+.action-btn:hover:not(:disabled){transform:translateY(-2px);box-shadow:0 4px 8px rgba(0,0,0,0.4)}
 .ghost-abilities{display:none;flex-direction:column;gap:6px;margin:8px 0;padding:10px;background:rgba(100,0,150,0.15);border:1px solid rgba(150,0,200,0.4);border-radius:8px}
-.ghost-btn{width:100%;padding:10px;background:linear-gradient(180deg,#440066,#660099);color:#fff;border:1px solid #8800cc;border-radius:6px;font-family:inherit;font-size:0.9em;cursor:pointer;transition:all 0.2s}.ghost-btn:hover:not(:disabled){background:linear-gradient(180deg,#550088,#7700bb);transform:translateY(-2px)}.ghost-btn:disabled{opacity:0.4;background:#333;border-color:#555;cursor:not-allowed}
+.ghost-btn{width:100%;padding:10px;background:linear-gradient(180deg,#440066,#660099);color:#fff;border:1px solid #8800cc;border-radius:6px;font-family:inherit;font-size:0.9em;cursor:pointer;transition:all 0.2s}
+.ghost-btn:hover:not(:disabled){background:linear-gradient(180deg,#550088,#7700bb);transform:translateY(-2px)}
+.ghost-btn:disabled{opacity:0.4;background:#333;border-color:#555;cursor:not-allowed}
 .chat-box{margin-top:8px;background:rgba(0,0,0,0.3);border-radius:8px;padding:8px;border:1px solid rgba(255,255,255,0.1)}
 .chat-log{height:120px;overflow-y:auto;margin-bottom:6px;background:rgba(0,0,0,0.25);padding:8px;border-radius:6px;font-size:0.8em;line-height:1.5}
-.chat-msg{margin:3px 0;word-break:break-word;padding:2px 4px;border-radius:4px}.msg-system{color:#ffd700;font-style:italic;background:rgba(255,215,0,0.08)}.msg-death{color:#ff4444;font-weight:bold;background:rgba(255,0,0,0.08)}.msg-ghost{color:#cc00ff;font-style:italic;background:rgba(150,0,200,0.08)}
-.chat-input-row{display:flex;gap:5px}.chat-input{flex:1;padding:6px 8px;background:rgba(255,255,255,0.9);border:2px solid #aaa;border-radius:6px;font-family:inherit;font-size:0.9em}.chat-input::placeholder{color:#777}.chat-send{padding:6px 10px;background:linear-gradient(180deg,#6c757d,#545b62);color:#fff;border:none;border-radius:6px;font-family:inherit;font-size:0.95em;cursor:pointer}.chat-input:disabled,.chat-send:disabled{background:#999;color:#666;cursor:not-allowed}
-.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.85);backdrop-filter:blur(4px);animation:fadeIn 0.2s ease}@keyframes fadeIn{from{opacity:0}to{opacity:1}}
+.chat-msg{margin:3px 0;word-break:break-word;padding:2px 4px;border-radius:4px}
+.msg-system{color:#ffd700;font-style:italic;background:rgba(255,215,0,0.08)}
+.msg-death{color:#ff4444;font-weight:bold;background:rgba(255,0,0,0.08)}
+.msg-ghost{color:#cc00ff;font-style:italic;background:rgba(150,0,200,0.08)}
+.chat-input-row{display:flex;gap:5px}
+.chat-input{flex:1;padding:6px 8px;background:rgba(255,255,255,0.9);border:2px solid #aaa;border-radius:6px;font-family:inherit;font-size:0.9em}
+.chat-input::placeholder{color:#777}
+.chat-send{padding:6px 10px;background:linear-gradient(180deg,#6c757d,#545b62);color:#fff;border:none;border-radius:6px;font-family:inherit;font-size:0.95em;cursor:pointer}
+.chat-input:disabled,.chat-send:disabled{background:#999;color:#666;cursor:not-allowed}
+.modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,0.85);backdrop-filter:blur(4px);animation:fadeIn 0.2s ease}
+@keyframes fadeIn{from{opacity:0}to{opacity:1}}
 .modal-content{background:linear-gradient(135deg,#2c3e50,#1a252f);margin:8% auto;padding:18px;border-radius:10px;width:92%;max-width:480px;color:#fff;position:relative;border:2px solid rgba(255,255,255,0.15);box-shadow:0 10px 30px rgba(0,0,0,0.6);max-height:85vh;overflow-y:auto}
-.modal-content h2{margin:0 0 12px 0;text-align:center;color:#ffd700;font-size:1.2em;text-shadow:0 0 8px rgba(255,215,0,0.4)}.modal-content p{font-size:1.1em;line-height:1.6;margin:6px 0}
-.close-btn{position:absolute;top:10px;right:15px;font-size:1.5em;color:#aaa;cursor:pointer;transition:color 0.2s}.close-btn:hover{color:#fff}
+.modal-content h2{margin:0 0 12px 0;text-align:center;color:#ffd700;font-size:1.2em;text-shadow:0 0 8px rgba(255,215,0,0.4)}
+.modal-content p{font-size:1.1em;line-height:1.6;margin:6px 0}
+.close-btn{position:absolute;top:10px;right:15px;font-size:1.5em;color:#aaa;cursor:pointer;transition:color 0.2s}
+.close-btn:hover{color:#fff}
 #devilModal .modal-content{background:linear-gradient(180deg,#2a0000,#440000);border-color:#cc0000}
-.fire-fill{position:absolute;bottom:0;left:0;width:100%;height:0%;background:linear-gradient(to top,rgba(255,0,0,0.7),rgba(255,100,0,0.5),transparent);pointer-events:none;z-index:1;animation:fireRise 30s linear forwards}@keyframes fireRise{to{height:100%}}
-.devil-timer{font-size:2.5em;color:#ff4444;text-align:center;margin:12px 0;text-shadow:0 0 15px rgba(255,0,0,0.6);animation:timerBeat 1s infinite}@keyframes timerBeat{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
-.devil-options{display:flex;justify-content:center;gap:12px;margin:15px 0;flex-wrap:wrap;position:relative;z-index:2}
-.devil-opt{padding:16px 24px;font-size:1.8em;background:#111;color:#fff;border:3px solid #cc0000;border-radius:8px;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px rgba(204,0,0,0.3)}.devil-opt:hover{background:#cc0000;color:#000;transform:translateY(-4px)}
-.vote-row{display:flex;justify-content:center;gap:15px;margin:12px 0}.vote-btn{padding:12px 20px;font-family:inherit;font-size:1em;border:none;border-radius:6px;cursor:pointer;color:#fff;transition:transform 0.2s}.vote-yes{background:linear-gradient(180deg,#28a745,#1e7e34)}.vote-no{background:linear-gradient(180deg,#dc3545,#c82333)}.vote-btn:hover{transform:scale(1.05)}
+.fire-fill{position:absolute;bottom:0;left:0;width:100%;height:0%;background:linear-gradient(to top,rgba(255,0,0,0.7),rgba(255,100,0,0.5),transparent);pointer-events:none;z-index:1;animation:fireRise 30s linear forwards}
+@keyframes fireRise{to{height:100%}}
+.devil-timer{font-size:2.5em;color:#ff4444;text-align:center;margin:12px 0;text-shadow:0 0 15px rgba(255,0,0,0.6);animation:timerBeat 1s infinite}
+@keyframes timerBeat{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+.devil-options{display:flex;flex-direction:column;gap:12px;margin:15px 0;position:relative;z-index:2}
+.devil-opt{padding:16px 24px;font-size:1em;background:#111;color:#fff;border:3px solid #cc0000;border-radius:8px;cursor:pointer;transition:all 0.2s;box-shadow:0 4px 12px rgba(204,0,0,0.3);text-align:left;line-height:1.4}
+.devil-opt:hover{background:#cc0000;color:#000;transform:translateY(-2px)}
+.devil-opt strong{color:#ffd700;display:block;margin-bottom:4px}
+.vote-row{display:flex;justify-content:center;gap:15px;margin:12px 0}
+.vote-btn{padding:12px 20px;font-family:inherit;font-size:1em;border:none;border-radius:6px;cursor:pointer;color:#fff;transition:transform 0.2s}
+.vote-yes{background:linear-gradient(180deg,#28a745,#1e7e34)}
+.vote-no{background:linear-gradient(180deg,#dc3545,#c82333)}
+.vote-btn:hover{transform:scale(1.05)}
 .select-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;margin-top:10px}
-.select-item{padding:8px 10px;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,200,0.3);border-radius:8px;cursor:pointer;font-size:1.2em;transition:all 0.2s;text-align:center;min-width:55px;color:#ffd700} .select-item:hover{background:rgba(255,255,255,0.3);border-color:#ffd700;transform:translateY(-2px)}.select-item:hover{background:rgba(255,255,255,0.2);border-color:#ffd700;transform:translateY(-2px)}.select-item:disabled{opacity:0.3;cursor:not-allowed;pointer-events:none}
-.confetti{position:fixed;width:10px;height:10px;pointer-events:none;z-index:1001;animation:fall 3s linear forwards}@keyframes fall{0%{transform:translateY(-10vh) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
-@media(max-width:480px){body{font-size:12px}h1{font-size:1.2em}.game-header{padding:6px 8px}.die{width:45px;height:55px;font-size:3.5em;display: flex; align-items: flex-start; justify-content: center;}.die.special{width:45px;height:55px;font-size:2.8em; align-items: center; justify-content: center;}.player-card{padding:5px 8px;font-size:0.8em}.controls-row{gap:5px;padding:6px}select{width:48px;height:42px;font-size:1.4em}.action-btn{min-width:85px;padding:6px 10px;font-size:0.8em}.chat-log{height:100px;font-size:0.7em}.modal-content{margin:10% auto;padding:12px;width:95%}}
+.select-item{padding:8px 10px;background:rgba(255,255,255,0.15);border:2px solid rgba(255,255,200,0.3);border-radius:8px;cursor:pointer;font-size:1.2em;transition:all 0.2s;text-align:center;min-width:55px;color:#ffd700}
+.select-item:hover{background:rgba(255,255,255,0.2);border-color:#ffd700;transform:translateY(-2px)}
+.select-item:disabled{opacity:0.3;cursor:not-allowed;pointer-events:none}
+.confetti{position:fixed;width:10px;height:10px;pointer-events:none;z-index:1001;animation:fall 3s linear forwards}
+@keyframes fall{0%{transform:translateY(-10vh) rotate(0deg);opacity:1}100%{transform:translateY(110vh) rotate(720deg);opacity:0}}
+@media(max-width:480px){body{font-size:12px}h1{font-size:1.2em}.game-header{padding:6px 8px}.die{width:45px;height:55px;font-size:3.5em;display:flex;align-items:flex-start;justify-content:center}.die.special{width:45px;height:55px;font-size:2.8em;align-items:center;justify-content:center}.player-card{padding:5px 8px;font-size:0.8em}.controls-row{gap:5px;padding:6px}select{width:48px;height:42px;font-size:1.4em}.action-btn{min-width:85px;padding:6px 10px;font-size:0.8em}.chat-log{height:100px;font-size:0.7em}.modal-content{margin:10% auto;padding:12px;width:95%}}
 @media(max-height:650px){.chat-log{height:80px}.player-list{gap:3px}.dice-container{margin:6px 0;padding:8px}}
-.modal .select-item {font-size: 2em !important;width: 40px;height: 40px;display: inline-flex;align-items: center;justify-content: center;}
+.modal .select-item{font-size:2em!important;width:40px;height:40px;display:inline-flex;align-items:center;justify-content:center}
 </style>
 </head>
 <body class="lobby">
 <div class="container">
-<h1>🎲 LIAR'S DICE 8.3</h1>
+<h1>🎲 LIAR'S DICE 8.5</h1>
 <div class="game-header">
 <div class="game-actions">
 <button class="action-btn btn-success" id="btnStartGame">▶ СТАРТ</button>
 <button class="action-btn btn-warning" id="btnResetGame">↺ СБРОС</button>
 </div>
-<div class="room-display">ROOM: <span id="roomIdDisplay">-</span></div>
+<div class="room-display">ROOM: <span id="roomIdDisplay">-</span> <span class="connection-status online" id="connectionStatus">●</span></div>
 <div class="controls"><div class="hamburger" id="hamburgerBtn">☰</div><div class="dropdown-menu" id="dropdownMenu">
 <div class="dropdown-item" id="menuArtifacts">🎲 Артефакты: ✅</div>
 <div class="dropdown-item" id="menuLives">❤️ Жизни: 3</div>
-<div class="dropdown-item" id="menuBotDifficulty">🤖 Сложность новых ботов: <span id="botDifficultyLabel">Средняя</span></div>
+<div class="dropdown-item" id="menuBotDifficulty">🤖 Сложность: <span id="botDifficultyLabel">Средняя</span></div>
 <div class="dropdown-item" id="menuBotAdd">🤖 [➕ Добавить бота]</div>
 <div class="dropdown-item" id="menuBotRemoveAll">🤖 [🗑️ Удалить всех ботов]</div>
-<div class="dropdown-item" id="menuNewRoom">🆕 Создать новую комнату</div>
+<div class="dropdown-item" id="menuNewRoom">🆕 Новая комната</div>
 <div class="dropdown-item" id="menuInvite">🔗 Скопировать ссылку</div>
 <div class="dropdown-item" id="menuProfile">👤 Профиль</div>
 <div class="dropdown-item" id="menuRules">📜 Правила</div>
@@ -117,7 +172,7 @@ select{width:55px;height:48px;background:#fff;border:2px solid #aaa;border-radiu
 <div class="ghost-abilities" id="ghostAbilitiesPanel"><button class="ghost-btn" id="ghVengeance" disabled>⚔️ Месть</button><button class="ghost-btn" id="ghFamiliarCurse" disabled>🔮 Проклятие Фамильяра</button><button class="ghost-btn" id="ghPoltergeist" disabled>🌀 Полтергейст</button><button class="ghost-btn" id="ghKeeper" disabled>👁️ Хранитель Тайн</button><button class="ghost-btn" id="ghReaper" disabled>💀 Жатва Душ</button></div>
 <div class="chat-box"><div class="chat-log" id="chatLog"></div><div class="chat-input-row"><input type="text" class="chat-input" id="chatInput" placeholder="Чат..." disabled><button class="chat-send" id="btnSendChat" disabled>➤</button></div></div>
 </div>
-<div class="modal" id="modalRules"><div class="modal-content"><span class="close-btn">&times;</span><h2>📜 ПРАВИЛА LIAR'S DICE</h2><p>1. Делайте ставки на общее количество кубиков определённого номинала на столе.</p><p>2. Ставка должна быть выше предыдущей (больше кубиков ИЛИ выше номинал при равном количестве).</p><p>3. Обвиняйте предыдущего игрока в блефе кнопкой «ЛЖЕЦ!».</p><p>4. При обвинении вскрываются кубики. Ложь = яд обвиняемому. Правда = яд обвинителю.</p><p>5. Набрано ядов = жизни? → Сделка с Дьяволом (угадай номинал, чтобы воскреснуть).</p><p>6. Максимум 2 успешные сделки за игру. Далее — автоматический Призрак.</p><p>7. Призрак теряет кубики и артефакты, но получает 5 уникальных способностей.</p><p>8. Побеждает последний живой игрок!</p><p style="color:#ffd700; margin-top:12px;">💡 Каждый раунд выдаётся случайный артефакт. Некоторые скрытны до срабатывания.</p></div></div>
+<div class="modal" id="modalRules"><div class="modal-content"><span class="close-btn">&times;</span><h2>📜 ПРАВИЛА LIAR'S DICE</h2><p>1. Делайте ставки на общее количество кубиков определённого номинала на столе.</p><p>2. Ставка должна быть выше предыдущей (больше кубиков ИЛИ выше номинал при равном количестве).</p><p>3. Обвиняйте предыдущего игрока в блефе кнопкой «ЛЖЕЦ!».</p><p>4. При обвинении вскрываются кубики. Ложь = яд обвиняемому. Правда = яд обвинителю.</p><p>5. Набрано ядов = жизни? → Сделка с Дьяволом (принеси жертву, чтобы воскреснуть).</p><p>6. Максимум 2 успешные сделки за игру. Далее — автоматический Призрак.</p><p>7. Призрак теряет кубики и артефакты, но получает 5 уникальных способностей.</p><p>8. Побеждает последний живой игрок!</p><p style="color:#ffd700; margin-top:12px;">💡 Каждый раунд выдаётся случайный артефакт. Некоторые скрытны до срабатывания.</p></div></div>
 <div class="modal" id="modalProfile"><div class="modal-content"><span class="close-btn">&times;</span><h2>👤 ПРОФИЛЬ</h2>
 <p><strong>Аватар:</strong> <span id="avatarSelect"></span></p>
 <p><strong>Цвет ника:</strong> <span id="colorSelect"></span></p>
@@ -126,7 +181,7 @@ select{width:55px;height:48px;background:#fff;border:2px solid #aaa;border-radiu
 <p><strong>Статус:</strong> <span id="profileStatus" style="color:#00ff88">Жив</span></p>
 <button class="action-btn btn-primary" id="btnSaveProfile" style="width:100%; margin-top:10px;">💾 Сохранить</button>
 </div></div>
-<div class="modal" id="devilModal"><div class="modal-content"><div class="fire-fill" id="devilFire"></div><h2>😈 СДЕЛКА С ДЬЯВОЛОМ</h2><p style="text-align:center; font-size:0.95em;">Сколько на столе кубиков <span id="devilTargetEmoji" style="font-size:1.8em;">⚀</span>?</p><div class="devil-timer" id="devilTimer">30</div><div class="devil-options" id="devilOptions"></div><p style="text-align:center; font-size:0.8em; color:#ff8888; margin-top:8px;">⚠️ Успех: 2 яда | Провал: Призрак | Лимит: 2 сделки</p></div></div>
+<div class="modal" id="devilModal"><div class="modal-content"><div class="fire-fill" id="devilFire"></div><h2>😈 СДЕЛКА С ДЬЯВОЛОМ</h2><p style="text-align:center; font-size:0.95em;">Дьявол предлагает воскреснуть за цену. Выбери свою жертву:</p><div class="devil-options" id="devilOptions"></div><p style="text-align:center; font-size:0.8em; color:#ff8888; margin-top:8px;">⚠️ Лимит: 2 сделки за игру. После — Призрак.</p><button class="action-btn btn-danger" id="btnRefuseDeal" style="width:100%; margin-top:15px;">❌ Отказаться (стать Призраком)</button></div></div>
 <div class="modal" id="modalVote"><div class="modal-content"><span class="close-btn">&times;</span><h2>🗳️ ГОЛОСОВАНИЕ</h2><p style="text-align:center;">Исключить: <span id="voteTargetName" style="color:#ff4444; font-weight:bold;">-</span></p><div class="devil-timer" id="voteTimer" style="font-size:1.8em;">30</div><div class="vote-row"><button class="vote-btn vote-yes" id="voteYes">✅ ЗА</button><button class="vote-btn vote-no" id="voteNo">❌ ПРОТИВ</button></div><div id="voteResult" style="text-align:center; margin-top:8px; font-size:0.9em;"></div><div id="voteTargetsList" class="select-grid" style="margin-top:10px;"></div></div></div>
 <div class="modal" id="modalTarget"><div class="modal-content"><span class="close-btn">&times;</span><h2 id="modalTargetTitle">Выберите цель</h2><div class="select-grid" id="modalTargetList"></div></div></div>
 <div class="modal" id="modalNominal"><div class="modal-content"><span class="close-btn">&times;</span><h2 id="modalNominalTitle">Выберите номинал</h2><div class="select-grid" id="modalNominalList"></div></div></div>
