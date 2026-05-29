@@ -143,17 +143,20 @@
             width: 100vw;
         }
 
-        .top-bar {
-            display: flex;
-            align-items: center;            justify-content: space-between;
-            padding: 0 20px;
-            background: linear-gradient(180deg, var(--noir-gray), var(--noir-dark));
-            border-bottom: 2px solid var(--casino-gold-dark);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-            z-index: 100;
-            transform: scale(var(--scale-top-bar));
-            transform-origin: top center;
-        }
+      .top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    background: linear-gradient(180deg, var(--noir-gray), var(--noir-dark));
+    border-bottom: 2px solid var(--casino-gold-dark);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    z-index: 100;
+    transform: scale(var(--scale-top-bar));
+    transform-origin: top center;
+    width: 100%;
+    box-sizing: border-box;
+}
 
         .game-status {
             font-family: 'Cinzel', serif;
@@ -488,18 +491,21 @@
             100% { opacity: 0; transform: translateX(-50%) translateY(-10px) scale(0.8) rotateX(-55deg); }
         }
 
-        .bottom-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-around;
-            padding: 10px 20px;            background: linear-gradient(0deg, var(--noir-gray), var(--noir-dark));
-            border-top: 2px solid var(--casino-gold-dark);
-            box-shadow: 0 -4px 12px rgba(0,0,0,0.5);
-            z-index: 100;
-            gap: 15px;
-            transform: scale(var(--scale-bottom-bar));
-            transform-origin: bottom center;
-        }
+       .bottom-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    padding: 10px 20px;
+    background: linear-gradient(0deg, var(--noir-gray), var(--noir-dark));
+    border-top: 2px solid var(--casino-gold-dark);
+    box-shadow: 0 -4px 12px rgba(0,0,0,0.5);
+    z-index: 100;
+    gap: 15px;
+    transform: scale(var(--scale-bottom-bar));
+    transform-origin: bottom center;
+    width: 100%;
+    box-sizing: border-box;
+}
 
         .bet-control {
             display: flex;
@@ -4043,113 +4049,157 @@
                 tauntPanel.appendChild(btn);
             });
 
-            const menuBtn = document.getElementById('menuBtn');
-const menuDropdown = document.getElementById('menuDropdown');
-
-if (menuBtn && menuDropdown) {
-    menuBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        menuDropdown.classList.toggle('active');
-    });
-}
+           setTimeout(() => {
+    const menuBtn = document.getElementById('menuBtn');
+    const menuDropdown = document.getElementById('menuDropdown');
+    
+    if (menuBtn && menuDropdown) {
+        menuBtn.onclick = (e) => {
+            e.stopPropagation();
+            menuDropdown.classList.toggle('active');
+        };
+    }
+}, 100);
 
             document.getElementById('btnBet').onclick = placeBet;
             document.getElementById('btnBluff').onclick = accuse;
             
-            document.getElementById('btnChat').onclick = () => {
-                document.getElementById('chatInputContainer').classList.toggle('active');
-                document.getElementById('emojiPanel').classList.remove('active');
-                document.getElementById('tauntPanel').classList.remove('active');
-            };
+           setTimeout(() => {
+    const btnChat = document.getElementById('btnChat');
+    const btnEmoji = document.getElementById('btnEmoji');
+    const btnTaunt = document.getElementById('btnTaunt');
+    const btnLog = document.getElementById('btnLog');
+    const btnResult = document.getElementById('btnResult');
+    const logClose = document.getElementById('logClose');
+    const resultClose = document.getElementById('resultClose');
+    const betCountUp = document.getElementById('betCountUp');
+    const betCountDown = document.getElementById('betCountDown');
+    const betValueUp = document.getElementById('betValueUp');
+    const betValueDown = document.getElementById('betValueDown');
+    const chatInput = document.getElementById('chatInput');
+    const menuStart = document.getElementById('menuStart');
 
-            document.getElementById('btnEmoji').onclick = () => {
-                document.getElementById('emojiPanel').classList.toggle('active');
-                document.getElementById('chatInputContainer').classList.remove('active');
-                document.getElementById('tauntPanel').classList.remove('active');
-            };
+    if (btnChat) {
+        btnChat.onclick = () => {
+            document.getElementById('chatInputContainer').classList.toggle('active');
+            document.getElementById('emojiPanel').classList.remove('active');
+            document.getElementById('tauntPanel').classList.remove('active');
+        };
+    }
 
-            document.getElementById('btnTaunt').onclick = () => {
-                document.getElementById('tauntPanel').classList.toggle('active');
-                document.getElementById('chatInputContainer').classList.remove('active');
-                document.getElementById('emojiPanel').classList.remove('active');
-            };
+    if (btnEmoji) {
+        btnEmoji.onclick = () => {
+            document.getElementById('emojiPanel').classList.toggle('active');
+            document.getElementById('chatInputContainer').classList.remove('active');
+            document.getElementById('tauntPanel').classList.remove('active');
+        };
+    }
 
-            document.getElementById('btnLog').onclick = () => {
-                document.getElementById('logPanel').classList.toggle('active');
-            };
+    if (btnTaunt) {
+        btnTaunt.onclick = () => {
+            document.getElementById('tauntPanel').classList.toggle('active');
+            document.getElementById('chatInputContainer').classList.remove('active');
+            document.getElementById('emojiPanel').classList.remove('active');
+        };
+    }
 
-            document.getElementById('btnResult').onclick = showResultPanel;
+    if (btnLog) {
+        btnLog.onclick = () => {
+            document.getElementById('logPanel').classList.toggle('active');
+        };
+    }
 
-            document.getElementById('logClose').onclick = () => {
-                document.getElementById('logPanel').classList.remove('active');
-            };
+    if (btnResult) {
+        btnResult.onclick = showResultPanel;
+    }
 
-            document.getElementById('resultClose').onclick = () => {
-                document.getElementById('resultPanel').classList.remove('active');
-            };
+    if (logClose) {
+        logClose.onclick = () => {
+            document.getElementById('logPanel').classList.remove('active');
+        };
+    }
 
-            document.querySelectorAll('.log-filter-btn').forEach(btn => {
-                btn.onclick = () => {
-                    document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.remove('active'));
-                    btn.classList.add('active');
-                    GameState.logFilter = btn.dataset.filter;
-                    renderLog();
-                };
-            });
+    if (resultClose) {
+        resultClose.onclick = () => {
+            document.getElementById('resultPanel').classList.remove('active');
+        };
+    }
 
-            document.getElementById('betCountUp').onclick = () => {
-                GameState.betCount = Math.min(99, GameState.betCount + 1);
-                updateUI();
-            };
+    document.querySelectorAll('.log-filter-btn').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.log-filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            GameState.logFilter = btn.dataset.filter;
+            renderLog();
+        };
+    });
 
-            document.getElementById('betCountDown').onclick = () => {
-                GameState.betCount = Math.max(1, GameState.betCount - 1);
-                updateUI();
-            };
+    if (betCountUp) {
+        betCountUp.onclick = () => {
+            GameState.betCount = Math.min(99, GameState.betCount + 1);
+            updateUI();
+        };
+    }
 
-            document.getElementById('betValueUp').onclick = () => {
-                GameState.betValue = GameState.betValue >= 6 ? 1 : GameState.betValue + 1;
-                updateUI();
-            };
+    if (betCountDown) {
+        betCountDown.onclick = () => {
+            GameState.betCount = Math.max(1, GameState.betCount - 1);
+            updateUI();
+        };
+    }
 
-            document.getElementById('betValueDown').onclick = () => {
-                GameState.betValue = GameState.betValue <= 1 ? 6 : GameState.betValue - 1;
-                updateUI();
-            };
+    if (betValueUp) {
+        betValueUp.onclick = () => {
+            GameState.betValue = GameState.betValue >= 6 ? 1 : GameState.betValue + 1;
+            updateUI();
+        };
+    }
 
-            document.getElementById('chatInput').onkeypress = (e) => {
-                if (e.key === 'Enter') {
-                    const text = e.target.value.trim();
-                    if (text) {
-                        sendChatMessage(text, 'text');
-                        e.target.value = '';
-                    }
+    if (betValueDown) {
+        betValueDown.onclick = () => {
+            GameState.betValue = GameState.betValue <= 1 ? 6 : GameState.betValue - 1;
+            updateUI();
+        };
+    }
+
+    if (chatInput) {
+        chatInput.onkeypress = (e) => {
+            if (e.key === 'Enter') {
+                const text = e.target.value.trim();
+                if (text) {
+                    sendChatMessage(text, 'text');
+                    e.target.value = '';
                 }
-            };
+            }
+        };
+    }
 
-            document.querySelectorAll('.emoji-btn').forEach(btn => {
-                btn.onclick = () => {
-                    sendChatMessage(btn.dataset.emoji, 'emoji');
-                };
-            });
+    document.querySelectorAll('.emoji-btn').forEach(btn => {
+        btn.onclick = () => {
+            sendChatMessage(btn.dataset.emoji, 'emoji');
+        };
+    });
 
-            document.getElementById('menuStart').onclick = () => {
-                if (GameState.gameState !== 'lobby') {
-                    return showNotification('Игра уже идёт!');
-                }
-                const ac = Object.keys(GameState.players).filter(u => 
-                    GameState.players[u] && !GameState.players[u].isBot
-                ).length;
-                const bc = Object.keys(GameState.players).filter(u => 
-                    GameState.players[u]?.isBot
-                ).length;
-                if ((ac >= 1 && bc >= 1) || ac >= 2) {
-                    startNewRound();
-                } else {
-                    showNotification('Нужен 1 игрок + 1 бот или 2 игрока');
-                }
-                document.getElementById('menuDropdown').classList.remove('active');
-            };
+    if (menuStart) {
+        menuStart.onclick = () => {
+            if (GameState.gameState !== 'lobby') {
+                return showNotification('Игра уже идёт!');
+            }
+            const ac = Object.keys(GameState.players).filter(u => 
+                GameState.players[u] && !GameState.players[u].isBot
+            ).length;
+            const bc = Object.keys(GameState.players).filter(u => 
+                GameState.players[u]?.isBot
+            ).length;
+            if ((ac >= 1 && bc >= 1) || ac >= 2) {
+                startNewRound();
+            } else {
+                showNotification('Нужен 1 игрок + 1 бот или 2 игрока');
+            }
+            document.getElementById('menuDropdown').classList.remove('active');
+        };
+    }
+}, 100);
 
             document.getElementById('menuReset').onclick = () => {
                 if (!confirm('Сбросить игру?\n\nВесь прогресс будет потерян.')) return;
