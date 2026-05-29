@@ -1,8 +1,3 @@
-/* ============================================================
-   LIAR'S DICE v8.7 — FINAL RELEASE
-   Все исправления: модалки, debounce, лоадер, оффлайн, боты
-   ============================================================ */
-
 const DEBUG = false;
 function log(...args) { if (DEBUG) console.log('[Game]', ...args); }
 function logError(...args) { console.error('[Game Error]', ...args); }
