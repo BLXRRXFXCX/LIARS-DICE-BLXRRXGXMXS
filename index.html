@@ -691,20 +691,20 @@
         }
 
         .menu-dropdown {
-            display: none;
-            position: fixed;
-            top: 70px;
-            right: 20px;
-            background: linear-gradient(180deg, var(--noir-gray), var(--noir-dark));
-            border: 2px solid var(--casino-gold);
-            border-radius: 8px;
-            padding: 10px;
-            min-width: 250px;
-            max-height: 80vh;
-            overflow-y: auto;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.7);
-            z-index: 1001;
-        }
+    display: none;
+    position: fixed;
+    top: 70px;
+    left: 20px;
+    background: linear-gradient(180deg, var(--noir-gray), var(--noir-dark));
+    border: 2px solid var(--casino-gold);
+    border-radius: 8px;
+    padding: 10px;
+    min-width: 250px;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.7);
+    z-index: 1001;
+}
 
         .menu-dropdown.active {
             display: block;
@@ -1280,6 +1280,11 @@
                 height: 36px;
                 font-size: 1.2em;
             }
+            .menu-dropdown {
+    left: 10px;
+    top: 55px;
+    min-width: 220px;
+}
             
             .round-info {
                 gap: 10px;
@@ -1355,6 +1360,12 @@
                 height: 32px;
                 font-size: 1em;
             }
+            .menu-dropdown {
+    left: 8px;
+    top: 48px;
+    min-width: 200px;
+    font-size: 0.9em;
+}
             
             .round-info {
                 gap: 6px;
@@ -1500,13 +1511,13 @@
 <body class="lobby">
     <div class="game-container">
         <div class="top-bar">
-            <div class="game-status" id="gameStatus">ОЖИДАНИЕ ГОСТЕЙ</div>
-            <div class="round-info">
-                <span id="roundInfo">Раунд: 0</span>
-                <span id="currentBet">Ставка: —</span>
-            </div>
-            <div class="menu-btn" id="menuBtn">☰</div>
-        </div>
+    <div class="menu-btn" id="menuBtn">☰</div>
+    <div class="game-status" id="gameStatus">ОЖИДАНИЕ ГОСТЕЙ</div>
+    <div class="round-info">
+        <span id="roundInfo">Раунд: 0</span>
+        <span id="currentBet">Ставка: —</span>
+    </div>
+</div>
 
         <div class="table-area">
             <div class="table-scene" id="tableScene">
