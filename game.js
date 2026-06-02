@@ -58,44 +58,44 @@ const COLORS = ['#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ff
 const TUXEDO_COLORS = ['#222244','#1a1a2e','#2d1a3e','#1a2e1a','#3e1a1a','#1a2e3e','#2e2e1a','#3e1a2e','#0a0a2e','#2e0a0a'];
 const TRIM_COLORS = ['#ffd700','#ff4444','#44ff44','#4444ff','#ff44ff','#44ffff','#ff8800','#ffffff','#ff0088','#00ff88'];
 
-const QUICK_EMOJIS = ['😂','😎','🤔','😱','🤯','🔥','💀','👻','🤡','😈','🥶','😤','🤫','👀','💪','🙏','🎉','🤣','😏','🤬','🤞','🫰','🖕','🫶','🤟'];
+const QUICK_EMOJIS = ['😂','😎','🤔','😱','🤯','🔥','💀','💩','🤡','😈','🥶','😤','🤫','👀','💪','🙏','🎉','🤣','😏','🤬','🤞','🫰','🖕','🫶','🤟'];
 const TAUNTS = {
-    evil: ['Ты труп!','Последняя ставка!','Бойся меня!','Я уничтожу тебя!','Твой конец близок!','Бойся!'],
-    kind: ['Удачи!','Хорошая игра!','Всё будет хорошо!','Не переживай!','Ты справишься!','Держись!'],
-    mocking: ['Слабак!','Мимо!','Ха-ха-ха!','Это всё?','Серьёзно?','Сдавайся!']
+    evil: ['Ты чмоня!','ПОЛНЫЙ ХУЕП','Я щас лопну..','Шо ты, лысый..','Плаки-плаки!','Ну ты клоун..'],
+    kind: ['ЛЕГЕНДА!','МЕГАХАРОШ!','КРАСАВЧИК!','МЕГАМОЗГ!','ПОЛНЫЙ ГАЗ!','У-ДА-ЧИ!'],
+    mocking: ['Ты ЛОХ!','СОСАТЬ!','Ха-ха-ха!','И это всё?','Серьёзно!?','ЛИВАЙ С ПОЗОРОМ!']
 };
 
-const botDifficultyNames = ['Легкий','Средний','Сложный','Эксперт'];
+const botDifficultyNames = ['Нубик','Среднячок','Потный','Божество'];
 
 const ARTIFACTS = [
-    {id:'target',emoji:'🎯',name:'В ЯБЛОЧКО!',type:'active',description:'Уничтожает 1 кубик выбранного номинала у противника',hidden:false},
-    {id:'fireball',emoji:'☄️',name:'ФАЕРБОЛ',type:'active',description:'Перебрасывает ВСЕ ваши обычные кубики (кроме замороженных)',hidden:false},
-    {id:'luck',emoji:'🍀',name:'ВЕЗУНЧИК',type:'active',description:'Перебрасывает кубики с шансом 70% на 4-6 (кроме замороженных)',hidden:false},
+    {id:'target',emoji:'🎯',name:'В ЦЕЛЬ!',type:'active',description:'Уничтожает 1 кубик выбранного номинала у противника',hidden:false},
+    {id:'fireball',emoji:'☄️',name:'FIREBALL',type:'active',description:'Перебрасывает ВСЕ ваши обычные кубики (кроме замороженных)',hidden:false},
+    {id:'luck',emoji:'🍀',name:'LUCKER',type:'active',description:'Перебрасывает кубики с шансом 70% на 4-6 (кроме замороженных)',hidden:false},
     {id:'blessing',emoji:'⚕️',name:'БЛАГОСЛОВЕНИЕ',type:'active',description:'Убирает 1 яд у себя или союзника',hidden:false},
     {id:'thief',emoji:'🥷',name:'ВОР',type:'active',description:'Крадёт артефакт у выбранного противника (1 раз за раунд)',hidden:false},
-    {id:'deceiver',emoji:'🎭',name:'ОБМАНЩИК',type:'active',description:'Авто-ставка, обвинитель получает +2 яда',hidden:true},
-    {id:'clone',emoji:'🧬',name:'КЛОНИРОВАНИЕ',type:'active',description:'Артефакт становится 6-м кубиком со значением противника',hidden:true},
+    {id:'deceiver',emoji:'🎭',name:'ВРУНИШКА',type:'active',description:'Авто-ставка, обвинитель получает +2 яда',hidden:true},
+    {id:'clone',emoji:'🧬',name:'КЛОН',type:'active',description:'Артефакт становится 6-м кубиком со значением противника',hidden:true},
     {id:'curse',emoji:'☠️',name:'ПРОКЛЯТИЕ',type:'active',description:'Следующая ставка цели автоматически ложная',hidden:true},
     {id:'spy',emoji:'🕵️',name:'ШПИОН',type:'active',description:'Показывает 1 случайный кубик выбранного противника',hidden:true},
-    {id:'ice',emoji:'🧊',name:'ЛЕДЯНАЯ СТЕНА',type:'active',description:'Замораживает кубики цели на раунд (можно на себя)',hidden:true},
+    {id:'ice',emoji:'🧊',name:'FREEZING',type:'active',description:'Замораживает кубики цели на раунд (можно на себя)',hidden:true},
     {id:'defender',emoji:'🛡️',name:'ЗАЩИТНИК',type:'passive',description:'Блокирует ВСЕ яды в раунде (1 раз)',hidden:true},
     {id:'bloodthirst',emoji:'🧛',name:'КРОВОЖАДНОСТЬ',type:'passive',description:'+1 кровь при верном обвинении, цель получает +2 яда',hidden:true},
-    {id:'analyst',emoji:'🔍',name:'АНАЛИТИК',type:'active',description:'Показывает мин. количество игроков с кубиком номинала',hidden:true},
+    {id:'analyst',emoji:'🔍',name:'ИССЛЕДОВАНИЕ',type:'active',description:'Показывает мин. количество игроков с кубиком номинала',hidden:true},
     {id:'double',emoji:'🪞',name:'ДВОЙНИК',type:'active',description:'Копирует последнюю ставку выбранного игрока',hidden:false},
     {id:'evilEye',emoji:'🧿',name:'СГЛАЗ',type:'active',description:'Накладывает невезение на кубики цели (70% на 1-3)',hidden:true},
-    {id:'wildDie',emoji:'🎲',name:'ДИКИЙ КУБИК',type:'passive',description:'Считается любым номиналом при подсчёте ставки владельца',hidden:true},
-    {id:'sacrifice',emoji:'💀',name:'ЖЕРТВОПРИНОШЕНИЕ',type:'active',description:'+1 яд ради мощного эффекта на выбор',hidden:true},
-    {id:'circus',emoji:'🎪',name:'ЦИРКАЧ',type:'active',description:'Обмен 2 кубиками с целью (требуется ≥2 кубиков у обоих)',hidden:true},
-    {id:'darkPact',emoji:'🌑',name:'ТЁМНЫЙ ДОГОВОР',type:'passive',description:'Текущий раунд: +2 яда при обвинении. Следующий: щит на раунд',hidden:true},
-    {id:'sniper',emoji:'🔫',name:'ОТСТРЕЛ',type:'active',description:'Уничтожает все кубики номинала у всех (кроме замороженных, нельзя на текущую ставку). После использования нельзя обвинять',hidden:true}
+    {id:'wildDie',emoji:'🎲',name:'WILDICE',type:'passive',description:'Считается любым номиналом при подсчёте ставки владельца',hidden:true},
+    {id:'sacrifice',emoji:'💀',name:'САМОПОЖЕРТВОВАНИЕ',type:'active',description:'+1 яд ради мощного эффекта на выбор',hidden:true},
+    {id:'circus',emoji:'🎪',name:'ЦИРК',type:'active',description:'Обмен 2 кубиками с целью (требуется ≥2 кубиков у обоих)',hidden:true},
+    {id:'darkPact',emoji:'🌑',name:'ЗАТМЕНИЕ',type:'passive',description:'Текущий раунд: +2 яда при обвинении. Следующий: щит на раунд',hidden:true},
+    {id:'sniper',emoji:'🔫',name:'ПЕРЕСТРЕЛКА',type:'active',description:'Уничтожает все кубики номинала у всех (кроме замороженных, нельзя на текущую ставку). После использования нельзя обвинять',hidden:true}
 ];
 
 const GHOST_ABILITIES = [
-    {id:'oathOfVengeance',emoji:'⚔️',name:'Месть',type:'active',limit:'once_per_ghost',description:'Выберите цель. Если она умрёт — вы воскреснете (1 жизнь, 0 крови)'},
-    {id:'familiarCurse',emoji:'🔮',name:'Проклятие Фамильяра',type:'active',limit:'once_per_ghost',description:'Следующая ставка цели автоматически ложная (до конца раунда)'},
-    {id:'poltergeist',emoji:'🌀',name:'Полтергейст',type:'active',limit:'once_per_ghost',description:'Случайный эффект: саботаж/благословение/перемешивание'},
-    {id:'keeperOfSecrets',emoji:'👁️',name:'Хранитель Тайн',type:'active',limit:'unlimited',description:'Видите кубики всех живых игроков'},
-    {id:'soulReaper',emoji:'💀',name:'Жатва Душ',type:'active',limit:'once_per_ghost',description:'20% шанс эффекта на каждого живого. При убийстве — воскрешение (1 жизнь, 0 крови)'}
+    {id:'oathOfVengeance',emoji:'⚔️',name:'МЕСТЬ',type:'active',limit:'once_per_ghost',description:'Выберите цель. Если она умрёт — вы воскреснете (1 жизнь, 0 крови)'},
+    {id:'familiarCurse',emoji:'🔮',name:'ПРОКЛЯТИЕ ФАМИЛЬЯРА',type:'active',limit:'once_per_ghost',description:'Следующая ставка цели автоматически ложная (до конца раунда)'},
+    {id:'poltergeist',emoji:'🌀',name:'ПОЛТЕРГЕЙСТ',type:'active',limit:'once_per_ghost',description:'Случайный эффект: саботаж/благословение/перемешивание'},
+    {id:'keeperOfSecrets',emoji:'👁️',name:'ХРАНИТЕЛЬ ТАЙН',type:'active',limit:'unlimited',description:'Видите кубики всех живых игроков'},
+    {id:'soulReaper',emoji:'💀',name:'ЖАТВА ДУШ',type:'active',limit:'once_per_ghost',description:'20% шанс эффекта на каждого живого. При убийстве — воскрешение (1 жизнь, 0 крови)'}
 ];
 
 // ============================================================
