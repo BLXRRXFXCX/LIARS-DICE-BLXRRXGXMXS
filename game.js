@@ -911,13 +911,16 @@ function updateControls() {
     const canBet = mt && !GameState.isGhost && GameState.gameState === 'betting' && !GameState.isActionInProgress;
     const canAccuse = mt && !GameState.isGhost && GameState.gameState === 'betting' && GameState.lastBet && GameState.lastBet.player !== GameState.myUid && !m.cannotAccuse && !GameState.isActionInProgress;
 
-    if (bp) bp.disabled = !canBet;
+       if (bp) bp.disabled = !canBet;
     if (ba) ba.disabled = !canAccuse;
 
-    if (countUp) countUp.disabled = !canBet;
+    // КОЛИЧЕСТВО (1-50): вниз неактивна на 1, вверх неактивна на 50
+    if (countUp) countUp.disabled = !canBet || GameState.betCount >= 50;
     if (countDown) countDown.disabled = !canBet || GameState.betCount <= 1;
-    if (valueUp) valueUp.disabled = !canBet || GameState.betValue >= 6;
-    if (valueDown) valueDown.disabled = !canBet || GameState.betValue <= 1;
+    
+    // НОМИНАЛ (1-6 циклично): обе стрелки всегда активны, если сейчас твой ход
+    if (valueUp) valueUp.disabled = !canBet; 
+    if (valueDown) valueDown.disabled = !canBet; 
 
     if (GameState.isGhost) {
         document.getElementById('diceRow').style.display = 'none';
@@ -987,17 +990,23 @@ function markArtifactUsed(id) {
 // ============================================================
 function changeBetCount(delta) {
     if (GameState.gameState !== 'betting' || !isMyTurn()) return;
-    const pc = Object.keys(GameState.players).filter(u => GameState.players[u]?.alive && !GameState.players[u]?.isGhost).length;
-    const mp = Math.max(pc * 10, 10);
-    const limit = Math.max(mp + 20, 50);
+    const limit = 50; // Максимум 50, как ты просил
     GameState.betCount = Math.max(1, Math.min(limit, GameState.betCount + delta));
     updateBetDisplays();
+    updateControls(); // <-- ДОБАВИЛ: чтобы стрелки сразу обновляли своё состояние (активна/неактивна)
 }
 
 function changeBetValue(delta) {
     if (GameState.gameState !== 'betting' || !isMyTurn()) return;
-    GameState.betValue = Math.max(1, Math.min(6, GameState.betValue + delta));
+    
+    // Цикличность 1-6
+    let newVal = GameState.betValue + delta;
+    if (newVal > 6) newVal = 1;
+    if (newVal < 1) newVal = 6;
+    
+    GameState.betValue = newVal;
     updateBetDisplays();
+    updateControls(); // <-- ДОБАВИЛ: чтобы стрелки сразу обновляли своё состояние
 }
 
 function placeBet() {
