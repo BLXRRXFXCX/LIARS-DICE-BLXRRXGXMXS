@@ -1,8 +1,8 @@
 /* ============================================================
-   LIAR'S DICE v8.7 — FINAL RELEASE
-   Все исправления: модалки, debounce, лоадер, оффлайн, боты
-   ============================================================ */
-
+LIAR'S DICE v8.7 — FINAL RELEASE (UI REDESIGN)
+Все исправления: модалки, debounce, лоадер, оффлайн, боты
+Новый UI: 6 слотов, смокинги, гардероб, эмодзи-баблы, лог, проверка
+============================================================ */
 const DEBUG = false;
 function log(...args) { if (DEBUG) console.log('[Game]', ...args); }
 function logError(...args) { console.error('[Game Error]', ...args); }
@@ -11,7 +11,7 @@ function logError(...args) { console.error('[Game Error]', ...args); }
 const DIE_EMOJI_CACHE = ['?', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 function getDieEmoji(v) {
     const val = parseInt(v) || 1;
-    return DIE_EMOJI_CACHE[val] || '⚀';
+    return DIE_EMOJI_CACHE[val] || '';
 }
 
 // [F] ГЛОБАЛЬНОЕ СОСТОЯНИЕ
@@ -32,18 +32,39 @@ const GameState = {
     devilDealData: null,
     timers: { accusation: null, devilDeal: null, vote: null, bot: [] },
     chatLastSend: 0,
-    isActionInProgress: false,  // [2] Debounce
-    pendingArtifact: null       // [1] Артефакт в процессе выбора
+    isActionInProgress: false,
+    pendingArtifact: null,
+
+    // [UI] Новые поля
+    myWardrobe: {
+        head: '🎲',
+        tuxedoColor: '#222244',
+        trimColor: '#ffd700'
+    },
+    betCount: 1,
+    betValue: 1,
+    gameLog: [],
+    lastAccusationData: null
 };
 
 const VOTE_COOLDOWN = 120000;
 const MAX_HISTORY = 50;
 const CHAT_DEBOUNCE_MS = 1000;
-const OFFLINE_TIMEOUT = 5 * 60 * 1000; // [3] 5 минут
+const OFFLINE_TIMEOUT = 5 * 60 * 1000;
 
 // [K] КОНСТАНТЫ
-const AVATARS = ['🎲','🎭','👻','🤖','🧙','🧝','🧛','🧟','🐉','🦄','🌟','🔥','💀','👑','🎯','🧿','🕵️','🧪','🛡️','🔫'];
+const AVATARS = ['','🎭','👻','','🧙','🧝','','🧟','🐉','','🌟','🔥','','👑','🎯','','🕵️','🧪','🛡️','🔫'];
 const COLORS = ['#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ff8800','#88ff00','#ff0088','#0088ff','#ffffff','#cccccc','#ffaa88','#88ffaa','#aa88ff','#ff8888','#88ff88','#8888ff','#ffaa00','#00ffaa'];
+const TUXEDO_COLORS = ['#222244','#1a1a2e','#2d1a3e','#1a2e1a','#3e1a1a','#1a2e3e','#2e2e1a','#3e1a2e','#0a0a2e','#2e0a0a'];
+const TRIM_COLORS = ['#ffd700','#ff4444','#44ff44','#4444ff','#ff44ff','#44ffff','#ff8800','#ffffff','#ff0088','#00ff88'];
+
+const QUICK_EMOJIS = ['😂','😎','🤔','😱','','🔥','💀','','🤡','😈','','😤','🤫','👀','💪','🙏','','🤣','😏',''];
+const TAUNTS = {
+    evil: ['Ты труп!','Последняя ставка!','Бойся меня!','Я уничтожу тебя!','Твой конец близок!','Бойся!'],
+    kind: ['Удачи!','Хорошая игра!','Всё будет хорошо!','Не переживай!','Ты справишься!','Держись!'],
+    mocking: ['Слабак!','Мимо!','Ха-ха-ха!','Это всё?','Серьёзно?','Сдавайся!']
+};
+
 const botDifficultyNames = ['Легкий','Средний','Сложный','Эксперт'];
 
 const ARTIFACTS = [
@@ -55,25 +76,25 @@ const ARTIFACTS = [
     {id:'deceiver',emoji:'🎭',name:'ОБМАНЩИК',type:'active',description:'Авто-ставка, обвинитель получает +2 яда',hidden:true},
     {id:'clone',emoji:'🧬',name:'КЛОНИРОВАНИЕ',type:'active',description:'Артефакт становится 6-м кубиком со значением противника',hidden:true},
     {id:'curse',emoji:'☠️',name:'ПРОКЛЯТИЕ',type:'active',description:'Следующая ставка цели автоматически ложная',hidden:true},
-    {id:'spy',emoji:'🕵️',name:'ШПИОН',type:'active',description:'Показывает 1 случайный кубик выбранного противника',hidden:true},
+    {id:'spy',emoji:'️',name:'ШПИОН',type:'active',description:'Показывает 1 случайный кубик выбранного противника',hidden:true},
     {id:'ice',emoji:'🧊',name:'ЛЕДЯНАЯ СТЕНА',type:'active',description:'Замораживает кубики цели на раунд (можно на себя)',hidden:true},
     {id:'defender',emoji:'🛡️',name:'ЗАЩИТНИК',type:'passive',description:'Блокирует ВСЕ яды в раунде (1 раз)',hidden:true},
-    {id:'bloodthirst',emoji:'🧛',name:'КРОВОЖАДНОСТЬ',type:'passive',description:'+1 кровь при верном обвинении, цель получает +2 яда',hidden:true},
+    {id:'bloodthirst',emoji:'',name:'КРОВОЖАДНОСТЬ',type:'passive',description:'+1 кровь при верном обвинении, цель получает +2 яда',hidden:true},
     {id:'analyst',emoji:'🔍',name:'АНАЛИТИК',type:'active',description:'Показывает мин. количество игроков с кубиком номинала',hidden:true},
-    {id:'double',emoji:'🪞',name:'ДВОЙНИК',type:'active',description:'Копирует последнюю ставку выбранного игрока',hidden:false},
+    {id:'double',emoji:'',name:'ДВОЙНИК',type:'active',description:'Копирует последнюю ставку выбранного игрока',hidden:false},
     {id:'evilEye',emoji:'🧿',name:'СГЛАЗ',type:'active',description:'Накладывает невезение на кубики цели (70% на 1-3)',hidden:true},
     {id:'wildDie',emoji:'🎲',name:'ДИКИЙ КУБИК',type:'passive',description:'Считается любым номиналом при подсчёте ставки владельца',hidden:true},
     {id:'sacrifice',emoji:'💀',name:'ЖЕРТВОПРИНОШЕНИЕ',type:'active',description:'+1 яд ради мощного эффекта на выбор',hidden:true},
     {id:'circus',emoji:'🎪',name:'ЦИРКАЧ',type:'active',description:'Обмен 2 кубиками с целью (требуется ≥2 кубиков у обоих)',hidden:true},
     {id:'darkPact',emoji:'🌑',name:'ТЁМНЫЙ ДОГОВОР',type:'passive',description:'Текущий раунд: +2 яда при обвинении. Следующий: щит на раунд',hidden:true},
-    {id:'sniper',emoji:'🔫',name:'ОТСТРЕЛ',type:'active',description:'Уничтожает все кубики номинала у всех (кроме замороженных, нельзя на текущую ставку). После использования нельзя обвинять',hidden:true}
+    {id:'sniper',emoji:'',name:'ОТСТРЕЛ',type:'active',description:'Уничтожает все кубики номинала у всех (кроме замороженных, нельзя на текущую ставку). После использования нельзя обвинять',hidden:true}
 ];
 
 const GHOST_ABILITIES = [
     {id:'oathOfVengeance',emoji:'⚔️',name:'Месть',type:'active',limit:'once_per_ghost',description:'Выберите цель. Если она умрёт — вы воскреснете (1 жизнь, 0 крови)'},
     {id:'familiarCurse',emoji:'🔮',name:'Проклятие Фамильяра',type:'active',limit:'once_per_ghost',description:'Следующая ставка цели автоматически ложная (до конца раунда)'},
     {id:'poltergeist',emoji:'🌀',name:'Полтергейст',type:'active',limit:'once_per_ghost',description:'Случайный эффект: саботаж/благословение/перемешивание'},
-    {id:'keeperOfSecrets',emoji:'👁️',name:'Хранитель Тайн',type:'active',limit:'unlimited',description:'Видите кубики всех живых игроков'},
+    {id:'keeperOfSecrets',emoji:'️',name:'Хранитель Тайн',type:'active',limit:'unlimited',description:'Видите кубики всех живых игроков'},
     {id:'soulReaper',emoji:'💀',name:'Жатва Душ',type:'active',limit:'once_per_ghost',description:'20% шанс эффекта на каждого живого. При убийстве — воскрешение (1 жизнь, 0 крови)'}
 ];
 
@@ -125,31 +146,206 @@ function showLoading(show = true) {
     loader.style.opacity = show ? '1' : '0';
 }
 
-function appendChat(msg, t='normal', senderColor='#ffffff', senderAvatar='') {
-    const e = document.createElement('div');
-    e.className = `chat-msg msg-${t}`;
-    if (t === 'normal' && senderColor) e.style.color = senderColor;
-    if (senderAvatar) {
-        const parts = msg.split(':');
-        const name = escapeHtml(parts[0]);
-        const text = escapeHtml(parts.slice(1).join(':'));
-        e.innerHTML = `${escapeHtml(senderAvatar)} <span style="color:${senderColor}">${name}</span>:${text}`;
-    } else {
-        e.textContent = msg;
+// [LOG] Система лога
+function addLogEntry(type, text) {
+    const entry = { type, text, time: Date.now(), round: GameState.roundNumber };
+    GameState.gameLog.push(entry);
+    if (GameState.gameLog.length > 200) GameState.gameLog.shift();
+}
+
+function renderLog(filter = 'all') {
+    const container = document.getElementById('logContent');
+    if (!container) return;
+    container.innerHTML = '';
+    const filtered = filter === 'all' ? GameState.gameLog : GameState.gameLog.filter(e => e.type === filter);
+    if (filtered.length === 0) {
+        container.innerHTML = '<div style="color:#888; text-align:center; padding:20px;">Нет записей</div>';
+        return;
     }
-    const logEl = document.getElementById('chatLog');
-    if (logEl) {
-        logEl.insertBefore(e, logEl.firstChild);
-        while (logEl.children.length > 60) logEl.removeChild(logEl.lastChild);
+    filtered.slice().reverse().forEach(entry => {
+        const d = document.createElement('div');
+        d.className = `log-entry ${entry.type}`;
+        const time = new Date(entry.time).toLocaleTimeString('ru-RU');
+        d.textContent = `[${time}] ${entry.text}`;
+        container.appendChild(d);
+    });
+}
+
+// [CHECK] Отображение последней проверки
+function showLastCheck() {
+    const data = GameState.lastAccusationData;
+    const phrase = document.getElementById('checkPhrase');
+    const summary = document.getElementById('checkDiceSummary');
+    const result = document.getElementById('checkResult');
+    const effects = document.getElementById('checkEffects');
+
+    if (phrase) phrase.textContent = data?.phrase || 'Нет данных';
+    if (summary) summary.textContent = data?.diceSummary || 'Нет данных';
+    if (result) {
+        result.textContent = data?.resultText || 'Нет данных';
+        result.className = `accusation-result ${data?.resultClass || ''}`;
+    }
+    if (effects) effects.innerHTML = data?.effects || '<p style="color:#888;">Нет данных</p>';
+
+    document.getElementById('modalCheck').style.display = 'block';
+}
+
+// [WARDROBE] Гардероб
+function openWardrobe() {
+    const headSelect = document.getElementById('headSelect');
+    const tuxSelect = document.getElementById('tuxedoColorSelect');
+    const trimSelect = document.getElementById('tuxedoTrimSelect');
+    const preview = document.getElementById('wardrobePreview');
+
+    if (headSelect) {
+        headSelect.innerHTML = '';
+        AVATARS.forEach(av => {
+            const b = document.createElement('span');
+            b.className = 'wardrobe-option' + (GameState.myWardrobe.head === av ? ' selected' : '');
+            b.textContent = av;
+            b.onclick = () => {
+                GameState.myWardrobe.head = av;
+                headSelect.querySelectorAll('.wardrobe-option').forEach(x => x.classList.remove('selected'));
+                b.classList.add('selected');
+                renderWardrobePreview();
+            };
+            headSelect.appendChild(b);
+        });
+    }
+
+    if (tuxSelect) {
+        tuxSelect.innerHTML = '';
+        TUXEDO_COLORS.forEach(col => {
+            const b = document.createElement('span');
+            b.className = 'color-option' + (GameState.myWardrobe.tuxedoColor === col ? ' selected' : '');
+            b.style.background = col;
+            b.onclick = () => {
+                GameState.myWardrobe.tuxedoColor = col;
+                tuxSelect.querySelectorAll('.color-option').forEach(x => x.classList.remove('selected'));
+                b.classList.add('selected');
+                renderWardrobePreview();
+            };
+            tuxSelect.appendChild(b);
+        });
+    }
+
+    if (trimSelect) {
+        trimSelect.innerHTML = '';
+        TRIM_COLORS.forEach(col => {
+            const b = document.createElement('span');
+            b.className = 'color-option' + (GameState.myWardrobe.trimColor === col ? ' selected' : '');
+            b.style.background = col;
+            b.onclick = () => {
+                GameState.myWardrobe.trimColor = col;
+                trimSelect.querySelectorAll('.color-option').forEach(x => x.classList.remove('selected'));
+                b.classList.add('selected');
+                renderWardrobePreview();
+            };
+            trimSelect.appendChild(b);
+        });
+    }
+
+    renderWardrobePreview();
+    document.getElementById('modalWardrobe').style.display = 'block';
+}
+
+function renderWardrobePreview() {
+    const preview = document.getElementById('wardrobePreview');
+    if (!preview) return;
+    preview.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center;">
+            <div style="font-size:3em;">${GameState.myWardrobe.head}</div>
+            <div style="width:60px; height:50px; background:${GameState.myWardrobe.tuxedoColor}; border-radius:4px 4px 8px 8px; position:relative; border:2px solid ${GameState.myWardrobe.trimColor};">
+                <div style="position:absolute; left:15px; top:5px; width:2px; height:40px; background:${GameState.myWardrobe.trimColor};"></div>
+                <div style="position:absolute; right:15px; top:5px; width:2px; height:40px; background:${GameState.myWardrobe.trimColor};"></div>
+            </div>
+        </div>
+    `;
+}
+
+function saveWardrobe() {
+    localStorage.setItem('ld_wardrobe', JSON.stringify(GameState.myWardrobe));
+    if (GameState.roomRef && GameState.myUid) {
+        safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {
+            wardrobe: GameState.myWardrobe
+        }, 'save-wardrobe');
+    }
+    showNotification('Образ сохранён!', 'success');
+    document.getElementById('modalWardrobe').style.display = 'none';
+    renderPlayerList();
+}
+
+function loadWardrobe() {
+    const saved = localStorage.getItem('ld_wardrobe');
+    if (saved) {
+        try { GameState.myWardrobe = JSON.parse(saved); } catch(e) {}
     }
 }
 
+// [SPEECH BUBBLE] Облачка
+function showSpeechBubble(uid, text, isEmoji = false) {
+    const slot = document.querySelector(`.player-slot[data-uid="${uid}"]`);
+    if (!slot) return;
+    const rect = slot.getBoundingClientRect();
+    const container = document.getElementById('speechBubbleContainer');
+    const bubble = document.createElement('div');
+    bubble.className = 'speech-bubble';
+    bubble.textContent = text;
+    bubble.style.left = (rect.left + rect.width / 2 - 40) + 'px';
+    bubble.style.top = (rect.top - 50) + 'px';
+    if (isEmoji) bubble.style.fontSize = '2em';
+    container.appendChild(bubble);
+    setTimeout(() => bubble.remove(), 5000);
+}
+
+function openQuickEmoji() {
+    const list = document.getElementById('quickEmojiList');
+    if (!list) return;
+    list.innerHTML = '';
+    QUICK_EMOJIS.forEach(em => {
+        const b = document.createElement('button');
+        b.className = 'quick-emoji-btn';
+        b.textContent = em;
+        b.onclick = () => {
+            showSpeechBubble(GameState.myUid, em, true);
+            addLogEntry('system', `${GameState.myName} отправил эмодзи ${em}`);
+            closeModal('modalQuickEmoji');
+        };
+        list.appendChild(b);
+    });
+    document.getElementById('modalQuickEmoji').style.display = 'block';
+}
+
+function openTaunt() {
+    document.getElementById('tauntTextList').innerHTML = '<p style="color:#888; text-align:center;">Выберите настроение</p>';
+    document.getElementById('modalTaunt').style.display = 'block';
+}
+
+function selectTauntMood(mood) {
+    const list = document.getElementById('tauntTextList');
+    if (!list) return;
+    list.innerHTML = '';
+    TAUNTS[mood].forEach(txt => {
+        const b = document.createElement('button');
+        b.className = 'taunt-text-btn';
+        b.textContent = txt;
+        b.onclick = () => {
+            showSpeechBubble(GameState.myUid, txt, false);
+            addLogEntry('system', `${GameState.myName}: ${txt}`);
+            closeModal('modalTaunt');
+        };
+        list.appendChild(b);
+    });
+}
+
+// ============================================================
+// ЗВУК
+// ============================================================
 let audioContext = null;
 function setupAudioContext() {
     try { audioContext = new (window.AudioContext || window.webkitAudioContext)(); }
     catch(e) { logError('AudioContext:', e); }
 }
-
 function playSound(type) {
     if (!GameState.soundEnabled || !audioContext) return;
     try {
@@ -203,7 +399,6 @@ function validatePlayerData(data) {
     if (typeof data.maxLives !== 'number' || data.maxLives < 1 || data.maxLives > 10) return false;
     return true;
 }
-
 function validateBet(bet) {
     if (!bet || typeof bet !== 'object') return false;
     if (typeof bet.count !== 'number' || bet.count < 1 || bet.count > 100) return false;
@@ -212,14 +407,13 @@ function validateBet(bet) {
     return true;
 }
 
-// [H] БЕЗОПАСНЫЕ ОБНОВЛЕНИЯ + [4] ЛОАДЕР
+// [H] БЕЗОПАСНЫЕ ОБНОВЛЕНИЯ
 function safeUpdate(ref, data, context='') {
     showLoading(true);
     return ref.update(data)
         .then(() => { log(`✅ ${context}`); showLoading(false); })
         .catch(err => { logError(`❌ ${context}`, err); showLoading(false); showNotification('Ошибка соединения', 'error'); });
 }
-
 function safeSet(ref, data, context='') {
     showLoading(true);
     return ref.set(data)
@@ -246,7 +440,7 @@ function createRoom() {
     const url = new URL(window.location);
     url.searchParams.set('room', roomId);
     window.history.pushState({}, '', url);
-    document.getElementById('roomIdDisplay').textContent = roomId;
+    document.getElementById('roomIdDisplay').textContent = 'ROOM: ' + roomId;
     GameState.roomRef = db.ref('rooms/' + roomId);
     safeSet(GameState.roomRef, {
         players: {}, state: 'lobby', round: 0, lastBet: null,
@@ -267,32 +461,26 @@ function newRoom() {
 function enterRoom(roomId, isCreator = false) {
     GameState.currentRoomId = roomId;
     GameState.roomRef = db.ref('rooms/' + roomId);
-
     const savedUid = localStorage.getItem('ld_myUid');
     const savedName = localStorage.getItem('ld_playerName');
-    const savedAvatar = localStorage.getItem('ld_avatar');
-    const savedColor = localStorage.getItem('ld_color');
+
+    loadWardrobe();
 
     if (savedUid && savedName) {
         GameState.myUid = savedUid;
         GameState.myName = savedName;
-        GameState.myAvatar = savedAvatar || '🎲';
-        GameState.myColor = savedColor || '#ffffff';
     } else {
         GameState.myUid = 'uid_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6);
         GameState.myName = localStorage.getItem('ld_playerName') || 'Игрок';
-        GameState.myAvatar = localStorage.getItem('ld_avatar') || '🎲';
-        GameState.myColor = localStorage.getItem('ld_color') || '#ffffff';
         localStorage.setItem('ld_myUid', GameState.myUid);
         localStorage.setItem('ld_playerName', GameState.myName);
-        localStorage.setItem('ld_avatar', GameState.myAvatar);
-        localStorage.setItem('ld_color', GameState.myColor);
     }
     localStorage.setItem('ld_lastRoom', roomId);
 
     const playerData = {
         name: GameState.myName, uid: GameState.myUid,
         avatar: GameState.myAvatar, color: GameState.myColor,
+        wardrobe: GameState.myWardrobe,
         dice: [], poisons: 0, blood: 0, alive: true, isGhost: false,
         artifact: null, usedSpecialThisRound: {}, lastBetInRound: null,
         devilDealsUsed: 0, connected: true, lastSeenTurn: 0,
@@ -304,7 +492,7 @@ function enterRoom(roomId, isCreator = false) {
 
     setupRoomListeners();
     setupConnectionListener();
-    appendChat(`🎉 ${GameState.myName} вошёл в комнату ${roomId}`, 'system');
+    addLogEntry('system', `${GameState.myName} вошёл в комнату ${roomId}`);
 }
 
 function setupConnectionListener() {
@@ -334,7 +522,6 @@ function setupRoomListeners() {
     GameState.roomRef.on('value', (snapshot) => {
         const data = snapshot.val();
         if (!data) return;
-
         GameState.players = data.players || {};
         GameState.gameState = data.state || 'lobby';
 
@@ -367,11 +554,10 @@ function setupRoomListeners() {
             const p = GameState.players[uid];
             if (p && p.connected === false && p.disconnectedAt) {
                 if (now - p.disconnectedAt > OFFLINE_TIMEOUT && uid !== GameState.myUid) {
-                    // Только хост (первый игрок) удаляет
-                    const firstUid = Object.keys(GameState.players).sort((a,b)=>(GameState.players[a].joinedAt||0)-(GameState.players[b].joinedAt||0))[0];
+                    const firstUid = Object.keys(GameState.players).sort((a,b) => (GameState.players[a].joinedAt||0)-(GameState.players[b].joinedAt||0))[0];
                     if (firstUid === GameState.myUid) {
                         GameState.roomRef.child('players').child(uid).remove();
-                        appendChat(`👋 ${p.name} удалён (оффлайн > 5 мин)`, 'system');
+                        addLogEntry('system', `${p.name} удалён (оффлайн > 5 мин)`);
                     }
                 }
             }
@@ -386,85 +572,62 @@ function setupRoomListeners() {
             GameState.usedSpecialThisRound = me.usedSpecialThisRound || {};
             GameState.thiefUsedThisRound = me.thiefUsedThisRound || false;
             GameState.sniperShotUsedThisRound = me.sniperShotUsedThisRound || false;
+            if (me.wardrobe) {
+                GameState.myWardrobe = me.wardrobe;
+                localStorage.setItem('ld_wardrobe', JSON.stringify(GameState.myWardrobe));
+            }
         }
 
-        const panel = document.getElementById('accusationPanel');
-        if (GameState.gameState === 'accusing') {
-            if (panel) panel.style.display = 'block';
-            const ad = data.accusingData;
-            if (ad && GameState.lastBet) {
-                const accused = GameState.players[ad.accused];
-                const ph = document.getElementById('accusationPhrase');
-                if (ph && accused) ph.textContent = `${accused.name} обвинён в блефе! Проверка...`;
-                
-                let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
-                Object.values(GameState.players).forEach(p => {
-                    if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
-                });
-                const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}x${getDieEmoji(k)}`).join('  ');
-                const sumEl = document.getElementById('accusationDiceSummary');
-                if (sumEl) sumEl.textContent = `📊 Всего на столе: ${sm || 'Нет кубиков'}`;
-            }
-            const res = data.accusationResult;
-            if (res) {
-                const rEl = document.getElementById('accusationResult');
-                const eEl = document.getElementById('accusationEffects');
-                if (rEl) { rEl.textContent = res.resultText; rEl.className = res.resultClass; }
-                if (eEl && res.effects) eEl.innerHTML = res.effects;
-            }
-        } else {
-            if (panel && panel.style.display === 'block') panel.style.display = 'none';
+        // Сохранение данных последнего обвинения
+        if (data.accusationResult) {
+            GameState.lastAccusationData = {
+                phrase: data.accusingData ? `${GameState.players[data.accusingData.accused]?.name || 'Цель'} обвинён!` : '',
+                diceSummary: '—',
+                resultText: data.accusationResult.resultText || '',
+                resultClass: data.accusationResult.resultClass || '',
+                effects: data.accusationResult.effects || ''
+            };
         }
 
         renderUI();
 
-        if (GameState.gameState === 'betting' && GameState.currentPlayerUid && 
-            GameState.players[GameState.currentPlayerUid]?.isBot && 
+        if (GameState.gameState === 'betting' && GameState.currentPlayerUid &&
+            GameState.players[GameState.currentPlayerUid]?.isBot &&
             GameState.currentPlayerUid !== GameState.myUid && !GameState.isBotThinking) {
             botTurn(GameState.currentPlayerUid);
         }
-    });
-
-    GameState.roomRef.child('chat').limitToLast(60).on('child_added', (s) => {
-        const msg = s.val();
-        if (!msg) return;
-        const isMe = msg.sender === GameState.myName;
-        const player = Object.values(GameState.players).find(p => p.name === msg.sender);
-        appendChat(`${msg.sender}: ${msg.text}`, msg.type || 'normal', isMe ? GameState.myColor : (player?.color || '#fff'), isMe ? GameState.myAvatar : (player?.avatar || ''));
-    });
-
-    GameState.roomRef.child('votes').on('value', (s) => {
-        const votes = s.val();
-        if (votes && GameState.currentVoteTarget && votes[GameState.currentVoteTarget]) updateVoteUI(votes[GameState.currentVoteTarget]);
     });
 }
 
 // ============================================================
 // РЕНДЕРИНГ [J]
 // ============================================================
-const playerCardsCache = new Map();
-
 function renderUI() {
     updateGameStatus();
     updateLastBetDisplay();
     renderPlayerList();
     renderDiceRow();
+    renderArtifactRow();
     updateControls();
+    updateBetDisplays();
 }
 
 function updateGameStatus() {
     const cp = getCurrentPlayerName();
-    const el = document.getElementById('gameStatusText');
-    if (!el) return;
-    switch(GameState.gameState) {
-        case 'lobby': el.textContent = 'Лобби'; break;
-        case 'betting': el.textContent = `Раунд ${GameState.roundNumber} | Ход: ${cp}`; break;
-        case 'accusing': el.textContent = '⚖️ Проверка ставки'; break;
-        case 'devil_deal': el.textContent = '😈 Сделка с Дьяволом'; break;
-        case 'ended': 
-            const w = Object.values(GameState.players).find(p => p?.alive && !p.isGhost);
-            el.textContent = w ? `🏆 ${w.name} победил!` : 'Ничья'; 
-            break;
+    const roundEl = document.getElementById('roundInfo');
+    const turnEl = document.getElementById('turnInfo');
+    if (roundEl) roundEl.textContent = `Раунд ${GameState.roundNumber}`;
+    if (turnEl) {
+        switch(GameState.gameState) {
+            case 'lobby': turnEl.textContent = 'Ожидание...'; break;
+            case 'betting': turnEl.textContent = `Ход: ${cp}`; break;
+            case 'accusing': turnEl.textContent = '⚖️ Проверка...'; break;
+            case 'devil_deal': turnEl.textContent = '😈 Сделка...'; break;
+            case 'ended':
+                const w = Object.values(GameState.players).find(p => p?.alive && !p.isGhost);
+                turnEl.textContent = w ? `🏆 ${w.name}!` : 'Ничья';
+                break;
+        }
     }
 }
 
@@ -490,75 +653,101 @@ function updateLastBetDisplay() {
     if (!el) return;
     if (GameState.lastBet && GameState.players[GameState.lastBet.player]) {
         const p = GameState.players[GameState.lastBet.player];
-        el.innerHTML = `${escapeHtml(p.name)}: ${GameState.lastBet.count}×<span style="font-size:2em;">${getDieEmoji(GameState.lastBet.value)}</span>`;
+        el.innerHTML = `${escapeHtml(p.name)}: ${GameState.lastBet.count}×<span style="font-size:1.4em;">${getDieEmoji(GameState.lastBet.value)}</span>`;
     } else {
         el.textContent = 'Последняя ставка: —';
     }
 }
 
+// [UI] Рендер 6 слотов игроков
 function renderPlayerList() {
-    const container = document.getElementById('playerList');
-    if (!container) return;
-    const cu = getCurrentPlayerUid();
+    const slots = document.querySelectorAll('.player-slot');
     const sortedUids = Object.keys(GameState.players).sort((a,b) => (GameState.players[a].joinedAt||0) - (GameState.players[b].joinedAt||0));
-    const currentSet = new Set(sortedUids);
+    const cu = getCurrentPlayerUid();
 
-    playerCardsCache.forEach((card, uid) => {
-        if (!currentSet.has(uid)) { card.remove(); playerCardsCache.delete(uid); }
-    });
+    slots.forEach((slot, idx) => {
+        const uid = sortedUids[idx];
+        const p = uid ? GameState.players[uid] : null;
 
-    sortedUids.forEach(uid => {
-        const p = GameState.players[uid];
+        // Сброс
+        slot.className = 'player-slot' + (p ? '' : ' empty');
+        slot.dataset.uid = uid || '';
+        slot.innerHTML = '';
+
         if (!p) return;
-        let c = playerCardsCache.get(uid);
-        if (!c) {
-            c = document.createElement('div');
-            c.className = 'player-card no-select';
-            c.dataset.uid = uid;
-            container.appendChild(c);
-            playerCardsCache.set(uid, c);
+
+        if (uid === cu && GameState.gameState === 'betting' && !p.isGhost) slot.classList.add('active');
+
+        // Ник
+        const nick = document.createElement('div');
+        nick.className = 'slot-nick';
+        nick.style.color = p.color || '#fff';
+        nick.textContent = p.name || 'НИК';
+        slot.appendChild(nick);
+
+        // Тело
+        const body = document.createElement('div');
+        body.className = 'slot-body';
+
+        // Голова (эмодзи)
+        const head = document.createElement('div');
+        head.className = 'slot-head';
+        const wardrobe = p.wardrobe || { head: p.avatar || '🎲' };
+        head.textContent = wardrobe.head || p.avatar || '🎲';
+        body.appendChild(head);
+
+        // Смокинг
+        const tux = document.createElement('div');
+        tux.className = 'slot-tuxedo';
+        tux.style.background = wardrobe.tuxedoColor || '#222244';
+        tux.style.borderColor = wardrobe.trimColor || '#ffd700';
+
+        const trimL = document.createElement('div');
+        trimL.className = 'trim-line trim-left';
+        trimL.style.background = wardrobe.trimColor || '#ffd700';
+        const trimR = document.createElement('div');
+        trimR.className = 'trim-line trim-right';
+        trimR.style.background = wardrobe.trimColor || '#ffd700';
+        tux.appendChild(trimL);
+        tux.appendChild(trimR);
+        body.appendChild(tux);
+
+        slot.appendChild(body);
+
+        // Бейджи
+        if (p.isGhost) {
+            const gb = document.createElement('div');
+            gb.className = 'slot-ghost-badge';
+            gb.textContent = '👻';
+            slot.appendChild(gb);
         }
-        
-        c.className = 'player-card no-select';
-        if (uid === cu && GameState.gameState === 'betting' && !p.isGhost) c.classList.add('active');
-        if (p.frozen) c.classList.add('frozen');
-        if (p.cursed || p.evilEyed) c.classList.add('cursed');
-        if (p.connected === false) c.style.opacity = '0.5';
-
-        c.innerHTML = '';
-        const info = document.createElement('div'); info.className = 'player-info';
-        
-        const av = document.createElement('span'); av.className = 'player-avatar'; av.textContent = p.avatar || '🎲';
-        info.appendChild(av);
-
-        const nm = document.createElement('span');
-        nm.className = `player-name shadow-${Math.min(p.poisons, p.maxLives||3)}`;
-        nm.style.color = p.color || '#fff';
-        nm.textContent = p.name || 'Игрок';
-        if (p.isGhost) nm.appendChild(document.createTextNode(' 👻'));
-        if (p.connected === false) nm.appendChild(document.createTextNode(' 💤'));
-        info.appendChild(nm);
-
-        const tm = document.createElement('span'); tm.className = 'sands-of-time'; tm.textContent = '⏳';
-        if (uid === cu && GameState.gameState === 'betting' && !p.isGhost) tm.style.display = 'inline';
-        info.appendChild(tm);
-
-        const pd = document.createElement('div'); pd.className = 'player-poisons';
-        if (GameState.gameState !== 'lobby') {
-            const ml = p.maxLives || 3;
-            const ts = ml + (p.blood || 0);
-            for (let j=0; j<ts; j++) {
-                const sp = document.createElement('span');
-                if (p.isGhost) { sp.className='icon-ghost'; sp.textContent='👻'; }
-                else if (!p.alive) { sp.className='icon-dead'; sp.textContent='💀'; }
-                else if (j < ml && j < p.poisons) { sp.className='icon-poison'; sp.textContent='🫙'; }
-                else if (j === ml && p.blood > 0) { sp.className='icon-blood'; sp.textContent='🩸'; }
-                else { sp.className='icon-life'; sp.textContent='🧪'; }
-                pd.appendChild(sp);
-            }
+        if (p.connected === false) {
+            const ob = document.createElement('div');
+            ob.className = 'slot-offline-badge';
+            ob.textContent = '💤';
+            slot.appendChild(ob);
         }
-        c.appendChild(info);
-        c.appendChild(pd);
+
+        const ti = document.createElement('div');
+        ti.className = 'slot-turn-indicator';
+        ti.textContent = '⏳';
+        slot.appendChild(ti);
+
+        // Жизни
+        const lives = document.createElement('div');
+        lives.className = 'slot-lives';
+        const ml = p.maxLives || 3;
+        const total = ml + (p.blood || 0);
+        for (let j = 0; j < Math.min(total, ml + 3); j++) {
+            const sp = document.createElement('span');
+            if (p.isGhost) { sp.className = 'heart'; sp.textContent = '👻'; }
+            else if (!p.alive) { sp.className = 'cross'; sp.textContent = '💀'; }
+            else if (j < ml && j < p.poisons) { sp.className = 'cross'; sp.textContent = '❌'; }
+            else if (j < ml) { sp.className = 'heart'; sp.textContent = '❤️'; }
+            else if (j === ml && p.blood > 0) { sp.className = 'blood'; sp.textContent = ''; }
+            lives.appendChild(sp);
+        }
+        slot.appendChild(lives);
     });
 }
 
@@ -566,43 +755,103 @@ function renderDiceRow() {
     const container = document.getElementById('diceContainer');
     if (!container) return;
     container.innerHTML = '';
+
     if (GameState.gameState !== 'betting' && GameState.gameState !== 'accusing') {
-        container.style.display = 'none'; return;
+        document.getElementById('diceRow').style.display = 'none';
+        return;
     }
-    container.style.display = 'flex';
+    document.getElementById('diceRow').style.display = 'flex';
+
     const m = GameState.players[GameState.myUid];
     if (!m) return;
 
-    if (m.artifact) {
-        const a = document.createElement('div');
-        let usedClass = '';
-        if (GameState.usedSpecialThisRound[m.artifact.id] && m.artifact.type === 'active') usedClass = 'used';
-        else if (m.artifact.type === 'passive' && m.artifactUsed) usedClass = 'used';
-        
-        a.className = `die special ${m.artifact.type==='passive'?'passive':''} ${usedClass}`;
-        a.textContent = m.artifact.emoji;
-        
-        const btn = document.createElement('div');
-        btn.className = 'artifact-info-btn'; btn.textContent = '?';
-        btn.onclick = () => showArtifactInfo(m.artifact);
-        
-        container.appendChild(btn);
-        container.appendChild(a);
-        
-        if (!GameState.usedSpecialThisRound[m.artifact.id] || m.artifact.type === 'passive') {
-            a.onclick = () => useArtifact(m.artifact.id);
-        }
-    }
+    // Артефакт (отображается в artifactRow, не здесь)
 
+    // Кубики
     if (m.dice && m.dice.length) {
         m.dice.forEach(d => {
-            const s = document.createElement('div'); s.className = 'die';
+            const s = document.createElement('div');
+            s.className = 'die';
             s.textContent = m.blind ? '?' : getDieEmoji(parseInt(d)||1);
             if (m.frozen) s.classList.add('frozen');
             if (m.stunned) s.classList.add('stunned');
             container.appendChild(s);
         });
     }
+}
+
+function renderArtifactRow() {
+    const icon = document.getElementById('artifactIcon');
+    const name = document.getElementById('artifactName');
+    const btn = document.getElementById('artifactInfoBtn');
+    const row = document.getElementById('artifactRow');
+
+    const m = GameState.players[GameState.myUid];
+    if (!m || !m.artifact || GameState.gameState === 'lobby' || GameState.gameState === 'ended') {
+        if (icon) icon.textContent = '';
+        if (name) name.textContent = 'Нет артефакта';
+        if (btn) btn.style.display = 'none';
+        if (row) row.style.opacity = '0.5';
+        return;
+    }
+
+    if (row) row.style.opacity = '1';
+    if (btn) btn.style.display = 'block';
+    if (icon) {
+        icon.textContent = m.artifact.emoji;
+        let usedClass = '';
+        if (GameState.usedSpecialThisRound[m.artifact.id] && m.artifact.type === 'active') usedClass = 'used';
+        icon.className = 'die special' + (m.artifact.type==='passive'?' passive':'') + (usedClass?' used':'');
+        if (!GameState.usedSpecialThisRound[m.artifact.id] || m.artifact.type === 'passive') {
+            icon.onclick = () => useArtifact(m.artifact.id);
+        } else {
+            icon.onclick = null;
+        }
+    }
+    if (name) name.textContent = m.artifact.name;
+}
+
+function updateControls() {
+    const mt = isMyTurn();
+    const m = GameState.players[GameState.myUid] || {};
+    const bp = document.getElementById('btnPlaceBet');
+    const ba = document.getElementById('btnAccuse');
+
+    const countUp = document.getElementById('btnBetCountUp');
+    const countDown = document.getElementById('btnBetCountDown');
+    const valueUp = document.getElementById('btnBetValueUp');
+    const valueDown = document.getElementById('btnBetValueDown');
+
+    const canBet = mt && !GameState.isGhost && GameState.gameState === 'betting' && !GameState.isActionInProgress;
+    const canAccuse = mt && !GameState.isGhost && GameState.gameState === 'betting' && GameState.lastBet && GameState.lastBet.player !== GameState.myUid && !m.cannotAccuse && !GameState.isActionInProgress;
+
+    if (bp) bp.disabled = !canBet;
+    if (ba) ba.disabled = !canAccuse;
+
+    if (countUp) countUp.disabled = !canBet;
+    if (countDown) countDown.disabled = !canBet || GameState.betCount <= 1;
+    if (valueUp) valueUp.disabled = !canBet || GameState.betValue >= 6;
+    if (valueDown) valueDown.disabled = !canBet || GameState.betValue <= 1;
+
+    if (GameState.isGhost) {
+        document.getElementById('diceRow').style.display = 'none';
+        document.getElementById('controlRow').style.display = 'none';
+        document.getElementById('actionButtons').style.display = 'none';
+        const gp = document.getElementById('ghostAbilitiesPanel');
+        if (gp) { gp.style.display = 'flex'; updateGhostButtons(); }
+    } else {
+        const gp = document.getElementById('ghostAbilitiesPanel');
+        if (gp) gp.style.display = 'none';
+        document.getElementById('controlRow').style.display = 'grid';
+        document.getElementById('actionButtons').style.display = 'grid';
+    }
+}
+
+function updateBetDisplays() {
+    const cd = document.getElementById('betCountDisplay');
+    const vd = document.getElementById('betValueDisplay');
+    if (cd) cd.textContent = GameState.betCount;
+    if (vd) vd.textContent = getDieEmoji(GameState.betValue);
 }
 
 function showArtifactInfo(art) {
@@ -612,39 +861,6 @@ function showArtifactInfo(art) {
         t.textContent = `${art.emoji} ${art.name}`;
         d.innerHTML = `<strong>Тип:</strong> ${art.type==='active'?'Активный (1 раз за раунд)':'Пассивный (автоматически)'}<br><br><strong>Описание:</strong> ${escapeHtml(art.description)}`;
         document.getElementById('modalArtifactInfo').style.display = 'block';
-    }
-}
-
-function updateControls() {
-    const mt = isMyTurn();
-    const m = GameState.players[GameState.myUid] || {};
-    
-    const bc = document.getElementById('betCount');
-    const bv = document.getElementById('betValue');
-    const bp = document.getElementById('btnPlaceBet');
-    const ba = document.getElementById('btnAccuse');
-    
-    if (bc) bc.disabled = !mt || GameState.isGhost;
-    if (bv) bv.disabled = !mt || GameState.isGhost;
-    if (bp) bp.disabled = !mt || GameState.isGhost || GameState.gameState !== 'betting' || GameState.isActionInProgress;
-    if (ba) ba.disabled = !mt || GameState.isGhost || GameState.gameState !== 'betting' || !GameState.lastBet || GameState.lastBet.player === GameState.myUid || m.cannotAccuse || GameState.isActionInProgress;
-
-    const cc = !GameState.isGhost && GameState.gameState !== 'devil_deal';
-    const ci = document.getElementById('chatInput');
-    const cs = document.getElementById('btnSendChat');
-    if (ci) ci.disabled = !cc;
-    if (cs) cs.disabled = !cc;
-
-    if (GameState.isGhost) {
-        document.getElementById('diceContainer').style.display = 'none';
-        document.getElementById('controlsRow').style.display = 'none';
-        const gp = document.getElementById('ghostAbilitiesPanel');
-        if (gp) { gp.style.display = 'flex'; updateGhostButtons(); }
-    } else {
-        const gp = document.getElementById('ghostAbilitiesPanel');
-        if (gp) gp.style.display = 'none';
-        document.getElementById('controlsRow').style.display = 'flex';
-        if (mt && !GameState.isGhost && GameState.gameState === 'betting') populateBetSelects();
     }
 }
 
@@ -661,25 +877,11 @@ function updateGhostButtons() {
     });
 }
 
-function populateBetSelects() {
-    const sel = document.getElementById('betCount');
-    if (!sel) return;
-    sel.innerHTML = '<option value="">—</option>';
-    const pc = Object.keys(GameState.players).filter(u => GameState.players[u]?.alive && !GameState.players[u]?.isGhost).length;
-    const mp = Math.max(pc * 10, 10);
-    const limit = Math.max(mp + 20, 50);
-    for (let i=1; i<=limit; i++) {
-        const o = document.createElement('option'); o.value = i; o.textContent = i;
-        sel.appendChild(o);
-    }
-    sel.value = GameState.lastBet ? Math.min(GameState.lastBet.count + 1, limit) : 1;
-}
-
 function isMyTurn() {
     if (GameState.isGhost || GameState.gameState !== 'betting') return false;
     const au = Object.keys(GameState.players).filter(u => GameState.players[u]?.alive && !GameState.players[u]?.isGhost && GameState.players[u].connected !== false);
     if (!au.length) return false;
-    au.sort((a,b) => (GameState.players[a].joinedAt||0) - (GameState.players[b].joinedAt||0));
+    au.sort((a,b) => (GameState.players[a].joinedAt||0)-(GameState.players[b].joinedAt||0));
     if (!GameState.lastBet || !GameState.lastBet.player) return au[0] === GameState.myUid;
     const idx = au.indexOf(GameState.lastBet.player);
     return au[(idx + 1) % au.length] === GameState.myUid;
@@ -697,14 +899,28 @@ function markArtifactUsed(id) {
 // ============================================================
 // ИГРОВАЯ ЛОГИКА [2] DEBOUNCE
 // ============================================================
+function changeBetCount(delta) {
+    if (GameState.gameState !== 'betting' || !isMyTurn()) return;
+    const pc = Object.keys(GameState.players).filter(u => GameState.players[u]?.alive && !GameState.players[u]?.isGhost).length;
+    const mp = Math.max(pc * 10, 10);
+    const limit = Math.max(mp + 20, 50);
+    GameState.betCount = Math.max(1, Math.min(limit, GameState.betCount + delta));
+    updateBetDisplays();
+}
+
+function changeBetValue(delta) {
+    if (GameState.gameState !== 'betting' || !isMyTurn()) return;
+    GameState.betValue = Math.max(1, Math.min(6, GameState.betValue + delta));
+    updateBetDisplays();
+}
+
 function placeBet() {
     if (GameState.isActionInProgress) return;
     if (GameState.gameState !== 'betting' || !isMyTurn()) return;
-    
-    const c = parseInt(document.getElementById('betCount').value);
-    const v = parseInt(document.getElementById('betValue').value);
+    const c = GameState.betCount;
+    const v = GameState.betValue;
     const m = GameState.players[GameState.myUid];
-    if (!m || isNaN(c) || isNaN(v)) return;
+    if (!m) return;
 
     if (v < 1 || v > 6) return showNotification('Номинал 1-6!', 'warning');
     if (GameState.lastBet && (c < GameState.lastBet.count || (c === GameState.lastBet.count && v <= GameState.lastBet.value))) {
@@ -722,18 +938,19 @@ function placeBet() {
     const nb = { player: GameState.myUid, count: c, value: v, timestamp: Date.now() };
     GameState.lastBet = nb;
     GameState.players[GameState.myUid].lastBetInRound = nb;
-    
+
     const updates = {};
     updates['lastBet'] = nb;
     updates['turnCounter'] = GameState.turnCounter + 1;
     updates[`players/${GameState.myUid}/lastBetInRound`] = nb;
     updates[`players/${GameState.myUid}/cursed`] = false;
     updates[`players/${GameState.myUid}/forcedBluff`] = false;
-    
+
     safeUpdate(GameState.roomRef, updates, 'placeBet').finally(() => {
         GameState.isActionInProgress = false;
     });
     GameState.turnCounter++;
+    addLogEntry('bet', `${m.name} ставит ${c}×${getDieEmoji(v)}`);
     renderUI();
     playSound('bet');
     nextTurn();
@@ -743,7 +960,6 @@ function accuse() {
     if (GameState.isActionInProgress) return;
     if (GameState.gameState !== 'betting' || !isMyTurn()) return;
     if (!GameState.lastBet || GameState.lastBet.player === GameState.myUid) return;
-
     GameState.isActionInProgress = true;
     GameState.gameState = 'accusing';
     safeUpdate(GameState.roomRef, {
@@ -757,22 +973,33 @@ function accuse() {
     const phrases = [`${GameState.myName} бьёт по столу: "${t}, ложь!"`, `"${t}, вскрывайся!" — ${GameState.myName}`, `${GameState.myName} указывает: "${t}, блеф!"`, `"Не верю!" — ${GameState.myName}`];
     const ph = document.getElementById('accusationPhrase');
     if (ph) ph.textContent = phrases[Math.floor(Math.random()*phrases.length)];
-    
+
     const res = document.getElementById('accusationResult');
     if (res) { res.textContent = 'Проверка кубиков...'; res.className = 'accusation-result'; }
     const eff = document.getElementById('accusationEffects');
-    if (eff) eff.innerHTML = '<h4 style="margin:5px 0; color:#ffd700;">📋 Эффекты:</h4>';
+    if (eff) eff.innerHTML = '<h4 style="margin:5px 0; color:#ffd700;"> Эффекты:</h4>';
 
     let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
     Object.values(GameState.players).forEach(p => {
         if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
     });
-    const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}x${getDieEmoji(k)}`).join('  ');
+    const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×${getDieEmoji(k)}`).join(' ');
     const sum = document.getElementById('accusationDiceSummary');
     if (sum) sum.textContent = `📊 Всего на столе: ${sm || 'Нет кубиков'}`;
 
     document.getElementById('accusationPanel').style.display = 'block';
     playSound('accuse');
+
+    // Сохраняем для кнопки ПРОВЕРКА
+    GameState.lastAccusationData = {
+        phrase: ph?.textContent || '',
+        diceSummary: sum?.textContent || '',
+        resultText: 'Проверка...',
+        resultClass: '',
+        effects: ''
+    };
+
+    addLogEntry('accuse', `${GameState.myName} обвиняет ${t}!`);
 
     if (GameState.timers.accusation) clearTimeout(GameState.timers.accusation);
     GameState.timers.accusation = setTimeout(() => resolveAccusation(GameState.lastBet.player), 3000);
@@ -782,7 +1009,6 @@ function resolveAccusation(accusedUid) {
     safeUpdate(GameState.roomRef, { accusationResult: null, accusingData: null }, 'resolve-start');
     const tv = GameState.lastBet.value;
     const accused = GameState.players[accusedUid];
-
     let totalWithoutWild = 0;
     Object.values(GameState.players).forEach(p => {
         if (!p?.alive || p.isGhost) return;
@@ -842,8 +1068,21 @@ function resolveAccusation(accusedUid) {
     }
 
     const html = e?.innerHTML || '';
-    updates['accusationResult'] = { isLie, effects: html, resultText: r?.textContent||'', resultClass: r?.className||'' };
+    const resultText = r?.textContent || '';
+    const resultClass = r?.className || '';
+    updates['accusationResult'] = { isLie, effects: html, resultText: resultText, resultClass: resultClass };
     safeUpdate(GameState.roomRef, updates, 'resolve-result');
+
+    // Сохраняем для ПРОВЕРКА
+    GameState.lastAccusationData = {
+        phrase: document.getElementById('accusationPhrase')?.textContent || '',
+        diceSummary: document.getElementById('accusationDiceSummary')?.textContent || '',
+        resultText: resultText,
+        resultClass: resultClass,
+        effects: html
+    };
+
+    addLogEntry('accuse', `Результат: ${resultText}`);
 
     setTimeout(() => {
         document.getElementById('accusationPanel').style.display = 'none';
@@ -861,14 +1100,13 @@ function addEffectLine(t, c) {
 function applyPoison(uid, amt, reason) {
     const p = GameState.players[uid];
     if (!p) return;
-
     if (p.devilShield && p.devilShieldRound === GameState.roundNumber) {
-        appendChat(`🛡️ ${p.name} защищён ЩИТОМ ДЬЯВОЛА!`, 'system');
+        addLogEntry('system', `${p.name} защищён ЩИТОМ ДЬЯВОЛА!`);
         safeUpdate(GameState.roomRef.child('players').child(uid), { devilShield: false }, 'shield');
         return;
     }
     if (p.defenderActive) {
-        appendChat(`🛡️ ${p.name} защищён ЗАЩИТНИКОМ!`, 'system');
+        addLogEntry('system', `${p.name} защищён ЗАЩИТНИКОМ!`);
         safeUpdate(GameState.roomRef.child('players').child(uid), { defenderActive: false }, 'defender');
         return;
     }
@@ -878,11 +1116,11 @@ function applyPoison(uid, amt, reason) {
         const u = Math.min(p.blood, rem);
         rem -= u;
         safeUpdate(GameState.roomRef.child('players').child(uid), { blood: p.blood - u }, 'blood');
-        appendChat(`🩸 ${p.name} потратил ${u} крови`, 'system');
+        addLogEntry('system', `${p.name} потратил ${u} крови`);
     }
     if (rem > 0) {
         safeUpdate(GameState.roomRef.child('players').child(uid), { poisons: p.poisons + rem }, 'poison');
-        appendChat(`☠️ ${p.name} получает +${rem} яд (${reason})`, 'death');
+        addLogEntry('death', `${p.name} получает +${rem} яд (${reason})`);
         playSound('poison');
         renderUI();
     }
@@ -892,18 +1130,17 @@ function applyBlood(uid, amt) {
     const p = GameState.players[uid];
     if (!p) return;
     safeUpdate(GameState.roomRef.child('players').child(uid), { blood: (p.blood||0) + amt }, 'blood-gain');
-    appendChat(`🩸 ${p.name} получает +${amt} кровь!`, 'system');
+    addLogEntry('system', `${p.name} получает +${amt} кровь!`);
     playSound('blood');
     renderUI();
 }
 
 function checkDeath() {
     if (GameState.gameState === 'ended') return;
-
     Object.keys(GameState.players).forEach(uid => {
         const p = GameState.players[uid];
         if (!p || p.isGhost || !p.alive) return;
-        
+
         const ml = p.maxLives || 3;
         if (p.poisons >= ml) {
             if (p.devilDealsUsed >= 2) {
@@ -912,7 +1149,6 @@ function checkDeath() {
                 if (p.isBot) {
                     const diff = GameState.bots[uid]?.difficulty ?? 2;
                     const surviveChance = [0.2, 0.5, 0.7, 0.9][diff];
-                    
                     if (Math.random() < surviveChance) {
                         const updates = {
                             poisons: 0, blood: 0, alive: true, isGhost: false,
@@ -920,15 +1156,15 @@ function checkDeath() {
                             devilDealsUsed: (p.devilDealsUsed||0) + 1
                         };
                         safeUpdate(GameState.roomRef.child('players').child(uid), updates, 'bot-deal-win');
-                        appendChat(`😈 ${p.name} ВЫИГРАЛ сделку с Дьяволом!`, 'system');
+                        addLogEntry('system', `${p.name} ВЫИГРАЛ сделку с Дьяволом!`);
                         playSound('devilWin');
-                        playSound('resurrection'); // [7] Звук воскрешения для ботов
+                        playSound('resurrection');
                     } else {
                         turnToGhost(uid);
                     }
                 } else {
                     if (uid === GameState.myUid) startDevilDeal(uid);
-                    else appendChat(`😈 ${p.name} отправляется на Сделку с Дьяволом...`, 'death');
+                    else addLogEntry('death', `${p.name} отправляется на Сделку с Дьяволом...`);
                 }
             }
         }
@@ -938,17 +1174,16 @@ function checkDeath() {
     if (humans.length === 1 && GameState.gameState !== 'ended') {
         GameState.gameState = 'ended';
         safeUpdate(GameState.roomRef, { state: 'ended' }, 'victory');
-        appendChat(`🏆 ${humans[0].name} победил!`, 'system');
+        addLogEntry('system', `${humans[0].name} победил!`);
         playSound('win');
         showConfetti();
     } else if (humans.length === 0 && GameState.gameState !== 'ended') {
         GameState.gameState = 'ended';
         safeUpdate(GameState.roomRef, { state: 'ended' }, 'draw');
-        appendChat('💀 Ничья — все мертвы или призраки!', 'system');
+        addLogEntry('system', 'Ничья — все мертвы или призраки!');
     }
 }
 
-// [6] АНИМАЦИЯ СМЕРТИ
 function turnToGhost(uid) {
     const updates = {
         alive: false, isGhost: true, poisons: 0, artifact: null, blood: 0,
@@ -956,21 +1191,8 @@ function turnToGhost(uid) {
         devilShield: false, usedAbilities: {}, lastBetInRound: null, dice: []
     };
     safeUpdate(GameState.roomRef.child('players').child(uid), updates, 'turnToGhost');
-    appendChat(`👻 ${GameState.players[uid].name} стал призраком!`, 'death');
+    addLogEntry('death', `${GameState.players[uid].name} стал призраком!`);
     playSound('ghost');
-    
-    // Анимация
-    const card = document.querySelector(`[data-uid="${uid}"]`);
-    if (card) {
-        card.style.transition = 'all 1s';
-        card.style.filter = 'grayscale(100%)';
-        card.style.transform = 'scale(0.95)';
-        setTimeout(() => {
-            card.style.filter = '';
-            card.style.transform = '';
-        }, 1000);
-    }
-    
     checkVengeance(uid);
     renderUI();
     if (uid === GameState.myUid) {
@@ -983,7 +1205,6 @@ function startDevilDeal(uid) {
     if (uid !== GameState.myUid) return;
     GameState.gameState = 'devil_deal';
     safeUpdate(GameState.roomRef, { state: 'devil_deal' }, 'deal-start');
-
     const dealsUsed = GameState.devilDealsUsed || 0;
     const options = [
         { id: 'lose_dice', title: '🎲 Потерять 2 кубика навсегда', desc: 'Воскреснуть с 3 кубиками вместо 5', apply: () => ({ poisons:0, blood:0, alive:true, isGhost:false, artifact:null, dice:Array(3).fill(0).map(()=>Math.floor(Math.random()*6)+1), maxDice:3, devilDealsUsed:dealsUsed+1 }) },
@@ -993,7 +1214,7 @@ function startDevilDeal(uid) {
 
     const div = document.getElementById('devilOptions');
     if (div) {
-        div.innerHTML = options.map(o => `<button class="devil-opt" data-id="${o.id}"><strong>${o.title}</strong>${o.desc}</button>`).join('');
+        div.innerHTML = options.map(o => `<button class="devil-opt" data-id="${o.id}"><strong>${o.title}</strong><br>${o.desc}</button>`).join('');
         div.querySelectorAll('.devil-opt').forEach(btn => {
             btn.onclick = () => {
                 const opt = options.find(o => o.id === btn.dataset.id);
@@ -1005,7 +1226,7 @@ function startDevilDeal(uid) {
     const refuse = document.getElementById('btnRefuseDeal');
     if (refuse) refuse.onclick = () => {
         turnToGhost(uid);
-        appendChat(`😈 ${GameState.myName} отказался от сделки!`, 'death');
+        addLogEntry('death', `${GameState.myName} отказался от сделки!`);
         playSound('devilLose');
         GameState.gameState = 'betting';
         safeUpdate(GameState.roomRef, { state: 'betting' }, 'deal-refuse');
@@ -1013,23 +1234,22 @@ function startDevilDeal(uid) {
         setTimeout(startNewRound, 2500);
     };
 
-    // [1] БЛОКИРУЕМ КРЕСТИК
     const modal = document.getElementById('devilModal');
     const closeBtn = modal?.querySelector('.close-btn');
     if (closeBtn) closeBtn.style.display = 'none';
-    
+
     const fi = document.getElementById('devilFire');
     if (fi) { fi.style.animation='none'; fi.offsetHeight; fi.style.animation='fireRise 30s linear forwards'; }
     if (modal) modal.style.display = 'block';
     playSound('devil');
-    appendChat(`😈 ${GameState.myName} заключает сделку...`, 'death');
+    addLogEntry('death', `${GameState.myName} заключает сделку...`);
 }
 
 function resolveDevilDeal(updateData) {
     document.getElementById('devilModal').style.display = 'none';
     safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), updateData, 'deal-resolve');
     renderUI();
-    appendChat(`😈 ${GameState.myName} ВЫИГРАЛ сделку!`, 'system');
+    addLogEntry('system', `${GameState.myName} ВЫИГРАЛ сделку!`);
     playSound('devilWin');
     GameState.gameState = 'betting';
     safeUpdate(GameState.roomRef, { state: 'betting' }, 'deal-end');
@@ -1047,7 +1267,7 @@ function checkVengeance(uid) {
                 dice: Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1)
             };
             safeUpdate(GameState.roomRef.child('players').child(u), updates, 'vengeance');
-            appendChat(`⚔️ ПРИЗРАК ${p.name} ВОСКРЕС через МЕСТЬ!`, 'system');
+            addLogEntry('death', `ПРИЗРАК ${p.name} ВОСКРЕС через МЕСТЬ!`);
             playSound('resurrection');
         }
     });
@@ -1061,7 +1281,6 @@ async function startNewRound() {
         if (s.defaultLives) GameState.defaultLives = s.defaultLives;
     }
     if (GameState.gameState !== 'betting' && GameState.gameState !== 'lobby') return;
-    
     const alive = Object.keys(GameState.players).filter(u => GameState.players[u]?.alive && !GameState.players[u]?.isGhost);
     if (alive.length < 1) return;
 
@@ -1084,7 +1303,7 @@ async function startNewRound() {
 
             const numDice = p.maxDice || 5;
             let dc = Array(numDice).fill(0).map(()=>Math.floor(Math.random()*6)+1);
-            if (p.evilEyed) dc = dc.map(()=>Math.random()<0.7?Math.floor(Math.random()*3)+1:Math.floor(Math.random()*3)+4);
+            if (p.evilEyed) dc = dc.map(()=>Math.random()<0.7?Math.floor(Math.random()*3)+4:Math.floor(Math.random()*3)+1);
 
             const artData = (GameState.specialDiceEnabled && !p.noArtifactsForever) ? art : null;
 
@@ -1132,9 +1351,13 @@ async function startNewRound() {
     }
 
     safeUpdate(GameState.roomRef, updates, 'newRound');
-    appendChat(`🎲 === РАУНД ${GameState.roundNumber} НАЧАЛСЯ! ===`, 'system');
+    addLogEntry('system', `=== РАУНД ${GameState.roundNumber} НАЧАЛСЯ! ===`);
     playSound('round');
-    
+
+    // Сброс ставки
+    GameState.betCount = 1;
+    GameState.betValue = 1;
+
     if (GameState.currentPlayerUid && GameState.players[GameState.currentPlayerUid]?.isBot && GameState.currentPlayerUid !== GameState.myUid && !GameState.isBotThinking) {
         botTurn(GameState.currentPlayerUid);
     }
@@ -1156,16 +1379,17 @@ function nextTurn() {
 }
 
 // ============================================================
-// БОТЫ [G][5]
+// БОТЫ
 // ============================================================
 function addBot() {
     if (GameState.gameState !== 'lobby' && GameState.gameState !== 'ended') return showNotification('Только в лобби!', 'warning');
     const cnt = Object.keys(GameState.players).filter(u => GameState.players[u]?.isBot).length;
     if (cnt >= 5) return showNotification('Максимум 5 ботов', 'warning');
-    
     const id = 'bot_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
     const data = {
-        name: '🤖 Бот', uid: id, avatar: '🤖', color: '#aaa', dice: [], poisons: 0, blood: 0,
+        name: '🤖 Бот', uid: id, avatar: '', color: '#aaa',
+        wardrobe: { head: '🤖', tuxedoColor: '#444466', trimColor: '#888888' },
+        dice: [], poisons: 0, blood: 0,
         alive: true, isGhost: false, artifact: null, usedSpecialThisRound: {}, lastBetInRound: null,
         devilDealsUsed: 0, connected: true, lastSeenTurn: 0, maxLives: GameState.defaultLives,
         isBot: true, botDifficulty: GameState.botDifficulty, joinedAt: Date.now(),
@@ -1175,7 +1399,7 @@ function addBot() {
     };
     GameState.bots[id] = { difficulty: GameState.botDifficulty, knownDice: {} };
     safeSet(GameState.roomRef.child('players').child(id), data, 'addBot');
-    appendChat(`🤖 Бот (${botDifficultyNames[GameState.botDifficulty]}) присоединился`, 'system');
+    addLogEntry('system', `Бот (${botDifficultyNames[GameState.botDifficulty]}) присоединился`);
 }
 
 function removeAllBots() {
@@ -1184,14 +1408,14 @@ function removeAllBots() {
         if (GameState.players[uid]?.isBot) GameState.roomRef.child('players').child(uid).remove();
     });
     GameState.bots = {}; GameState.expertKnownDice = {};
-    appendChat('🤖 Все боты удалены', 'system');
+    addLogEntry('system', 'Все боты удалены');
 }
 
 function setBotDifficulty(lvl) {
     GameState.botDifficulty = lvl;
-    const el = document.getElementById('botDifficultyLabel');
-    if (el) el.innerText = botDifficultyNames[lvl];
-    appendChat(`Сложность ботов: ${botDifficultyNames[lvl]}`, 'system');
+    const el = document.getElementById('menuBotDifficulty');
+    if (el) el.innerText = `🤖 Сложность: ${botDifficultyNames[lvl]}`;
+    addLogEntry('system', `Сложность ботов: ${botDifficultyNames[lvl]}`);
 }
 
 function botTurn(botId) {
@@ -1200,7 +1424,6 @@ function botTurn(botId) {
     const diff = GameState.bots[botId]?.difficulty ?? 2;
     const delay = [8000,6000,6000,4000][diff] + Math.random()*2000;
     const maxDelay = 12000;
-
     const safety = setTimeout(() => {
         if (GameState.isBotThinking) {
             logError(`⚠️ Бот ${botId} завис`);
@@ -1214,7 +1437,7 @@ function botTurn(botId) {
         if (GameState.gameState !== 'betting' || GameState.currentPlayerUid !== botId) { GameState.isBotThinking = false; return; }
         const bot = GameState.players[botId];
         if (!bot || bot.isGhost) { GameState.isBotThinking = false; nextTurn(); return; }
-        
+
         if (bot.artifact && bot.artifact.type === 'active') botUseArtifact(botId);
         if (bot.isGhost) botUseGhostAbility(botId);
         botMakeDecision(botId);
@@ -1229,22 +1452,18 @@ function botMakeDecision(botId) {
     const diff = GameState.bots[botId]?.difficulty ?? 2;
     const accProb = [0.2,0.35,0.5,0.7][diff];
     let shouldAccuse = false;
-    
     if (GameState.lastBet && GameState.lastBet.player !== botId) {
         if (diff === 3) shouldAccuse = evaluateBetTruthfulness(GameState.lastBet, botId);
         else {
             shouldAccuse = Math.random() < accProb;
             if (diff === 2 && !shouldAccuse) shouldAccuse = evaluateBetTruthfulness(GameState.lastBet, botId);
         }
-        
-        // [5] Учет пассивных артефактов противников
         if (shouldAccuse) {
             const accusedPlayer = GameState.players[GameState.lastBet.player];
             if (accusedPlayer) {
                 const hasDefender = accusedPlayer.artifact?.id === 'defender' && !GameState.usedSpecialThisRound['defender'];
                 const hasBloodthirst = accusedPlayer.artifact?.id === 'bloodthirst';
                 const hasDeceiver = accusedPlayer.artifact?.id === 'deceiver';
-                
                 if (hasDefender && Math.random() > 0.7) shouldAccuse = false;
                 if (hasBloodthirst && Math.random() > 0.8) shouldAccuse = false;
                 if (hasDeceiver && Math.random() > 0.75) shouldAccuse = false;
@@ -1255,8 +1474,8 @@ function botMakeDecision(botId) {
     if (shouldAccuse && GameState.lastBet && GameState.lastBet.player !== botId) {
         accuseFromBot(botId);
         const msgs = ['Блеф!','Я знаю твои кубики!','Вскрывайся!','Слишком рискованно!'];
-        if (Math.random()<0.3 && diff===3) appendChat(`🤖 ${bot.name}: ${msgs[Math.floor(Math.random()*msgs.length)]}`, 'system');
-        else appendChat(`🤖 ${bot.name} обвиняет ${GameState.players[GameState.lastBet.player]?.name}!`, 'system');
+        if (Math.random()<0.3 && diff===3) addLogEntry('system', `${bot.name}: ${msgs[Math.floor(Math.random()*msgs.length)]}`);
+        else addLogEntry('accuse', `${bot.name} обвиняет ${GameState.players[GameState.lastBet.player]?.name}!`);
         GameState.isBotThinking = false;
         return;
     }
@@ -1264,7 +1483,7 @@ function botMakeDecision(botId) {
     const pc = Object.keys(GameState.players).filter(u => GameState.players[u]?.alive && !GameState.players[u]?.isGhost).length;
     const maxPos = Math.max(pc * 10, 10);
     let nc, nv;
-    
+
     if (!GameState.lastBet) {
         if (diff === 0) { nc = Math.floor(Math.random()*Math.min(maxPos,20))+1; nv = Math.floor(Math.random()*6)+1; }
         else {
@@ -1295,11 +1514,11 @@ function botMakeDecision(botId) {
     const bet = { player: botId, count: nc, value: nv, timestamp: Date.now() };
     GameState.lastBet = bet;
     GameState.players[botId].lastBetInRound = bet;
-    
+
     const updates = { lastBet: bet, turnCounter: GameState.turnCounter+1, [`players/${botId}/lastBetInRound`]: bet };
     safeUpdate(GameState.roomRef, updates, 'bot-bet');
-    
-    appendChat(`🤖 ${bot.name} ставит ${nc}×${getDieEmoji(nv)}`, 'system');
+
+    addLogEntry('bet', `${bot.name} ставит ${nc}×${getDieEmoji(nv)}`);
     GameState.turnCounter++;
     GameState.isBotThinking = false;
     nextTurn();
@@ -1310,7 +1529,6 @@ function getBestValue(dice) {
     let b=1, bc=0; for(let v=1;v<=6;v++) if(c[v]>bc){bc=c[v];b=v;}
     return {count:bc, value:b};
 }
-
 function estimateTrueCount(val, botId) {
     let t=0;
     for(let uid in GameState.players) {
@@ -1325,7 +1543,6 @@ function estimateTrueCount(val, botId) {
     }
     return Math.round(t);
 }
-
 function updateExpertKnowledge(botId, tid, dice) {
     if(GameState.bots[botId]?.difficulty!==3) return;
     if(!GameState.expertKnownDice[botId]) GameState.expertKnownDice[botId]={};
@@ -1333,12 +1550,10 @@ function updateExpertKnowledge(botId, tid, dice) {
     const k=Array(5).fill(null); idx.forEach(i=>k[i]=dice[i]);
     GameState.expertKnownDice[botId][tid]=k;
 }
-
 function getKnownDiceForExpert(botId, tid) {
     if(GameState.bots[botId]?.difficulty!==3) return null;
     return GameState.expertKnownDice[botId]?.[tid] || null;
 }
-
 function evaluateBetTruthfulness(bet, botId) {
     const bot = GameState.players[botId];
     const diff = GameState.bots[botId]?.difficulty ?? 2;
@@ -1370,11 +1585,10 @@ function botUseArtifact(botId) {
     const diff = GameState.bots[botId]?.difficulty ?? 2;
     if(diff===0) return false;
     if(Math.random() > [0,0.3,0.7,1.0][diff]) return false;
-    
     const art = bot.artifact;
     const targets = Object.keys(GameState.players).filter(u=>u!==botId&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
     if(!targets.length) return false;
-    
+
     let bt = null;
     if(diff===3) {
         if(['target','curse','ice','evilEye'].includes(art.id)) bt = targets.sort((a,b)=>GameState.players[b].poisons-GameState.players[a].poisons)[0];
@@ -1382,7 +1596,7 @@ function botUseArtifact(botId) {
         else if(art.id==='thief') { const wa=targets.filter(u=>GameState.players[u].artifact&&GameState.players[u].artifact.type==='active'&&!GameState.usedSpecialThisRound[GameState.players[u].artifact.id]); if(wa.length) bt=wa[0]; }
         else if(art.id==='double') { const wb=targets.filter(u=>GameState.players[u].lastBetInRound); if(wb.length) bt=wb[0]; }
     } else bt = targets[Math.floor(Math.random()*targets.length)];
-    
+
     if(!bt && !['fireball','luck'].includes(art.id)) return false;
 
     if(art.id==='target') {
@@ -1391,29 +1605,29 @@ function botUseArtifact(botId) {
         const idx=tp.dice.indexOf(cv);
         if(idx!==-1) tp.dice.splice(idx,1);
         safeUpdate(GameState.roomRef.child('players').child(bt), {dice:tp.dice}, 'bot-target');
-        appendChat(`🤖 ${bot.name} использовал ${art.name} на ${tp.name}`, 'system');
+        addLogEntry('artifact', `${bot.name} использовал ${art.name} на ${tp.name}`);
     } else if(art.id==='fireball'||art.id==='luck') {
         const nd=bot.dice.map(()=>art.id==='luck'?(Math.random()<0.7?Math.floor(Math.random()*3)+4:Math.floor(Math.random()*3)+1):Math.floor(Math.random()*6)+1);
         safeUpdate(GameState.roomRef.child('players').child(botId), {dice:nd}, 'bot-fireball');
-        appendChat(`🤖 ${bot.name} использовал ${art.name}`, 'system');
+        addLogEntry('artifact', `${bot.name} использовал ${art.name}`);
     } else if(art.id==='blessing') {
         const tid = bt===botId ? botId : bt;
         if(tid) safeUpdate(GameState.roomRef.child('players').child(tid), {poisons:Math.max(0,GameState.players[tid].poisons-1)}, 'bot-bless');
-        appendChat(`🤖 ${bot.name} использовал ${art.name}`, 'system');
+        addLogEntry('artifact', `${bot.name} использовал ${art.name}`);
     } else if(art.id==='thief'&&bt&&GameState.players[bt].artifact) {
         const st=GameState.players[bt].artifact;
         safeUpdate(GameState.roomRef.child('players').child(botId), {artifact:st, usedSpecialThisRound:GameState.usedSpecialThisRound}, 'bot-thief');
         safeUpdate(GameState.roomRef.child('players').child(bt), {artifact:null}, 'bot-thief-v');
-        appendChat(`🤖 ${bot.name} украл ${st.emoji} у ${GameState.players[bt].name}`, 'system');
+        addLogEntry('artifact', `${bot.name} украл ${st.emoji} у ${GameState.players[bt].name}`);
     } else if(art.id==='curse'&&bt) {
         safeUpdate(GameState.roomRef.child('players').child(bt), {cursed:true}, 'bot-curse');
-        appendChat(`🤖 ${bot.name} проклял ${GameState.players[bt].name}`, 'system');
+        addLogEntry('artifact', `${bot.name} проклял ${GameState.players[bt].name}`);
     } else if(art.id==='ice'&&bt) {
         safeUpdate(GameState.roomRef.child('players').child(bt), {frozen:true}, 'bot-ice');
-        appendChat(`🤖 ${bot.name} заморозил ${GameState.players[bt].name}`, 'system');
+        addLogEntry('artifact', `${bot.name} заморозил ${GameState.players[bt].name}`);
     } else if(art.id==='evilEye'&&bt) {
         safeUpdate(GameState.roomRef.child('players').child(bt), {evilEyed:true}, 'bot-eye');
-        appendChat(`🤖 ${bot.name} наслал сглаз на ${GameState.players[bt].name}`, 'system');
+        addLogEntry('artifact', `${bot.name} наслал сглаз на ${GameState.players[bt].name}`);
     } else if(art.id==='double'&&bt&&GameState.players[bt].lastBetInRound) {
         const lb=GameState.players[bt].lastBetInRound;
         let nc=lb.count, nv=lb.value;
@@ -1426,9 +1640,9 @@ function botUseArtifact(botId) {
         GameState.lastBet=nb; GameState.players[botId].lastBetInRound=nb;
         safeUpdate(GameState.roomRef, {lastBet:nb}, 'bot-double');
         safeUpdate(GameState.roomRef.child('players').child(botId), {lastBetInRound:nb}, 'bot-double-p');
-        appendChat(`🤖 ${bot.name} скопировал ставку ${GameState.players[bt].name}`, 'system');
+        addLogEntry('artifact', `${bot.name} скопировал ставку ${GameState.players[bt].name}`);
     }
-    
+
     GameState.usedSpecialThisRound[art.id]=true;
     safeUpdate(GameState.roomRef.child('players').child(botId), {artifact:null, usedSpecialThisRound:GameState.usedSpecialThisRound}, 'bot-art-end');
     return true;
@@ -1439,29 +1653,28 @@ function botUseGhostAbility(botId) {
     const diff=GameState.bots[botId]?.difficulty??2; if(diff===0) return;
     const abs=GHOST_ABILITIES.filter(ab=>!bot.usedAbilities?.[ab.id]); if(!abs.length) return;
     if(Math.random()>[0,0.25,0.6,1.0][diff]) return;
-    
     const ab=abs[Math.floor(Math.random()*abs.length)];
     if(ab.id==='oathOfVengeance') {
         const tgts=Object.keys(GameState.players).filter(u=>u!==botId&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
         if(tgts.length) {
             const t=diff===3?tgts.sort((a,b)=>GameState.players[b].poisons-GameState.players[a].poisons)[0]:tgts[0];
             safeUpdate(GameState.roomRef.child('players').child(botId), {ghostTarget:t}, 'bot-oath');
-            appendChat(`⚔️ Призрак ${bot.name} выбрал цель: ${GameState.players[t].name}`, 'ghost');
+            addLogEntry('system', `Призрак ${bot.name} выбрал цель: ${GameState.players[t].name}`);
         }
     } else if(ab.id==='familiarCurse') {
         const tgts=Object.keys(GameState.players).filter(u=>u!==botId&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
         if(tgts.length) {
             const t=tgts[Math.floor(Math.random()*tgts.length)];
             safeUpdate(GameState.roomRef.child('players').child(t), {familiarCursed:true}, 'bot-fam');
-            appendChat(`🔮 Призрак ${bot.name} проклял ${GameState.players[t].name}`, 'ghost');
+            addLogEntry('system', `Призрак ${bot.name} проклял ${GameState.players[t].name}`);
         }
     } else if(ab.id==='poltergeist') {
         const al=Object.keys(GameState.players).filter(u=>GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
         if(al.length) {
             const r=Math.random();
-            if(r<0.33) { const t=al[Math.floor(Math.random()*al.length)]; safeUpdate(GameState.roomRef.child('players').child(t), {dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),evilEyed:false}, 'bot-pol-s'); appendChat(`🌀 Призрак ${bot.name}: саботаж ${GameState.players[t].name}`, 'ghost'); }
-            else if(r<0.66) { const t=al[Math.floor(Math.random()*al.length)]; safeUpdate(GameState.roomRef.child('players').child(t), {dice:[6,6,6,6,6],evilEyed:false}, 'bot-pol-b'); appendChat(`🌀 Призрак ${bot.name}: благословение ${GameState.players[t].name}`, 'ghost'); }
-            else { al.forEach(u=>safeUpdate(GameState.roomRef.child('players').child(u), {dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),evilEyed:false}, 'bot-pol-sh')); appendChat(`🌀 Призрак ${bot.name}: перемешивание`, 'ghost'); }
+            if(r<0.33) { const t=al[Math.floor(Math.random()*al.length)]; safeUpdate(GameState.roomRef.child('players').child(t), {dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),evilEyed:false}, 'bot-pol-s'); addLogEntry('system', `Призрак ${bot.name}: саботаж ${GameState.players[t].name}`); }
+            else if(r<0.66) { const t=al[Math.floor(Math.random()*al.length)]; safeUpdate(GameState.roomRef.child('players').child(t), {dice:[6,6,6,6,6],evilEyed:false}, 'bot-pol-b'); addLogEntry('system', `Призрак ${bot.name}: благословение ${GameState.players[t].name}`); }
+            else { al.forEach(u=>safeUpdate(GameState.roomRef.child('players').child(u), {dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),evilEyed:false}, 'bot-pol-sh')); addLogEntry('system', `Призрак ${bot.name}: перемешивание`); }
         }
     } else if(ab.id==='soulReaper') {
         let killed=false;
@@ -1470,16 +1683,16 @@ function botUseGhostAbility(botId) {
             if(p.alive&&!p.isGhost&&Math.random()<0.2) {
                 const r=Math.random();
                 if(r<0.1) { applyPoison(uid,1,'Жатва'); killed=true; }
-                else if(r<0.35&&p.artifact) { safeUpdate(GameState.roomRef.child('players').child(uid), {artifact:null}, 'bot-rep-a'); appendChat(`💀 ${p.name}: потерял артефакт`, 'ghost'); }
-                else if(r<0.6&&p.poisons>0) { safeUpdate(GameState.roomRef.child('players').child(uid), {poisons:p.poisons-1}, 'bot-rep-h'); appendChat(`💀 ${p.name}: исцелился`, 'ghost'); }
-                else if(r<0.85) { safeUpdate(GameState.roomRef.child('players').child(uid), {stunned:true}, 'bot-rep-st'); appendChat(`💀 ${p.name}: ошеломлён`, 'ghost'); }
-                else { safeUpdate(GameState.roomRef.child('players').child(uid), {blind:true}, 'bot-rep-bl'); appendChat(`💀 ${p.name}: ослеплён`, 'ghost'); }
+                else if(r<0.35&&p.artifact) { safeUpdate(GameState.roomRef.child('players').child(uid), {artifact:null}, 'bot-rep-a'); addLogEntry('system', `${p.name}: потерял артефакт`); }
+                else if(r<0.6&&p.poisons>0) { safeUpdate(GameState.roomRef.child('players').child(uid), {poisons:p.poisons-1}, 'bot-rep-h'); addLogEntry('system', `${p.name}: исцелился`); }
+                else if(r<0.85) { safeUpdate(GameState.roomRef.child('players').child(uid), {stunned:true}, 'bot-rep-st'); addLogEntry('system', `${p.name}: ошеломлён`); }
+                else { safeUpdate(GameState.roomRef.child('players').child(uid), {blind:true}, 'bot-rep-bl'); addLogEntry('system', `${p.name}: ослеплён`); }
             }
         }
         if(killed) {
             const up={alive:true,isGhost:false,poisons:(bot.maxLives||3)-1,blood:0,artifact:null,dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),usedAbilities:{}};
             safeUpdate(GameState.roomRef.child('players').child(botId), up, 'bot-rep-rev');
-            appendChat(`💀 Призрак ${bot.name} воскрес!`, 'ghost'); playSound('resurrection');
+            addLogEntry('death', `Призрак ${bot.name} воскрес!`); playSound('resurrection');
         }
     }
     const ua=bot.usedAbilities||{}; ua[ab.id]=true;
@@ -1491,16 +1704,14 @@ function accuseFromBot(botId) {
     const auid=GameState.lastBet.player;
     const tv=GameState.lastBet.value;
     const acc=GameState.players[auid];
-    
     let tw=0;
     Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost)p.dice.forEach(d=>{if(parseInt(d)===tv)tw++;});});
     const ilw=tw<GameState.lastBet.count;
     let tot=tw; let ws=false;
     if(acc?.artifact?.id==='wildDie'){tot++;ws=true;}
-    
     let isLie=tot<GameState.lastBet.count;
     if(acc?.cursed||acc?.familiarCursed) isLie=true;
-    
+
     if(isLie) {
         applyPoison(auid,1,'Ложная (бот)');
         if(acc?.artifact?.id==='bloodthirst'){applyBlood(botId,1);applyPoison(auid,2,'Кровь (бот)');}
@@ -1519,6 +1730,398 @@ function accuseFromBot(botId) {
     safeUpdate(GameState.roomRef, {state:'betting'}, 'bot-acc-end');
     checkDeath();
     setTimeout(startNewRound, 2500);
+}
+
+// ============================================================
+// АРТЕФАКТЫ
+// ============================================================
+function useArtifact(id) {
+    if(GameState.gameState!=='betting') return;
+    const m=GameState.players[GameState.myUid];
+    const art=ARTIFACTS.find(a=>a.id===id);
+    if(!art||(art.type==='active'&&GameState.usedSpecialThisRound[id])) return;
+    if(['deceiver','double'].includes(id)&&!isMyTurn()) return showNotification('Только в свой ход!', 'warning');
+    if (art.type === 'active') GameState.pendingArtifact = id;
+
+    switch(id) {
+        case 'target':
+            showTargetModalFirst(Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost), target=>{
+                showNominalModal(nom=>{
+                    const t=target;
+                    if(GameState.players[t].dice.length<=1) return showNotification('Нельзя последний кубик!', 'warning');
+                    const i=GameState.players[t].dice.indexOf(nom);
+                    if(i===-1) return showNotification(`Нет кубика ${getDieEmoji(nom)}!`, 'warning');
+                    GameState.players[t].dice.splice(i,1);
+                    safeUpdate(GameState.roomRef.child('players').child(t), {dice:GameState.players[t].dice}, 'target');
+                    addLogEntry('artifact', `${m.name} уничтожил ${getDieEmoji(nom)} у ${GameState.players[t].name}`);
+                    markArtifactUsed(id);
+                });
+            }); break;
+        case 'fireball': case 'luck':
+            const nd=m.dice.map(d=>{if(m.frozen)return d;return id==='luck'?(Math.random()<0.7?Math.floor(Math.random()*3)+4:Math.floor(Math.random()*3)+1):Math.floor(Math.random()*6)+1;});
+            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {dice:nd,evilEyed:false}, 'fireball');
+            addLogEntry('artifact', `${m.name} использовал ${art.name}`);
+            markArtifactUsed(id); break;
+        case 'blessing':
+            if(m.poisons>0) {
+                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {poisons:m.poisons-1}, 'bless');
+                addLogEntry('artifact', `${m.name}: -1 яд`);
+                markArtifactUsed(id);
+            } else {
+                const h=Object.keys(GameState.players).find(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&GameState.players[u]?.poisons>0);
+                if(h) {
+                    safeUpdate(GameState.roomRef.child('players').child(h), {poisons:GameState.players[h].poisons-1}, 'bless');
+                    addLogEntry('artifact', `${m.name} вылечил ${GameState.players[h].name}`);
+                    markArtifactUsed(id);
+                } else {
+                    showNotification('Нет раненых!', 'warning');
+                    GameState.pendingArtifact = null;
+                }
+            } break;
+        case 'thief':
+            if(GameState.thiefUsedThisRound) { GameState.pendingArtifact = null; return showNotification('Вор уже использован!', 'warning'); }
+            const tt=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.artifact&&GameState.players[u].artifact.type==='active'&&!GameState.usedSpecialThisRound[GameState.players[u].artifact.id]);
+            if(!tt.length) { GameState.pendingArtifact = null; return showNotification('Некого красть!', 'warning'); }
+            showTargetModal(tt, t=>{
+                const st=GameState.players[t].artifact;
+                if(GameState.usedSpecialThisRound[st.id]) delete GameState.usedSpecialThisRound[st.id];
+                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {artifact:st,usedSpecialThisRound:GameState.usedSpecialThisRound}, 'thief');
+                safeUpdate(GameState.roomRef.child('players').child(t), {artifact:null}, 'thief-v');
+                GameState.thiefUsedThisRound=true;
+                addLogEntry('artifact', `${m.name} украл ${st.emoji} у ${GameState.players[t].name}`);
+                markArtifactUsed(id);
+            }); break;
+        case 'deceiver':
+            const bc=GameState.lastBet?GameState.lastBet.count+Math.floor(Math.random()*3)+2:Math.floor(Math.random()*5)+6;
+            const bv=Math.floor(Math.random()*6)+1;
+            const nb={player:GameState.myUid,count:bc,value:bv};
+            GameState.lastBet=nb; GameState.players[GameState.myUid].lastBetInRound=nb;
+            safeUpdate(GameState.roomRef, {lastBet:nb,turnCounter:GameState.turnCounter+1}, 'deceiver');
+            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {lastBetInRound:nb}, 'deceiver-p');
+            GameState.turnCounter++; renderUI();
+            addLogEntry('artifact', `${m.name} использовал Обманщика`);
+            markArtifactUsed(id); break;
+        case 'clone':
+            const tc=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
+            if(!tc.length) { GameState.pendingArtifact = null; return; }
+            const cl=tc[Math.floor(Math.random()*tc.length)];
+            const cd=GameState.players[cl].dice[Math.floor(Math.random()*GameState.players[cl].dice.length)];
+            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {dice:[...m.dice,cd],artifact:null}, 'clone');
+            addLogEntry('artifact', `${m.name} клонировал ${getDieEmoji(cd)} у ${GameState.players[cl].name}`);
+            markArtifactUsed(id); break;
+        case 'curse':
+            const cu=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
+            if(!cu.length) { GameState.pendingArtifact = null; return; }
+            showTargetModal(cu, t=>{
+                safeUpdate(GameState.roomRef.child('players').child(t), {cursed:true}, 'curse');
+                addLogEntry('artifact', `${m.name} проклял ${GameState.players[t].name}`);
+                markArtifactUsed(id);
+            }); break;
+        case 'spy':
+            if(GameState.spyMemory[GameState.myUid]&&GameState.spyMemory[GameState.myUid].value&&GameState.roundNumber===GameState.spyMemory[GameState.myUid].round) {
+                showNotification(`Шпион: у ${GameState.players[GameState.spyMemory[GameState.myUid].target]?.name} есть ${getDieEmoji(GameState.spyMemory[GameState.myUid].value)}`, 'info');
+                GameState.pendingArtifact = null;
+                break;
+            }
+            const sp=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
+            if(!sp.length) { GameState.pendingArtifact = null; return showNotification('Нет целей!', 'warning'); }
+            showTargetModal(sp, t=>{
+                const val=GameState.players[t].dice[Math.floor(Math.random()*GameState.players[t].dice.length)];
+                GameState.spyMemory[GameState.myUid]={target:t,value:val,round:GameState.roundNumber};
+                showNotification(`Шпион: у ${GameState.players[t].name} есть ${getDieEmoji(val)}`, 'info');
+                addLogEntry('artifact', `${m.name} шпионит за ${GameState.players[t].name}`);
+                markArtifactUsed(id);
+            }); break;
+        case 'ice':
+            const ci=Object.keys(GameState.players).filter(u=>GameState.players[u]?.alive&&!GameState.players[u]?.isGhost&&!GameState.players[u]?.frozen);
+            if(!ci.length) { GameState.pendingArtifact = null; return; }
+            showTargetModal(ci, t=>{
+                safeUpdate(GameState.roomRef.child('players').child(t), {frozen:true}, 'ice');
+                addLogEntry('artifact', `${m.name} заморозил ${GameState.players[t].name}`);
+                markArtifactUsed(id);
+            }); break;
+        case 'analyst':
+            showNominalModal(n=>{
+                let c=0; Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost&&p.dice.includes(n))c++;});
+                showNotification(`АНАЛИТИК: ${c} игроков имеют ${getDieEmoji(n)}`, 'info');
+                markArtifactUsed(id);
+            }); break;
+        case 'double':
+            if(!GameState.lastBet) { GameState.pendingArtifact = null; return showNotification('Нет ставок!', 'warning'); }
+            const td=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.lastBetInRound);
+            if(!td.length) { GameState.pendingArtifact = null; return showNotification('Нет ставок!', 'warning'); }
+            showTargetModal(td, t=>{
+                const lb=GameState.players[t].lastBetInRound;
+                const nb={player:GameState.myUid,count:lb.count,value:lb.value};
+                GameState.lastBet=nb; GameState.players[GameState.myUid].lastBetInRound=nb;
+                safeUpdate(GameState.roomRef, {lastBet:nb,turnCounter:GameState.turnCounter+1}, 'double');
+                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {lastBetInRound:nb}, 'double-p');
+                GameState.turnCounter++; renderUI();
+                addLogEntry('artifact', `${m.name} скопировал ставку ${GameState.players[t].name}`);
+                markArtifactUsed(id);
+            }); break;
+        case 'evilEye':
+            const te=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost&&!GameState.players[u]?.evilEyed);
+            if(!te.length) { GameState.pendingArtifact = null; return; }
+            showTargetModal(te, t=>{
+                safeUpdate(GameState.roomRef.child('players').child(t), {evilEyed:true}, 'eye');
+                addLogEntry('artifact', `${m.name} сглазил ${GameState.players[t].name}`);
+                markArtifactUsed(id);
+            }); break;
+        case 'sacrifice':
+            if(m.poisons>=(m.maxLives||3)&&!confirm('⚠️ ВЫ УМРЁТЕ! Вы уверены?')) { GameState.pendingArtifact = null; return; }
+            if(!confirm('️ Вы получите +1 яд. Продолжить?')) { GameState.pendingArtifact = null; return; }
+            showEffectModal(eff=>{
+                applyPoison(GameState.myUid, 1, 'Жертва');
+                if(eff.id==='shield') safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {devilShield:true, devilShieldRound:GameState.roundNumber}, 'sac-sh');
+                else if(eff.id==='reroll') {
+                    Object.keys(GameState.players).forEach(u=>{if(GameState.players[u]?.alive&&!GameState.players[u]?.isGhost&&!GameState.players[u]?.frozen)safeUpdate(GameState.roomRef.child('players').child(u), {dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),evilEyed:false}, 'sac-rr');});
+                    addLogEntry('artifact', `${m.name}: переброс стола`);
+                } else if(eff.id==='forceBluff') {
+                    const nx=getNextPlayerUid(); if(nx) safeUpdate(GameState.roomRef.child('players').child(nx), {forcedBluff:true}, 'sac-fb');
+                    addLogEntry('artifact', `${m.name}: следующий обязан повысить`);
+                }
+                markArtifactUsed(id);
+            }); break;
+        case 'circus':
+            const cc=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost&&!GameState.players[u]?.frozen&&GameState.players[u].dice.length>=2&&m.dice.length>=2);
+            if(!cc.length) { GameState.pendingArtifact = null; return showNotification('Нет целей!', 'warning'); }
+            showTargetModal(cc, t=>{
+                let md=[...m.dice], td=[...GameState.players[t].dice];
+                let mi1=Math.floor(Math.random()*md.length), mi2=Math.floor(Math.random()*md.length); while(mi2===mi1)mi2=Math.floor(Math.random()*md.length);
+                let ti1=Math.floor(Math.random()*td.length), ti2=Math.floor(Math.random()*td.length); while(ti2===ti1)ti2=Math.floor(Math.random()*td.length);
+                [md[mi1],td[ti1]]=[td[ti1],md[mi1]]; [md[mi2],td[ti2]]=[td[ti2],md[mi2]];
+                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {dice:md}, 'circ-me');
+                safeUpdate(GameState.roomRef.child('players').child(t), {dice:td}, 'circ-t');
+                addLogEntry('artifact', `${m.name} обменялся кубиками с ${GameState.players[t].name}`);
+                markArtifactUsed(id);
+            }); break;
+        case 'sniper':
+            if(GameState.sniperShotUsedThisRound) { GameState.pendingArtifact = null; return showNotification('Отстрел уже использован!', 'warning'); }
+            showDynamicNominalModal(n=>{
+                if(GameState.lastBet&&GameState.lastBet.value===n) return showNotification('Нельзя текущий номинал!', 'warning');
+                Object.keys(GameState.players).forEach(u=>{
+                    if(GameState.players[u]?.frozen) return;
+                    const nd=GameState.players[u].dice.filter(d=>d!==n);
+                    if(nd.length!==GameState.players[u].dice.length) safeUpdate(GameState.roomRef.child('players').child(u), {dice:nd}, 'sniper');
+                });
+                GameState.sniperShotUsedThisRound=true;
+                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {sniperShotUsedThisRound:true,cannotAccuse:true}, 'sniper-me');
+                addLogEntry('artifact', `${m.name} отстрелил все ${getDieEmoji(n)}`);
+                markArtifactUsed(id);
+            }); break;
+    }
+    playSound('artifact');
+}
+
+function getNextPlayerUid() {
+    const a=Object.keys(GameState.players).filter(u=>GameState.players[u]?.alive&&!GameState.players[u]?.isGhost&&GameState.players[u].connected!==false);
+    if(!a.length) return null;
+    const i=a.indexOf(GameState.lastBet?.player);
+    return a[(i+1)%a.length];
+}
+
+// ============================================================
+// МОДАЛЬНЫЕ ОКНА
+// ============================================================
+function showTargetModal(uids, cb) {
+    const l=document.getElementById('modalTargetList'); if(!l) return; l.innerHTML='';
+    uids.forEach(u=>{
+        const p=GameState.players[u]; if(!p||!p.name) return;
+        const b=document.createElement('button'); b.className='select-item'; b.style.width='100%'; b.textContent=p.name+(p.isGhost?' 👻':'');
+        b.onclick=()=>{cb(u);closeModal('modalTarget');}; l.appendChild(b);
+    });
+    document.getElementById('modalTarget').style.display='block';
+}
+function showTargetModalFirst(uids, cb) { showTargetModal(uids, cb); }
+function showNominalModal(cb) {
+    const l=document.getElementById('modalNominalList'); if(!l) return; l.innerHTML='';
+    for(let i=1;i<=6;i++){
+        const b=document.createElement('button'); b.className='select-item'; b.textContent=getDieEmoji(i); b.style.width='60px'; b.style.height='60px'; b.style.fontSize='1.8em';
+        b.onclick=()=>{cb(i);closeModal('modalNominal');}; l.appendChild(b);
+    }
+    document.getElementById('modalNominal').style.display='block';
+}
+let dynamicNominalInterval=null;
+function showDynamicNominalModal(cb) {
+    const l=document.getElementById('modalNominalList'); if(!l) return;
+    if(dynamicNominalInterval) clearInterval(dynamicNominalInterval);
+    const render=()=>{
+        l.innerHTML='';
+        for(let i=1;i<=6;i++){
+            const b=document.createElement('button'); b.className='select-item'; b.textContent=getDieEmoji(i); b.style.width='60px'; b.style.height='60px'; b.style.fontSize='1.8em';
+            if(GameState.lastBet&&GameState.lastBet.value===i){b.style.opacity='0.3';b.style.cursor='not-allowed';b.disabled=true;}
+            else{b.onclick=()=>{cb(i);closeModal('modalNominal');clearInterval(dynamicNominalInterval);dynamicNominalInterval=null;};}
+            l.appendChild(b);
+        }
+    };
+    render();
+    dynamicNominalInterval=setInterval(render, 200);
+    document.getElementById('modalNominal').style.display='block';
+}
+function showEffectModal(cb) {
+    const ef=[{id:'shield',name:'🛡️ Щит Дьявола'},{id:'reroll',name:'🔁 Переброс стола'},{id:'forceBluff',name:'🎭 Принудительный блеф'}];
+    const l=document.getElementById('modalEffectList'); if(!l) return; l.innerHTML='';
+    ef.forEach(e=>{
+        const b=document.createElement('button'); b.className='select-item'; b.style.width='100%'; b.style.marginBottom='8px'; b.textContent=e.name; b.style.whiteSpace='normal'; b.style.lineHeight='1.4';
+        b.onclick=()=>{cb(e);closeModal('modalEffect');}; l.appendChild(b);
+    });
+    document.getElementById('modalEffect').style.display='block';
+}
+
+function closeModal(id) {
+    const m=document.getElementById(id); if(m) m.style.display='none';
+    if(id==='modalNominal'&&dynamicNominalInterval){clearInterval(dynamicNominalInterval);dynamicNominalInterval=null;}
+    if (['modalTarget', 'modalNominal', 'modalEffect'].includes(id)) {
+        if (GameState.pendingArtifact) {
+            log(`ℹ️ Закрытие модалки без выбора: артефакт ${GameState.pendingArtifact} остаётся активным`);
+            GameState.pendingArtifact = null;
+        }
+    }
+}
+
+// ============================================================
+// УПРАВЛЕНИЕ
+// ============================================================
+function resetGame() {
+    if(!confirm('⚠️ Сбросить игру?\n\nВесь прогресс будет потерян.')) return;
+    if(!confirm('🔴 ТОЧНО сбросить?')) return;
+    GameState.gameState='lobby'; GameState.roundNumber=0; GameState.lastBet=null; GameState.currentPlayerUid=null;
+    GameState.thiefUsedThisRound=false; GameState.sniperShotUsedThisRound=false; GameState.usedSpecialThisRound={};
+    GameState.artifactHistory=[]; GameState.blood=0;
+    GameState.gameLog = [];
+    clearAllTimers();
+
+    const updates={};
+    Object.keys(GameState.players).forEach(uid=>{
+        const p=GameState.players[uid]; if(!p) return;
+        updates[`players/${uid}/poisons`]=0; updates[`players/${uid}/blood`]=0; updates[`players/${uid}/alive`]=true;
+        updates[`players/${uid}/isGhost`]=false; updates[`players/${uid}/artifact`]=null; updates[`players/${uid}/dice`]=[];
+        updates[`players/${uid}/usedSpecialThisRound`]={}; updates[`players/${uid}/lastBetInRound`]=null;
+        updates[`players/${uid}/cursed`]=false; updates[`players/${uid}/frozen`]=false; updates[`players/${uid}/defenderActive`]=false;
+        updates[`players/${uid}/stunned`]=false; updates[`players/${uid}/blind`]=false; updates[`players/${uid}/darkPact`]=false;
+        updates[`players/${uid}/darkPactShield`]=false; updates[`players/${uid}/devilShield`]=false; updates[`players/${uid}/evilEyed`]=false;
+        updates[`players/${uid}/forcedBluff`]=false; updates[`players/${uid}/cannotAccuse`]=false; updates[`players/${uid}/sniperShotUsedThisRound`]=false;
+        updates[`players/${uid}/familiarCursed`]=false; updates[`players/${uid}/usedAbilities`]={}; updates[`players/${uid}/devilDealsUsed`]=0;
+        updates[`players/${uid}/maxDice`]=5; updates[`players/${uid}/noArtifactsForever`]=false;
+        if(p.isBot) updates[`players/${uid}/botDifficulty`]=GameState.botDifficulty;
+    });
+    updates.state='lobby'; updates.round=0; updates.lastBet=null; updates.artifactHistory=[];
+    safeUpdate(GameState.roomRef, updates, 'reset');
+    addLogEntry('system', 'Игра сброшена');
+}
+
+function copyInviteLink() {
+    const link=`${window.location.origin}${window.location.pathname}?room=${GameState.currentRoomId}`;
+    navigator.clipboard.writeText(link).then(()=>{showNotification('Ссылка скопирована!', 'success');addLogEntry('system', 'Ссылка скопирована');}).catch(()=>showNotification('Ошибка копирования', 'error'));
+}
+
+function saveProfile() {
+    const nn=document.getElementById('profileNameInput')?.value.trim();
+    if(nn&&nn!==GameState.myName){
+        GameState.myName=nn; localStorage.setItem('ld_playerName', nn);
+        safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {name:nn}, 'rename');
+        addLogEntry('system', `Ник изменён на ${nn}`);
+    }
+    localStorage.setItem('ld_avatar', GameState.myAvatar);
+    localStorage.setItem('ld_color', GameState.myColor);
+    safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {avatar:GameState.myAvatar,color:GameState.myColor}, 'profile');
+    showNotification('Профиль сохранён!', 'success');
+    document.getElementById('modalProfile').style.display='none';
+}
+
+function showConfetti() {
+    for(let i=0;i<50;i++){
+        const c=document.createElement('div'); c.className='confetti';
+        c.style.left=Math.random()*100+'vw';
+        c.style.background=['#ffd700','#ff0000','#00ff00','#0000ff'][Math.floor(Math.random()*4)];
+        c.style.animationDuration=(Math.random()*2+2)+'s';
+        document.body.appendChild(c); setTimeout(()=>c.remove(), 4000);
+    }
+}
+
+// ============================================================
+// СПОСОБНОСТИ ПРИЗРАКОВ
+// ============================================================
+function useGhostAbility(id) {
+    if(!GameState.isGhost) return;
+    const m=GameState.players[GameState.myUid];
+    const ab=GHOST_ABILITIES.find(a=>a.id===id); if(!ab) return;
+    if(ab.limit==='once_per_ghost'&&m?.usedAbilities?.[id]) return showNotification('Уже использовано!', 'warning');
+    switch(id) {
+        case 'oathOfVengeance': {
+            const tgts=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
+            if(!tgts.length) return;
+            showTargetModal(tgts, t=>{
+                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {ghostTarget:t}, 'oath');
+                addLogEntry('system', `[Призрак ${m.name}] выбрал цель: ${GameState.players[t].name}`);
+                const ua=m.usedAbilities||{}; ua[id]=true;
+                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {usedAbilities:ua}, 'ghost-ab');
+            }); break;
+        }
+        case 'familiarCurse': {
+            const tgts=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
+            if(!tgts.length) return;
+            showTargetModal(tgts, t=>{
+                safeUpdate(GameState.roomRef.child('players').child(t), {familiarCursed:true}, 'fam');
+                addLogEntry('system', `[Призрак ${m.name}] проклял ${GameState.players[t].name}`);
+                const ua=m.usedAbilities||{}; ua[id]=true;
+                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {usedAbilities:ua}, 'ghost-ab');
+            }); break;
+        }
+        case 'poltergeist': {
+            const ef=['sabotage','blessing','shuffle'];
+            const ch=ef[Math.floor(Math.random()*ef.length)];
+            const al=Object.keys(GameState.players).filter(u=>GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
+            if(!al.length) return;
+            if(ch==='sabotage') { const t=al[Math.floor(Math.random()*al.length)]; safeUpdate(GameState.roomRef.child('players').child(t), {dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),evilEyed:false}, 'pol-s'); addLogEntry('system', `[Полтергейст] САБОТАЖ: ${GameState.players[t].name}`); }
+            else if(ch==='blessing') { const t=al[Math.floor(Math.random()*al.length)]; safeUpdate(GameState.roomRef.child('players').child(t), {dice:[6,6,6,6,6],evilEyed:false}, 'pol-b'); addLogEntry('system', `[Полтергейст] БЛАГОСЛОВЕНИЕ: ${GameState.players[t].name}`); }
+            else { al.forEach(u=>safeUpdate(GameState.roomRef.child('players').child(u), {dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),evilEyed:false}, 'pol-sh')); addLogEntry('system', `[Полтергейст] ПЕРЕМЕШИВАНИЕ`); }
+            const ua=m.usedAbilities||{}; ua[id]=true;
+            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {usedAbilities:ua}, 'ghost-ab');
+            break;
+        }
+        case 'keeperOfSecrets': {
+            const cd=document.getElementById('keeperContent');
+            if(cd) {
+                cd.innerHTML='';
+                Object.values(GameState.players).forEach(p=>{
+                    if(p?.alive&&!p.isGhost) {
+                        const d=document.createElement('div'); d.style.marginBottom='10px'; d.style.background='rgba(255,255,255,0.05)'; d.style.padding='8px'; d.style.borderRadius='5px';
+                        d.innerHTML=`<strong style="color:#ffd700">${escapeHtml(p.name)}</strong>: <span style="font-size:1.2em">${p.dice.map(d=>getDieEmoji(parseInt(d)||1)).join(' ')}</span>`;
+                        cd.appendChild(d);
+                    }
+                });
+                document.getElementById('modalKeeper').style.display='block';
+            }
+            return;
+        }
+        case 'soulReaper': {
+            const sr=Object.keys(GameState.players).filter(u=>GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
+            if(!sr.length) return;
+            let killed=false;
+            sr.forEach(uid=>{
+                if(Math.random()<0.2) {
+                    const p=GameState.players[uid]; const r=Math.random();
+                    let ef=r<0.1?'death':r<0.35?'loseArtifact':r<0.6?'heal':r<0.85?'stun':'blind';
+                    if(ef==='death'){applyPoison(uid,1,'Жатва');killed=true;}
+                    else if(ef==='loseArtifact'&&p.artifact){safeUpdate(GameState.roomRef.child('players').child(uid),{artifact:null},'rep-a');addLogEntry('system', `${p.name}: потерял артефакт`);}
+                    else if(ef==='heal'&&p.poisons>0){safeUpdate(GameState.roomRef.child('players').child(uid),{poisons:p.poisons-1},'rep-h');addLogEntry('system', `${p.name}: исцелился`);}
+                    else if(ef==='stun'){safeUpdate(GameState.roomRef.child('players').child(uid),{stunned:true},'rep-st');addLogEntry('system', `${p.name}: ошеломлён`);}
+                    else{safeUpdate(GameState.roomRef.child('players').child(uid),{blind:true},'rep-bl');addLogEntry('system', `${p.name}: ослеплён`);}
+                }
+            });
+            if(killed) {
+                const up={alive:true,isGhost:false,poisons:(m.maxLives||3)-1,blood:0,artifact:null,dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),usedAbilities:{}};
+                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), up, 'rep-rev');
+                addLogEntry('death', `[Призрак ${m.name}] ВОСКРЕС через Жатву!`); playSound('resurrection');
+            }
+            const ua=m.usedAbilities||{}; ua[id]=true;
+            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {usedAbilities:ua}, 'ghost-ab');
+            break;
+        }
+    }
+    playSound('ghost');
 }
 
 // ============================================================
@@ -1542,8 +2145,8 @@ function startVoteKick() {
         };
         ld.appendChild(b);
     });
+    document.getElementById('modalVoteTargets').style.display='block';
 }
-
 function startVoteTimer(tu) {
     let t=30; const el=document.getElementById('voteTimer');
     safeSet(GameState.roomRef.child('votes').child(tu), {startTime:Date.now(),votes:{},target:tu,initiator:GameState.myUid}, 'vote-start');
@@ -1553,20 +2156,17 @@ function startVoteTimer(tu) {
         if(t<=0){clearInterval(GameState.timers.vote);GameState.timers.vote=null;resolveVote(tu);}
     },1000);
 }
-
 function castVote(v) {
     if(!GameState.currentVoteTarget) return;
     safeSet(GameState.roomRef.child('votes').child(GameState.currentVoteTarget).child('votes').child(GameState.myUid), v, 'vote-cast');
     showNotification(`Голос: ${v==='yes'?'ЗА':'ПРОТИВ'}`, 'info');
 }
-
 function updateVoteUI(vd) {
     if(!vd) return;
     const y=Object.values(vd.votes||{}).filter(v=>v==='yes').length;
     const n=Object.values(vd.votes||{}).filter(v=>v==='no').length;
     const rd=document.getElementById('voteResult'); if(rd) rd.textContent=`✅ ЗА: ${y} | ❌ ПРОТИВ: ${n}`;
 }
-
 function resolveVote(tu) {
     document.getElementById('modalVote').style.display='none';
     GameState.roomRef.child('votes').child(tu).once('value', s=>{
@@ -1577,416 +2177,15 @@ function resolveVote(tu) {
         const tot=y+n; const kicked=tot>0&&y>tot/2;
         if(kicked&&GameState.players[tu]) {
             GameState.roomRef.child('players').child(tu).remove();
-            appendChat(`🗳️ ${GameState.players[tu].name} исключён! (ЗА:${y} ПРОТИВ:${n})`, 'system');
-        } else appendChat(`🗳️ ${GameState.players[tu]?.name||'Игрок'} остался! (ЗА:${y} ПРОТИВ:${n})`, 'system');
+            addLogEntry('system', `${GameState.players[tu].name} исключён! (ЗА:${y} ПРОТИВ:${n})`);
+        } else addLogEntry('system', `${GameState.players[tu]?.name||'Игрок'} остался! (ЗА:${y} ПРОТИВ:${n})`);
         GameState.roomRef.child('votes').child(tu).remove();
         GameState.lastVoteEndTime=Date.now(); GameState.currentVoteTarget=null;
     });
 }
 
 // ============================================================
-// СПОСОБНОСТИ ПРИЗРАКОВ
-// ============================================================
-function useGhostAbility(id) {
-    if(!GameState.isGhost) return;
-    const m=GameState.players[GameState.myUid];
-    const ab=GHOST_ABILITIES.find(a=>a.id===id); if(!ab) return;
-    if(ab.limit==='once_per_ghost'&&m?.usedAbilities?.[id]) return showNotification('Уже использовано!', 'warning');
-    
-    switch(id) {
-        case 'oathOfVengeance': {
-            const tgts=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
-            if(!tgts.length) return;
-            showTargetModal(tgts, t=>{
-                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {ghostTarget:t}, 'oath');
-                appendChat(`⚔️ [Призрак ${m.name}] выбрал цель: ${GameState.players[t].name}`, 'ghost');
-                const ua=m.usedAbilities||{}; ua[id]=true;
-                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {usedAbilities:ua}, 'ghost-ab');
-            }); break;
-        }
-        case 'familiarCurse': {
-            const tgts=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
-            if(!tgts.length) return;
-            showTargetModal(tgts, t=>{
-                safeUpdate(GameState.roomRef.child('players').child(t), {familiarCursed:true}, 'fam');
-                appendChat(`🔮 [Призрак ${m.name}] проклял ${GameState.players[t].name}`, 'ghost');
-                const ua=m.usedAbilities||{}; ua[id]=true;
-                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {usedAbilities:ua}, 'ghost-ab');
-            }); break;
-        }
-        case 'poltergeist': {
-            const ef=['sabotage','blessing','shuffle'];
-            const ch=ef[Math.floor(Math.random()*ef.length)];
-            const al=Object.keys(GameState.players).filter(u=>GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
-            if(!al.length) return;
-            if(ch==='sabotage') { const t=al[Math.floor(Math.random()*al.length)]; safeUpdate(GameState.roomRef.child('players').child(t), {dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),evilEyed:false}, 'pol-s'); appendChat(`🌀 [Полтергейст] САБОТАЖ: ${GameState.players[t].name}`, 'ghost'); }
-            else if(ch==='blessing') { const t=al[Math.floor(Math.random()*al.length)]; safeUpdate(GameState.roomRef.child('players').child(t), {dice:[6,6,6,6,6],evilEyed:false}, 'pol-b'); appendChat(`🌀 [Полтергейст] БЛАГОСЛОВЕНИЕ: ${GameState.players[t].name}`, 'ghost'); }
-            else { al.forEach(u=>safeUpdate(GameState.roomRef.child('players').child(u), {dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),evilEyed:false}, 'pol-sh')); appendChat(`🌀 [Полтергейст] ПЕРЕМЕШИВАНИЕ`, 'ghost'); }
-            const ua=m.usedAbilities||{}; ua[id]=true;
-            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {usedAbilities:ua}, 'ghost-ab');
-            break;
-        }
-        case 'keeperOfSecrets': {
-            const cd=document.getElementById('keeperContent');
-            if(cd) {
-                cd.innerHTML='';
-                Object.values(GameState.players).forEach(p=>{
-                    if(p?.alive&&!p.isGhost) {
-                        const d=document.createElement('div'); d.style.marginBottom='10px'; d.style.background='rgba(255,255,255,0.05)'; d.style.padding='8px'; d.style.borderRadius='5px';
-                        d.innerHTML=`<strong style="color:#ffd700">${escapeHtml(p.name)}</strong>: <span style="font-size:1.2em">${p.dice.map(d=>getDieEmoji(parseInt(d)||1)).join(' ')}</span>`;
-                        cd.appendChild(d);
-                    }
-                });
-                document.getElementById('modalKeeper').style.display='block';
-            }
-            return; // Unlimited - не помечаем
-        }
-        case 'soulReaper': {
-            const sr=Object.keys(GameState.players).filter(u=>GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
-            if(!sr.length) return;
-            let killed=false;
-            sr.forEach(uid=>{
-                if(Math.random()<0.2) {
-                    const p=GameState.players[uid]; const r=Math.random();
-                    let ef=r<0.1?'death':r<0.35?'loseArtifact':r<0.6?'heal':r<0.85?'stun':'blind';
-                    if(ef==='death'){applyPoison(uid,1,'Жатва');killed=true;}
-                    else if(ef==='loseArtifact'&&p.artifact){safeUpdate(GameState.roomRef.child('players').child(uid),{artifact:null},'rep-a');appendChat(`💀 ${p.name}: потерял артефакт`,'ghost');}
-                    else if(ef==='heal'&&p.poisons>0){safeUpdate(GameState.roomRef.child('players').child(uid),{poisons:p.poisons-1},'rep-h');appendChat(`💀 ${p.name}: исцелился`,'ghost');}
-                    else if(ef==='stun'){safeUpdate(GameState.roomRef.child('players').child(uid),{stunned:true},'rep-st');appendChat(`💀 ${p.name}: ошеломлён`,'ghost');}
-                    else{safeUpdate(GameState.roomRef.child('players').child(uid),{blind:true},'rep-bl');appendChat(`💀 ${p.name}: ослеплён`,'ghost');}
-                }
-            });
-            if(killed) {
-                const up={alive:true,isGhost:false,poisons:(m.maxLives||3)-1,blood:0,artifact:null,dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),usedAbilities:{}};
-                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), up, 'rep-rev');
-                appendChat(`💀 [Призрак ${m.name}] ВОСКРЕС через Жатву!`, 'ghost'); playSound('resurrection');
-            }
-            const ua=m.usedAbilities||{}; ua[id]=true;
-            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {usedAbilities:ua}, 'ghost-ab');
-            break;
-        }
-    }
-    playSound('ghost');
-}
-
-// ============================================================
-// [1] АРТЕФАКТЫ — ИСПРАВЛЕННАЯ ЛОГИКА МОДАЛОК
-// ============================================================
-function useArtifact(id) {
-    if(GameState.gameState!=='betting') return;
-    const m=GameState.players[GameState.myUid];
-    const art=ARTIFACTS.find(a=>a.id===id);
-    if(!art||(art.type==='active'&&GameState.usedSpecialThisRound[id])) return;
-    if(['deceiver','double'].includes(id)&&!isMyTurn()) return showNotification('Только в свой ход!', 'warning');
-
-    // [1] Помечаем, что артефакт в процессе выбора
-    if (art.type === 'active') GameState.pendingArtifact = id;
-
-    switch(id) {
-        case 'target':
-            showTargetModalFirst(Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost), target=>{
-                showNominalModal(nom=>{
-                    const t=target;
-                    if(GameState.players[t].dice.length<=1) return showNotification('Нельзя последний кубик!', 'warning');
-                    const i=GameState.players[t].dice.indexOf(nom);
-                    if(i===-1) return showNotification(`Нет кубика ${getDieEmoji(nom)}!`, 'warning');
-                    GameState.players[t].dice.splice(i,1);
-                    safeUpdate(GameState.roomRef.child('players').child(t), {dice:GameState.players[t].dice}, 'target');
-                    appendChat(`🎯 ${m.name} уничтожил ${getDieEmoji(nom)} у ${GameState.players[t].name}`, 'system');
-                    markArtifactUsed(id); // [1] Только после успешного действия
-                });
-            }); break;
-        case 'fireball': case 'luck':
-            const nd=m.dice.map(d=>{if(m.frozen)return d;return id==='luck'?(Math.random()<0.7?Math.floor(Math.random()*3)+4:Math.floor(Math.random()*3)+1):Math.floor(Math.random()*6)+1;});
-            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {dice:nd,evilEyed:false}, 'fireball');
-            appendChat(`☄️ ${m.name} использовал ${art.name}!`, 'system');
-            markArtifactUsed(id); break;
-        case 'blessing':
-            if(m.poisons>0) { 
-                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {poisons:m.poisons-1}, 'bless'); 
-                appendChat(`⚕️ ${m.name}: -1 яд`, 'system'); 
-                markArtifactUsed(id);
-            } else {
-                const h=Object.keys(GameState.players).find(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&GameState.players[u]?.poisons>0);
-                if(h) { 
-                    safeUpdate(GameState.roomRef.child('players').child(h), {poisons:GameState.players[h].poisons-1}, 'bless'); 
-                    appendChat(`⚕️ ${m.name} вылечил ${GameState.players[h].name}`, 'system');
-                    markArtifactUsed(id);
-                } else {
-                    showNotification('Нет раненых!', 'warning');
-                    GameState.pendingArtifact = null; // [1] Сбрасываем
-                }
-            } break;
-        case 'thief':
-            if(GameState.thiefUsedThisRound) { GameState.pendingArtifact = null; return showNotification('Вор уже использован!', 'warning'); }
-            const tt=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.artifact&&GameState.players[u].artifact.type==='active'&&!GameState.usedSpecialThisRound[GameState.players[u].artifact.id]);
-            if(!tt.length) { GameState.pendingArtifact = null; return showNotification('Некого красть!', 'warning'); }
-            showTargetModal(tt, t=>{
-                const st=GameState.players[t].artifact;
-                if(GameState.usedSpecialThisRound[st.id]) delete GameState.usedSpecialThisRound[st.id];
-                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {artifact:st,usedSpecialThisRound:GameState.usedSpecialThisRound}, 'thief');
-                safeUpdate(GameState.roomRef.child('players').child(t), {artifact:null}, 'thief-v');
-                GameState.thiefUsedThisRound=true;
-                appendChat(`🥷 ${m.name} украл ${st.emoji} у ${GameState.players[t].name}!`, 'system');
-                markArtifactUsed(id);
-            }); break;
-        case 'deceiver':
-            const bc=GameState.lastBet?GameState.lastBet.count+Math.floor(Math.random()*3)+2:Math.floor(Math.random()*5)+6;
-            const bv=Math.floor(Math.random()*6)+1;
-            const nb={player:GameState.myUid,count:bc,value:bv};
-            GameState.lastBet=nb; GameState.players[GameState.myUid].lastBetInRound=nb;
-            safeUpdate(GameState.roomRef, {lastBet:nb,turnCounter:GameState.turnCounter+1}, 'deceiver');
-            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {lastBetInRound:nb}, 'deceiver-p');
-            GameState.turnCounter++; renderUI();
-            markArtifactUsed(id); break;
-        case 'clone':
-            const tc=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
-            if(!tc.length) { GameState.pendingArtifact = null; return; }
-            const cl=tc[Math.floor(Math.random()*tc.length)];
-            const cd=GameState.players[cl].dice[Math.floor(Math.random()*GameState.players[cl].dice.length)];
-            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {dice:[...m.dice,cd],artifact:null}, 'clone');
-            appendChat(`🧬 ${m.name} клонировал ${getDieEmoji(cd)} у ${GameState.players[cl].name}!`, 'system');
-            markArtifactUsed(id); break;
-        case 'curse':
-            const cu=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
-            if(!cu.length) { GameState.pendingArtifact = null; return; }
-            showTargetModal(cu, t=>{ 
-                safeUpdate(GameState.roomRef.child('players').child(t), {cursed:true}, 'curse'); 
-                appendChat(`☠️ ${m.name} проклял ${GameState.players[t].name}!`, 'system');
-                markArtifactUsed(id);
-            }); break;
-        case 'spy':
-            if(GameState.spyMemory[GameState.myUid]&&GameState.spyMemory[GameState.myUid].value&&GameState.roundNumber===GameState.spyMemory[GameState.myUid].round) {
-                showNotification(`🔍 Шпион: у ${GameState.players[GameState.spyMemory[GameState.myUid].target]?.name} есть ${getDieEmoji(GameState.spyMemory[GameState.myUid].value)}`, 'info');
-                GameState.pendingArtifact = null;
-                break;
-            }
-            const sp=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
-            if(!sp.length) { GameState.pendingArtifact = null; return showNotification('Нет целей!', 'warning'); }
-            showTargetModal(sp, t=>{
-                const val=GameState.players[t].dice[Math.floor(Math.random()*GameState.players[t].dice.length)];
-                GameState.spyMemory[GameState.myUid]={target:t,value:val,round:GameState.roundNumber};
-                showNotification(`🕵️ Шпион: у ${GameState.players[t].name} есть ${getDieEmoji(val)}`, 'info');
-                appendChat(`🕵️ ${m.name} шпионит за ${GameState.players[t].name}`, 'system');
-                markArtifactUsed(id);
-            }); break;
-        case 'ice':
-            const ci=Object.keys(GameState.players).filter(u=>GameState.players[u]?.alive&&!GameState.players[u]?.isGhost&&!GameState.players[u]?.frozen);
-            if(!ci.length) { GameState.pendingArtifact = null; return; }
-            showTargetModal(ci, t=>{ 
-                safeUpdate(GameState.roomRef.child('players').child(t), {frozen:true}, 'ice'); 
-                appendChat(`🧊 ${m.name} заморозил ${GameState.players[t].name}!`, 'system');
-                markArtifactUsed(id);
-            }); break;
-        case 'analyst':
-            showNominalModal(n=>{
-                let c=0; Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost&&p.dice.includes(n))c++;});
-                showNotification(`АНАЛИТИК: ${c} игроков имеют ${getDieEmoji(n)}`, 'info');
-                markArtifactUsed(id);
-            }); break;
-        case 'double':
-            if(!GameState.lastBet) { GameState.pendingArtifact = null; return showNotification('Нет ставок!', 'warning'); }
-            const td=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.lastBetInRound);
-            if(!td.length) { GameState.pendingArtifact = null; return showNotification('Нет ставок!', 'warning'); }
-            showTargetModal(td, t=>{
-                const lb=GameState.players[t].lastBetInRound;
-                const nb={player:GameState.myUid,count:lb.count,value:lb.value};
-                GameState.lastBet=nb; GameState.players[GameState.myUid].lastBetInRound=nb;
-                safeUpdate(GameState.roomRef, {lastBet:nb,turnCounter:GameState.turnCounter+1}, 'double');
-                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {lastBetInRound:nb}, 'double-p');
-                GameState.turnCounter++; renderUI();
-                appendChat(`🪞 ${m.name} скопировал ставку ${GameState.players[t].name}: ${lb.count}×${getDieEmoji(lb.value)}`, 'system');
-                markArtifactUsed(id);
-            }); break;
-        case 'evilEye':
-            const te=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost&&!GameState.players[u]?.evilEyed);
-            if(!te.length) { GameState.pendingArtifact = null; return; }
-            showTargetModal(te, t=>{ 
-                safeUpdate(GameState.roomRef.child('players').child(t), {evilEyed:true}, 'eye'); 
-                appendChat(`🧿 ${m.name} сглазил ${GameState.players[t].name}!`, 'system');
-                markArtifactUsed(id);
-            }); break;
-        case 'sacrifice':
-            if(m.poisons>=(m.maxLives||3)&&!confirm('⚠️ ВЫ УМРЁТЕ! Вы уверены?')) { GameState.pendingArtifact = null; return; }
-            if(!confirm('⚠️ Вы получите +1 яд. Продолжить?')) { GameState.pendingArtifact = null; return; }
-            showEffectModal(eff=>{
-                applyPoison(GameState.myUid, 1, 'Жертва');
-                if(eff.id==='shield') safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {devilShield:true,devilShieldRound:GameState.roundNumber}, 'sac-sh');
-                else if(eff.id==='reroll') {
-                    Object.keys(GameState.players).forEach(u=>{if(GameState.players[u]?.alive&&!GameState.players[u]?.isGhost&&!GameState.players[u]?.frozen)safeUpdate(GameState.roomRef.child('players').child(u), {dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),evilEyed:false}, 'sac-rr');});
-                    appendChat(`💀 ${m.name}: переброс стола!`, 'system');
-                } else if(eff.id==='forceBluff') {
-                    const nx=getNextPlayerUid(); if(nx) safeUpdate(GameState.roomRef.child('players').child(nx), {forcedBluff:true}, 'sac-fb');
-                    appendChat(`💀 ${m.name}: следующий обязан повысить!`, 'system');
-                }
-                markArtifactUsed(id);
-            }); break;
-        case 'circus':
-            const cc=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost&&!GameState.players[u]?.frozen&&GameState.players[u].dice.length>=2&&m.dice.length>=2);
-            if(!cc.length) { GameState.pendingArtifact = null; return showNotification('Нет целей!', 'warning'); }
-            showTargetModal(cc, t=>{
-                let md=[...m.dice], td=[...GameState.players[t].dice];
-                let mi1=Math.floor(Math.random()*md.length), mi2=Math.floor(Math.random()*md.length); while(mi2===mi1)mi2=Math.floor(Math.random()*md.length);
-                let ti1=Math.floor(Math.random()*td.length), ti2=Math.floor(Math.random()*td.length); while(ti2===ti1)ti2=Math.floor(Math.random()*td.length);
-                [md[mi1],td[ti1]]=[td[ti1],md[mi1]]; [md[mi2],td[ti2]]=[td[ti2],md[mi2]];
-                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {dice:md}, 'circ-me');
-                safeUpdate(GameState.roomRef.child('players').child(t), {dice:td}, 'circ-t');
-                appendChat(`🎪 ${m.name} обменялся кубиками с ${GameState.players[t].name}!`, 'system');
-                markArtifactUsed(id);
-            }); break;
-        case 'sniper':
-            if(GameState.sniperShotUsedThisRound) { GameState.pendingArtifact = null; return showNotification('Отстрел уже использован!', 'warning'); }
-            showDynamicNominalModal(n=>{
-                if(GameState.lastBet&&GameState.lastBet.value===n) return showNotification('Нельзя текущий номинал!', 'warning');
-                Object.keys(GameState.players).forEach(u=>{
-                    if(GameState.players[u]?.frozen) return;
-                    const nd=GameState.players[u].dice.filter(d=>d!==n);
-                    if(nd.length!==GameState.players[u].dice.length) safeUpdate(GameState.roomRef.child('players').child(u), {dice:nd}, 'sniper');
-                });
-                GameState.sniperShotUsedThisRound=true;
-                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {sniperShotUsedThisRound:true,cannotAccuse:true}, 'sniper-me');
-                appendChat(`🔫 ${m.name} отстрелил все ${getDieEmoji(n)}!`, 'system');
-                markArtifactUsed(id);
-            }); break;
-    }
-    playSound('artifact');
-}
-
-function getNextPlayerUid() {
-    const a=Object.keys(GameState.players).filter(u=>GameState.players[u]?.alive&&!GameState.players[u]?.isGhost&&GameState.players[u].connected!==false);
-    if(!a.length) return null;
-    const i=a.indexOf(GameState.lastBet?.player);
-    return a[(i+1)%a.length];
-}
-
-// ============================================================
-// МОДАЛЬНЫЕ ОКНА [1] ИСПРАВЛЕННАЯ ЛОГИКА ЗАКРЫТИЯ
-// ============================================================
-function showTargetModal(uids, cb) {
-    const l=document.getElementById('modalTargetList'); if(!l) return; l.innerHTML='';
-    uids.forEach(u=>{
-        const p=GameState.players[u]; if(!p||!p.name) return;
-        const b=document.createElement('button'); b.className='select-item'; b.style.width='100%'; b.textContent=p.name+(p.isGhost?' 👻':'');
-        b.onclick=()=>{cb(u);closeModal('modalTarget');}; l.appendChild(b);
-    });
-    document.getElementById('modalTarget').style.display='block';
-}
-function showTargetModalFirst(uids, cb) { showTargetModal(uids, cb); }
-
-function showNominalModal(cb) {
-    const l=document.getElementById('modalNominalList'); if(!l) return; l.innerHTML='';
-    for(let i=1;i<=6;i++){
-        const b=document.createElement('button'); b.className='select-item'; b.textContent=getDieEmoji(i); b.style.width='60px'; b.style.height='60px'; b.style.fontSize='1.8em';
-        b.onclick=()=>{cb(i);closeModal('modalNominal');}; l.appendChild(b);
-    }
-    document.getElementById('modalNominal').style.display='block';
-}
-
-let dynamicNominalInterval=null;
-function showDynamicNominalModal(cb) {
-    const l=document.getElementById('modalNominalList'); if(!l) return;
-    if(dynamicNominalInterval) clearInterval(dynamicNominalInterval);
-    const render=()=>{
-        l.innerHTML='';
-        for(let i=1;i<=6;i++){
-            const b=document.createElement('button'); b.className='select-item'; b.textContent=getDieEmoji(i); b.style.width='60px'; b.style.height='60px'; b.style.fontSize='1.8em';
-            if(GameState.lastBet&&GameState.lastBet.value===i){b.style.opacity='0.3';b.style.cursor='not-allowed';b.disabled=true;}
-            else{b.onclick=()=>{cb(i);closeModal('modalNominal');clearInterval(dynamicNominalInterval);dynamicNominalInterval=null;};}
-            l.appendChild(b);
-        }
-    };
-    render();
-    dynamicNominalInterval=setInterval(render, 200);
-    document.getElementById('modalNominal').style.display='block';
-}
-
-function showEffectModal(cb) {
-    const ef=[{id:'shield',name:'🛡️ Щит Дьявола'},{id:'reroll',name:'🔁 Переброс стола'},{id:'forceBluff',name:'🎭 Принудительный блеф'}];
-    const l=document.getElementById('modalEffectList'); if(!l) return; l.innerHTML='';
-    ef.forEach(e=>{
-        const b=document.createElement('button'); b.className='select-item'; b.style.width='100%'; b.style.marginBottom='8px'; b.textContent=e.name; b.style.whiteSpace='normal'; b.style.lineHeight='1.4';
-        b.onclick=()=>{cb(e);closeModal('modalEffect');}; l.appendChild(b);
-    });
-    document.getElementById('modalEffect').style.display='block';
-}
-
-// [1] КЛЮЧЕВАЯ ФУНКЦИЯ: при закрытии модалки артефакт НЕ помечается использованным
-function closeModal(id) {
-    const m=document.getElementById(id); if(m) m.style.display='none';
-    if(id==='modalNominal'&&dynamicNominalInterval){clearInterval(dynamicNominalInterval);dynamicNominalInterval=null;}
-    
-    // Если это модалка выбора (цель/номинал/эффект) и есть pendingArtifact — сбрасываем его
-    // Артефакт остается доступным для повторного использования
-    if (['modalTarget', 'modalNominal', 'modalEffect'].includes(id)) {
-        if (GameState.pendingArtifact) {
-            log(`ℹ️ Закрытие модалки без выбора: артефакт ${GameState.pendingArtifact} остаётся активным`);
-            GameState.pendingArtifact = null;
-        }
-    }
-}
-
-// ============================================================
-// УПРАВЛЕНИЕ
-// ============================================================
-function resetGame() {
-    if(!confirm('⚠️ Сбросить игру?\n\nВесь прогресс будет потерян.')) return;
-    if(!confirm('🔴 ТОЧНО сбросить?')) return;
-    
-    GameState.gameState='lobby'; GameState.roundNumber=0; GameState.lastBet=null; GameState.currentPlayerUid=null;
-    GameState.thiefUsedThisRound=false; GameState.sniperShotUsedThisRound=false; GameState.usedSpecialThisRound={};
-    GameState.artifactHistory=[]; GameState.blood=0;
-    clearAllTimers();
-    
-    const updates={};
-    Object.keys(GameState.players).forEach(uid=>{
-        const p=GameState.players[uid]; if(!p) return;
-        updates[`players/${uid}/poisons`]=0; updates[`players/${uid}/blood`]=0; updates[`players/${uid}/alive`]=true;
-        updates[`players/${uid}/isGhost`]=false; updates[`players/${uid}/artifact`]=null; updates[`players/${uid}/dice`]=[];
-        updates[`players/${uid}/usedSpecialThisRound`]={}; updates[`players/${uid}/lastBetInRound`]=null;
-        updates[`players/${uid}/cursed`]=false; updates[`players/${uid}/frozen`]=false; updates[`players/${uid}/defenderActive`]=false;
-        updates[`players/${uid}/stunned`]=false; updates[`players/${uid}/blind`]=false; updates[`players/${uid}/darkPact`]=false;
-        updates[`players/${uid}/darkPactShield`]=false; updates[`players/${uid}/devilShield`]=false; updates[`players/${uid}/evilEyed`]=false;
-        updates[`players/${uid}/forcedBluff`]=false; updates[`players/${uid}/cannotAccuse`]=false; updates[`players/${uid}/sniperShotUsedThisRound`]=false;
-        updates[`players/${uid}/familiarCursed`]=false; updates[`players/${uid}/usedAbilities`]={}; updates[`players/${uid}/devilDealsUsed`]=0;
-        updates[`players/${uid}/maxDice`]=5; updates[`players/${uid}/noArtifactsForever`]=false;
-        if(p.isBot) updates[`players/${uid}/botDifficulty`]=GameState.botDifficulty;
-    });
-    updates.state='lobby'; updates.round=0; updates.lastBet=null; updates.artifactHistory=[];
-    safeUpdate(GameState.roomRef, updates, 'reset');
-    appendChat('🔄 Игра сброшена', 'system');
-}
-
-function copyInviteLink() {
-    const link=`${window.location.origin}${window.location.pathname}?room=${GameState.currentRoomId}`;
-    navigator.clipboard.writeText(link).then(()=>{showNotification('Ссылка скопирована!', 'success');appendChat('🔗 Ссылка скопирована', 'system');}).catch(()=>showNotification('Ошибка копирования', 'error'));
-}
-
-function saveProfile() {
-    const nn=document.getElementById('profileNameInput')?.value.trim();
-    if(nn&&nn!==GameState.myName){
-        GameState.myName=nn; localStorage.setItem('ld_playerName', nn);
-        safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {name:nn}, 'rename');
-        appendChat(`Ник изменён на ${nn}`, 'system');
-    }
-    localStorage.setItem('ld_avatar', GameState.myAvatar);
-    localStorage.setItem('ld_color', GameState.myColor);
-    safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {avatar:GameState.myAvatar,color:GameState.myColor}, 'profile');
-    showNotification('Профиль сохранён!', 'success');
-    document.getElementById('modalProfile').style.display='none';
-}
-
-function showConfetti() {
-    for(let i=0;i<50;i++){
-        const c=document.createElement('div'); c.className='confetti';
-        c.style.left=Math.random()*100+'vw';
-        c.style.background=['#ffd700','#ff0000','#00ff00','#0000ff'][Math.floor(Math.random()*4)];
-        c.style.animationDuration=(Math.random()*2+2)+'s';
-        document.body.appendChild(c); setTimeout(()=>c.remove(), 4000);
-    }
-}
-
-// ============================================================
-// EVENT LISTENERS [1][2]
+// EVENT LISTENERS
 // ============================================================
 function bindEventListeners() {
     const hm=document.getElementById('hamburgerBtn'), dd=document.getElementById('dropdownMenu');
@@ -1998,20 +2197,16 @@ function bindEventListeners() {
         const ni=document.getElementById('profileNameInput'); if(ni)ni.value=GameState.myName;
         const ui=document.getElementById('profileUid'); if(ui)ui.textContent=GameState.myUid;
         const si=document.getElementById('profileStatus'); if(si){si.textContent=GameState.isGhost?'Призрак':'Жив';si.style.color=GameState.isGhost?'#cc00ff':'#00ff88';}
-        const ac=document.getElementById('avatarSelect');
-        if(ac){ac.innerHTML='';AVATARS.forEach(av=>{const b=document.createElement('button');b.textContent=av;b.style.fontSize='1.5em';b.style.margin='3px';b.style.padding='5px';b.style.cursor='pointer';b.style.background=GameState.myAvatar===av?'#ffd700':'#333';b.style.border='none';b.style.borderRadius='5px';b.onclick=()=>{GameState.myAvatar=av;document.querySelectorAll('#avatarSelect button').forEach(x=>x.style.background='#333');b.style.background='#ffd700';};ac.appendChild(b);});}
-        const cc=document.getElementById('colorSelect');
-        if(cc){cc.innerHTML='';COLORS.forEach(col=>{const b=document.createElement('button');b.textContent='●';b.style.color=col;b.style.fontSize='1.5em';b.style.margin='3px';b.style.padding='5px';b.style.cursor='pointer';b.style.background=GameState.myColor===col?'#ffd700':'#333';b.style.border='none';b.style.borderRadius='5px';b.onclick=()=>{GameState.myColor=col;document.querySelectorAll('#colorSelect button').forEach(x=>x.style.background='#333');b.style.background='#ffd700';};cc.appendChild(b);});}
         document.getElementById('modalProfile').style.display='block'; if(dd)dd.style.display='none';
     });
     document.getElementById('btnSaveProfile')?.addEventListener('click', saveProfile);
     document.getElementById('menuInvite')?.addEventListener('click', ()=>{copyInviteLink();if(dd)dd.style.display='none';});
     document.getElementById('menuNewRoom')?.addEventListener('click', ()=>{if(confirm('Новая комната?')){if(GameState.roomRef)GameState.roomRef.child('players').child(GameState.myUid).onDisconnect().cancel();clearAllTimers();newRoom();if(dd)dd.style.display='none';}});
     document.getElementById('menuKick')?.addEventListener('click', ()=>{startVoteKick();if(dd)dd.style.display='none';});
-    document.getElementById('menuSound')?.addEventListener('click', ()=>{GameState.soundEnabled=!GameState.soundEnabled;document.getElementById('menuSound').textContent=GameState.soundEnabled?'🔊 Звук: ВКЛ':'🔇 Звук: ВЫКЛ';if(dd)dd.style.display='none';});
+    document.getElementById('menuSound')?.addEventListener('click', ()=>{GameState.soundEnabled=!GameState.soundEnabled;document.getElementById('menuSound').textContent=GameState.soundEnabled?' Звук: ВКЛ':' Звук: ВЫКЛ';if(dd)dd.style.display='none';});
     document.getElementById('menuArtifacts')?.addEventListener('click', ()=>{if(GameState.gameState!=='lobby')return showNotification('Только в лобби!', 'warning');GameState.specialDiceEnabled=!GameState.specialDiceEnabled;document.getElementById('menuArtifacts').textContent=`🎲 Артефакты: ${GameState.specialDiceEnabled?'✅':'❌'}`;safeUpdate(GameState.roomRef.child('settings'), {specialDiceEnabled:GameState.specialDiceEnabled}, 'toggle-art');if(dd)dd.style.display='none';});
     document.getElementById('menuLives')?.addEventListener('click', ()=>{if(GameState.gameState!=='lobby')return showNotification('Только в лобби!', 'warning');const o=[3,4,5,6,2];GameState.defaultLives=o[(o.indexOf(GameState.defaultLives)+1)%o.length];document.getElementById('menuLives').textContent=`❤️ Жизни: ${GameState.defaultLives}`;safeUpdate(GameState.roomRef.child('settings'), {defaultLives:GameState.defaultLives}, 'toggle-lives');Object.keys(GameState.players).forEach(uid=>{if(GameState.players[uid]&&!GameState.players[uid].isBot)safeUpdate(GameState.roomRef.child('players').child(uid), {maxLives:GameState.defaultLives}, 'upd-lives');});if(dd)dd.style.display='none';});
-    
+
     document.getElementById('btnStartGame')?.addEventListener('click', ()=>{
         if (GameState.isActionInProgress) return;
         if(GameState.gameState!=='lobby')return showNotification('Игра уже идёт!', 'warning');
@@ -2024,52 +2219,86 @@ function bindEventListeners() {
         else showNotification('Нужен 1 игрок + 1 бот или 2 игрока', 'warning');
         if(dd)dd.style.display='none';
     });
-    
+
     document.getElementById('btnResetGame')?.addEventListener('click', resetGame);
     document.getElementById('btnPlaceBet')?.addEventListener('click', placeBet);
     document.getElementById('btnAccuse')?.addEventListener('click', accuse);
-    
-    document.getElementById('btnSendChat')?.addEventListener('click', ()=>{
-        const msg=document.getElementById('chatInput')?.value.trim();
-        if(msg) {
-            const now=Date.now();
-            if(now-GameState.chatLastSend<CHAT_DEBOUNCE_MS) return showNotification('Не так быстро!', 'warning');
-            GameState.chatLastSend=now;
-            
-            safeUpdate(GameState.roomRef.child('chat').push(), {sender:GameState.myName,text:msg,type:'normal',timestamp:now}, 'chat');
-            const inp=document.getElementById('chatInput'); if(inp)inp.value='';
-        }
+
+    // [UI] Кнопки управления ставкой
+    document.getElementById('btnBetCountUp')?.addEventListener('click', ()=>changeBetCount(1));
+    document.getElementById('btnBetCountDown')?.addEventListener('click', ()=>changeBetCount(-1));
+    document.getElementById('btnBetValueUp')?.addEventListener('click', ()=>changeBetValue(1));
+    document.getElementById('btnBetValueDown')?.addEventListener('click', ()=>changeBetValue(-1));
+
+    // [UI] Эмодзи и таунты
+    document.getElementById('quickEmojiBtn')?.addEventListener('click', openQuickEmoji);
+    document.getElementById('tauntBtn')?.addEventListener('click', openTaunt);
+    document.querySelectorAll('.mood-btn').forEach(b=>{
+        b.addEventListener('click', ()=>selectTauntMood(b.dataset.mood));
     });
-    document.getElementById('chatInput')?.addEventListener('keypress', e=>{if(e.key==='Enter')document.getElementById('btnSendChat')?.click();});
-    
+
+    // [UI] ЛОГ и ПРОВЕРКА
+    document.getElementById('btnLog')?.addEventListener('click', ()=>{
+        renderLog('all');
+        document.getElementById('modalLog').style.display='block';
+    });
+    document.getElementById('btnCheck')?.addEventListener('click', showLastCheck);
+
+    // Фильтры лога
+    document.querySelectorAll('.filter-btn').forEach(b=>{
+        b.addEventListener('click', ()=>{
+            document.querySelectorAll('.filter-btn').forEach(x=>x.classList.remove('active'));
+            b.classList.add('active');
+            renderLog(b.dataset.filter);
+        });
+    });
+
+    // Артефакт инфо
+    document.getElementById('artifactInfoBtn')?.addEventListener('click', ()=>{
+        const m=GameState.players[GameState.myUid];
+        if(m?.artifact) showArtifactInfo(m.artifact);
+    });
+
+    // Призраки
     document.getElementById('ghVengeance')?.addEventListener('click', ()=>useGhostAbility('oathOfVengeance'));
     document.getElementById('ghFamiliarCurse')?.addEventListener('click', ()=>useGhostAbility('familiarCurse'));
     document.getElementById('ghPoltergeist')?.addEventListener('click', ()=>useGhostAbility('poltergeist'));
     document.getElementById('ghKeeper')?.addEventListener('click', ()=>useGhostAbility('keeperOfSecrets'));
     document.getElementById('ghReaper')?.addEventListener('click', ()=>useGhostAbility('soulReaper'));
-    
+
+    // Голосование
     document.getElementById('voteYes')?.addEventListener('click', ()=>castVote('yes'));
     document.getElementById('voteNo')?.addEventListener('click', ()=>castVote('no'));
-    
-    // [1] ИСПРАВЛЕНИЕ: при клике вне модалки сделки — НЕ закрываем
+
+    // Закрытие модалок
     document.querySelectorAll('.close-btn').forEach(b=>b.addEventListener('click', function(){
         const m=this.closest('.modal');
-        if(m && m.id === 'devilModal') return; // Не закрываем сделку крестиком
+        if(m && m.id === 'devilModal') return;
         if(m)m.style.display='none';
         if(m?.id==='modalNominal'&&dynamicNominalInterval){clearInterval(dynamicNominalInterval);dynamicNominalInterval=null;}
     }));
     window.addEventListener('click', e=>{
         if(e.target.classList.contains('modal')){
-            if(e.target.id === 'devilModal') return; // [1] Не закрываем сделку
+            if(e.target.id === 'devilModal') return;
             e.target.style.display='none';
             if(e.target.id==='modalNominal'&&dynamicNominalInterval){clearInterval(dynamicNominalInterval);dynamicNominalInterval=null;}
         }
     });
-    
+
+    // Закрытие ПРОВЕРКА
+    document.getElementById('accusationCloseBtn')?.addEventListener('click', ()=>{
+        document.getElementById('accusationPanel').style.display='none';
+    });
+
+    // Гардероб
+    document.getElementById('menuMyLook')?.addEventListener('click', ()=>{openWardrobe();if(dd)dd.style.display='none';});
+    document.getElementById('btnSaveWardrobe')?.addEventListener('click', saveWardrobe);
+
+    // Боты
     document.getElementById('menuBotAdd')?.addEventListener('click', ()=>{addBot();if(dd)dd.style.display='none';});
     document.getElementById('menuBotRemoveAll')?.addEventListener('click', ()=>{removeAllBots();if(dd)dd.style.display='none';});
     document.getElementById('menuBotDifficulty')?.addEventListener('click', e=>{e.stopPropagation();setBotDifficulty((GameState.botDifficulty+1)%4);if(dd)dd.style.display='none';});
-    
+
     window.addEventListener('beforeunload', clearAllTimers);
 }
 
@@ -2079,22 +2308,23 @@ function bindEventListeners() {
 window.onload = () => {
     const params=new URLSearchParams(window.location.search);
     let room=params.get('room');
-    
     let name=localStorage.getItem('ld_playerName');
     if(!name){name=prompt('Введите имя:', 'Игрок'+Math.floor(Math.random()*900+100));if(!name)name='Игрок';localStorage.setItem('ld_playerName', name);}
     GameState.myName=name;
     GameState.myAvatar=localStorage.getItem('ld_avatar')||'🎲';
     GameState.myColor=localStorage.getItem('ld_color')||'#ffffff';
-    
+
+    loadWardrobe();
+
     if(!room){
         const saved=localStorage.getItem('ld_lastRoom');
         if(saved&&confirm(`Вернуться в ${saved}?`)) room=saved;
     }
-    
-    if(room){GameState.currentRoomId=room;document.getElementById('roomIdDisplay').textContent=room;enterRoom(room);}
+
+    if(room){GameState.currentRoomId=room;document.getElementById('roomIdDisplay').textContent='ROOM: '+room;enterRoom(room);}
     else createRoom();
-    
+
     setupAudioContext();
     bindEventListeners();
-    log('🎮 Game Loaded v8.7');
+    log('🎮 Game Loaded v8.7 UI-REDESIGN');
 };
