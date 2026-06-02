@@ -212,29 +212,26 @@ body {
     white-space: nowrap;
     z-index: 9999;
 }
-.speech-bubble.left-aligned {
-    left: 10px !important;
-    right: auto;
-    text-align: left;
-    max-width: 45%;
-}
-
-.speech-bubble.left-aligned::after {
-    left: 20px;
-    transform: translateX(0);
-}
-
-.speech-bubble.right-aligned {
-    right: 10px !important;
-    left: auto;
-    text-align: left;
-    max-width: 45%;
-}
-
-.speech-bubble.right-aligned::after {
-    right: 20px;
-    left: auto;
-    transform: translateX(0);
+.speech-bubble {
+    position: absolute;
+    background: #fff;
+    color: #000;
+    border: 2px solid #333;
+    border-radius: 15px;
+    padding: 10px 16px;
+    font-size: 1.1em;
+    font-weight: bold;
+    animation: bubblePop 0.3s ease-out, bubbleFade 0.5s ease-in 4.5s forwards;
+    pointer-events: none;
+    max-width: 220px;
+    min-width: 50px;
+    text-align: center;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    line-height: 1.3;
+    z-index: 9999;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 .speech-bubble::after {
     content: '';
