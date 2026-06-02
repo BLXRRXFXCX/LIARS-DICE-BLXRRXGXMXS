@@ -17,7 +17,7 @@ function getDieEmoji(v) {
 // [F] ГЛОБАЛЬНОЕ СОСТОЯНИЕ
 const GameState = {
     roomRef: null,
-    myUid: '', myName: '', myAvatar: '🎲', myColor: '#ffffff',
+    myUid: '', myName: '', myAvatar: '🙂', myColor: '#ffffff',
     currentRoomId: '', isHost: false,
     players: {}, lastBet: null, gameState: 'lobby',
     roundNumber: 0, turnCounter: 0, currentPlayerUid: null,
@@ -37,7 +37,7 @@ const GameState = {
 
     // [UI] Новые поля
     myWardrobe: {
-        head: '🎲',
+        head: '🙂',
         tuxedoColor: '#222244',
         trimColor: '#ffd700'
     },
@@ -68,26 +68,26 @@ const TAUNTS = {
 const botDifficultyNames = ['Нубик','Среднячок','Потный','Божество'];
 
 const ARTIFACTS = [
-    {id:'target',emoji:'🎯',name:'В ЦЕЛЬ!',type:'active',description:'Уничтожает 1 кубик выбранного номинала у противника',hidden:false},
-    {id:'fireball',emoji:'☄️',name:'FIREBALL',type:'active',description:'Перебрасывает ВСЕ ваши обычные кубики (кроме замороженных)',hidden:false},
-    {id:'luck',emoji:'🍀',name:'LUCKER',type:'active',description:'Перебрасывает кубики с шансом 70% на 4-6 (кроме замороженных)',hidden:false},
-    {id:'blessing',emoji:'⚕️',name:'БЛАГОСЛОВЕНИЕ',type:'active',description:'Убирает 1 яд у себя или союзника',hidden:false},
-    {id:'thief',emoji:'🥷',name:'ВОР',type:'active',description:'Крадёт артефакт у выбранного противника (1 раз за раунд)',hidden:false},
-    {id:'deceiver',emoji:'🎭',name:'ВРУНИШКА',type:'active',description:'Авто-ставка, обвинитель получает +2 яда',hidden:true},
-    {id:'clone',emoji:'🧬',name:'КЛОН',type:'active',description:'Артефакт становится 6-м кубиком со значением противника',hidden:true},
-    {id:'curse',emoji:'☠️',name:'ПРОКЛЯТИЕ',type:'active',description:'Следующая ставка цели автоматически ложная',hidden:true},
-    {id:'spy',emoji:'🕵️',name:'ШПИОН',type:'active',description:'Показывает 1 случайный кубик выбранного противника',hidden:true},
-    {id:'ice',emoji:'🧊',name:'FREEZING',type:'active',description:'Замораживает кубики цели на раунд (можно на себя)',hidden:true},
-    {id:'defender',emoji:'🛡️',name:'ЗАЩИТНИК',type:'passive',description:'Блокирует ВСЕ яды в раунде (1 раз)',hidden:true},
-    {id:'bloodthirst',emoji:'🧛',name:'КРОВОЖАДНОСТЬ',type:'passive',description:'+1 кровь при верном обвинении, цель получает +2 яда',hidden:true},
-    {id:'analyst',emoji:'🔍',name:'ИССЛЕДОВАНИЕ',type:'active',description:'Показывает мин. количество игроков с кубиком номинала',hidden:true},
-    {id:'double',emoji:'🪞',name:'ДВОЙНИК',type:'active',description:'Копирует последнюю ставку выбранного игрока',hidden:false},
-    {id:'evilEye',emoji:'🧿',name:'СГЛАЗ',type:'active',description:'Накладывает невезение на кубики цели (70% на 1-3)',hidden:true},
-    {id:'wildDie',emoji:'🎲',name:'WILDICE',type:'passive',description:'Считается любым номиналом при подсчёте ставки владельца',hidden:true},
-    {id:'sacrifice',emoji:'💀',name:'САМОПОЖЕРТВОВАНИЕ',type:'active',description:'+1 яд ради мощного эффекта на выбор',hidden:true},
-    {id:'circus',emoji:'🎪',name:'ЦИРК',type:'active',description:'Обмен 2 кубиками с целью (требуется ≥2 кубиков у обоих)',hidden:true},
-    {id:'darkPact',emoji:'🌑',name:'ЗАТМЕНИЕ',type:'passive',description:'Текущий раунд: +2 яда при обвинении. Следующий: щит на раунд',hidden:true},
-    {id:'sniper',emoji:'🔫',name:'ПЕРЕСТРЕЛКА',type:'active',description:'Уничтожает все кубики номинала у всех (кроме замороженных, нельзя на текущую ставку). После использования нельзя обвинять',hidden:true}
+    {id:'target',emoji:'🎯',name:'В ЦЕЛЬ!',type:'active',description:'Выберите противника и уничтожьте у него 1 кубик выбранного номинала.',hidden:false},
+    {id:'fireball',emoji:'☄️',name:'FIREBALL',type:'active',description:'Перебрасывает ВСЕ ваши обычные кубики (кроме замороженных).',hidden:false},
+    {id:'luck',emoji:'🍀',name:'LUCKER',type:'active',description:'Перебрасывает кубики с шансом 70% на ⚃-⚅ (кроме замороженных).',hidden:false},
+    {id:'blessing',emoji:'⚕️',name:'БЛАГОСЛОВЕНИЕ',type:'active',description:'Убирает 1 яд у себя (если есть хотя бы 1 отсутствующее сердце) или любого другого случайного игрока.',hidden:false},
+    {id:'thief',emoji:'🥷',name:'ВОР',type:'active',description:'Крадёт артефакт у выбранного противника, если артефакт не был использован. Противник теряет возможность использовать свой артефакт.',hidden:false},
+    {id:'deceiver',emoji:'🎭',name:'ВРУНИШКА',type:'active',description:'Завышенная (блеф) авто-ставка, обвинитель получает +1 дополнительный яд при обвинении данной ставки.',hidden:true},
+    {id:'clone',emoji:'🧬',name:'КЛОН',type:'active',description:'Артефакт становится 6-ым кубиком со значением противника (случайный номинал).',hidden:true},
+    {id:'curse',emoji:'☠️',name:'ПРОКЛЯТИЕ',type:'active',description:'Следующая ставка цели автоматически ложная.',hidden:true},
+    {id:'spy',emoji:'🕵️',name:'ШПИОН',type:'active',description:'Показывает 1 случайный кубик выбранного противника.',hidden:true},
+    {id:'ice',emoji:'🧊',name:'FREEZING',type:'active',description:'Замораживает кубики цели на раунд (можно использовать на себя), полностью блокирует уничтожение и изменение кубиков на время заморозки.',hidden:true},
+    {id:'defender',emoji:'🛡️',name:'ЗАЩИТНИК',type:'passive',description:'Блокирует ВЕСЬ УРОН в текущем раунде (1 раз).',hidden:true},
+    {id:'bloodthirst',emoji:'🧛',name:'КРОВОЖАДНОСТЬ',type:'passive',description:'+1 кровь (бонусная жизнь) при верном обвинении, обвинитель при ошибке в обвинении получает +1 дополнительный яд.',hidden:true},
+    {id:'analyst',emoji:'🔍',name:'ИССЛЕДОВАНИЕ',type:'active',description:'Показывает минимальное количество игроков с кубиком выбранного номинала.',hidden:true},
+    {id:'double',emoji:'🪞',name:'ДВОЙНИК',type:'active',description:'Копирует последнюю ставку выбранного игрока (можно использовать только при наличии последней ставки).',hidden:false},
+    {id:'evilEye',emoji:'🧿',name:'СГЛАЗ',type:'active',description:'Накладывает невезение на кубики цели (70% на ⚀-⚂ при следующем перебросе/обновлении кубиков цели).',hidden:true},
+    {id:'wildDie',emoji:'🎲',name:'WILDICE',type:'passive',description:'Считается любым номиналом при подсчёте ставки владельца, при обвинении участвует в подсчёте кубиков, если повлиял на исход проверки - обвинитель получает +1 дополнительный яд.',hidden:true},
+    {id:'sacrifice',emoji:'💀',name:'САМОПОЖЕРТВОВАНИЕ',type:'active',description:'+1 яд ради мощного эффекта на выбор (Щит в следующем раунде/Переброс всех кубиков/Соперник обязан завысить ставку).',hidden:true},
+    {id:'circus',emoji:'🎪',name:'ЦИРК',type:'active',description:'Обмен 2-мя случайными кубиками с целью (требуется ≥2 кубиков у обоих).',hidden:true},
+    {id:'darkPact',emoji:'🌑',name:'ЗАТМЕНИЕ',type:'passive',description:'Текущий раунд: +1 дополнинтельный яд при обвинении владельца артефакта в текущем раунде. В следующем раунде: щит на ВЕСЬ УРОН на весь раунд.',hidden:true},
+    {id:'sniper',emoji:'🔫',name:'ПЕРЕСТРЕЛКА',type:'active',description:'Уничтожает все кубики выбранного номинала у ВСЕХ (кроме замороженных, нельзя использовать на номоинал текущей ставки). После использования нельзя обвинять.',hidden:true}
 ];
 
 const GHOST_ABILITIES = [
