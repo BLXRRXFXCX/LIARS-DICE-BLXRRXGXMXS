@@ -283,27 +283,42 @@ function loadWardrobe() {
 }
 
 // [SPEECH BUBBLE] Облачка
-function showSpeechBubble(uid, text, isEmoji = false) {
-    // Показываем локально
+function showSpeechBubble(uid, text, isEmoji = false, isTaunt = false) {
     const slot = document.querySelector(`.player-slot[data-uid="${uid}"]`);
     if (!slot) return;
+    
     const rect = slot.getBoundingClientRect();
     const container = document.getElementById('speechBubbleContainer');
     const bubble = document.createElement('div');
     bubble.className = 'speech-bubble';
+    
+    // Определяем колонку (слоты 0,2,4 - левая; 1,3,5 - правая)
+    const slotIndex = parseInt(slot.dataset.slot) || 0;
+    const isInRightColumn = slotIndex % 2 === 1;
+    
+    if (isTaunt) {
+        if (isInRightColumn) {
+            bubble.classList.add('right-aligned');
+        } else {
+            bubble.classList.add('left-aligned');
+        }
+    } else {
+        bubble.style.left = (rect.left + rect.width / 2 - 40) + 'px';
+        bubble.style.top = (rect.top - 50) + 'px';
+    }
+    
     bubble.textContent = text;
-    bubble.style.left = (rect.left + rect.width / 2 - 40) + 'px';
-    bubble.style.top = (rect.top - 50) + 'px';
     if (isEmoji) bubble.style.fontSize = '2em';
     container.appendChild(bubble);
     setTimeout(() => bubble.remove(), 5000);
     
-    // Отправляем в Firebase для всех игроков
+    // Отправляем в Firebase
     if (GameState.roomRef && uid === GameState.myUid) {
         GameState.roomRef.child('speechBubbles').push({
             uid: uid,
             text: text,
             isEmoji: isEmoji,
+            isTaunt: isTaunt,
             timestamp: Date.now()
         });
     }
@@ -318,7 +333,7 @@ function openQuickEmoji() {
         b.className = 'quick-emoji-btn';
         b.textContent = em;
         b.onclick = () => {
-            showSpeechBubble(GameState.myUid, em, true);
+            showSpeechBubble(GameState.myUid, em, true, false);
             addLogEntry('system', `${GameState.myName} отправил эмодзи ${em}`);
             closeModal('modalQuickEmoji');
         };
@@ -341,7 +356,7 @@ function selectTauntMood(mood) {
         b.className = 'taunt-text-btn';
         b.textContent = txt;
         b.onclick = () => {
-            showSpeechBubble(GameState.myUid, txt, false);
+            showSpeechBubble(GameState.myUid, txt, false, true);
             addLogEntry('system', `${GameState.myName}: ${txt}`);
             closeModal('modalTaunt');
         };
@@ -529,16 +544,9 @@ function setupConnectionListener() {
     });
 }
 
-function setupRoomListeners() {
-    GameState.roomRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        GameState.players = data.players || {};
-        GameState.gameState = data.state || 'lobby';
-        // Слушатель для облачков речи
 GameState.roomRef.child('speechBubbles').limitToLast(20).on('child_added', (snapshot) => {
     const data = snapshot.val();
-    if (!data || data.uid === GameState.myUid) return; // Не показываем свои повторно
+    if (!data || data.uid === GameState.myUid) return;
     
     const slot = document.querySelector(`.player-slot[data-uid="${data.uid}"]`);
     if (!slot) return;
@@ -547,9 +555,22 @@ GameState.roomRef.child('speechBubbles').limitToLast(20).on('child_added', (snap
     const container = document.getElementById('speechBubbleContainer');
     const bubble = document.createElement('div');
     bubble.className = 'speech-bubble';
+    
+    const slotIndex = parseInt(slot.dataset.slot) || 0;
+    const isInRightColumn = slotIndex % 2 === 1;
+    
+    if (data.isTaunt) {
+        if (isInRightColumn) {
+            bubble.classList.add('right-aligned');
+        } else {
+            bubble.classList.add('left-aligned');
+        }
+    } else {
+        bubble.style.left = (rect.left + rect.width / 2 - 40) + 'px';
+        bubble.style.top = (rect.top - 50) + 'px';
+    }
+    
     bubble.textContent = data.text;
-    bubble.style.left = (rect.left + rect.width / 2 - 40) + 'px';
-    bubble.style.top = (rect.top - 50) + 'px';
     if (data.isEmoji) bubble.style.fontSize = '2em';
     container.appendChild(bubble);
     setTimeout(() => bubble.remove(), 5000);
