@@ -212,6 +212,30 @@ body {
     white-space: nowrap;
     z-index: 9999;
 }
+.speech-bubble.left-aligned {
+    left: 10px !important;
+    right: auto;
+    text-align: left;
+    max-width: 45%;
+}
+
+.speech-bubble.left-aligned::after {
+    left: 20px;
+    transform: translateX(0);
+}
+
+.speech-bubble.right-aligned {
+    right: 10px !important;
+    left: auto;
+    text-align: left;
+    max-width: 45%;
+}
+
+.speech-bubble.right-aligned::after {
+    right: 20px;
+    left: auto;
+    transform: translateX(0);
+}
 .speech-bubble::after {
     content: '';
     position: absolute;
