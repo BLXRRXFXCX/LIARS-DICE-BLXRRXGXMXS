@@ -2353,7 +2353,10 @@ function bindEventListeners() {
     document.getElementById('accusationCloseBtn')?.addEventListener('click', ()=>{
         document.getElementById('accusationPanel').style.display='none';
     });
-
+// Кнопка OK в окне уведомлений
+document.getElementById('notifyOkBtn')?.addEventListener('click', ()=>{
+    document.getElementById('modalNotify').style.display='none';
+});
     document.getElementById('menuMyLook')?.addEventListener('click', ()=>{openWardrobe();if(dd)dd.style.display='none';});
     document.getElementById('btnSaveWardrobe')?.addEventListener('click', saveWardrobe);
 
