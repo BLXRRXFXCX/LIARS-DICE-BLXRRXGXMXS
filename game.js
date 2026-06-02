@@ -284,6 +284,7 @@ function loadWardrobe() {
 
 // [SPEECH BUBBLE] Облачка
 function showSpeechBubble(uid, text, isEmoji = false) {
+    // Показываем локально
     const slot = document.querySelector(`.player-slot[data-uid="${uid}"]`);
     if (!slot) return;
     const rect = slot.getBoundingClientRect();
@@ -296,6 +297,16 @@ function showSpeechBubble(uid, text, isEmoji = false) {
     if (isEmoji) bubble.style.fontSize = '2em';
     container.appendChild(bubble);
     setTimeout(() => bubble.remove(), 5000);
+    
+    // Отправляем в Firebase для всех игроков
+    if (GameState.roomRef && uid === GameState.myUid) {
+        GameState.roomRef.child('speechBubbles').push({
+            uid: uid,
+            text: text,
+            isEmoji: isEmoji,
+            timestamp: Date.now()
+        });
+    }
 }
 
 function openQuickEmoji() {
@@ -524,6 +535,25 @@ function setupRoomListeners() {
         if (!data) return;
         GameState.players = data.players || {};
         GameState.gameState = data.state || 'lobby';
+        // Слушатель для облачков речи
+GameState.roomRef.child('speechBubbles').limitToLast(20).on('child_added', (snapshot) => {
+    const data = snapshot.val();
+    if (!data || data.uid === GameState.myUid) return; // Не показываем свои повторно
+    
+    const slot = document.querySelector(`.player-slot[data-uid="${data.uid}"]`);
+    if (!slot) return;
+    
+    const rect = slot.getBoundingClientRect();
+    const container = document.getElementById('speechBubbleContainer');
+    const bubble = document.createElement('div');
+    bubble.className = 'speech-bubble';
+    bubble.textContent = data.text;
+    bubble.style.left = (rect.left + rect.width / 2 - 40) + 'px';
+    bubble.style.top = (rect.top - 50) + 'px';
+    if (data.isEmoji) bubble.style.fontSize = '2em';
+    container.appendChild(bubble);
+    setTimeout(() => bubble.remove(), 5000);
+});
 
         if (data.settings) {
             if (data.settings.defaultLives) {
