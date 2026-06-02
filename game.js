@@ -292,27 +292,37 @@ function showSpeechBubble(uid, text, isEmoji = false, isTaunt = false) {
     const bubble = document.createElement('div');
     bubble.className = 'speech-bubble';
     
-    // Определяем колонку (слоты 0,2,4 - левая; 1,3,5 - правая)
-    const slotIndex = parseInt(slot.dataset.slot) || 0;
-    const isInRightColumn = slotIndex % 2 === 1;
+    bubble.textContent = text;
     
-    if (isTaunt) {
-        if (isInRightColumn) {
-            bubble.classList.add('right-aligned');
-        } else {
-            bubble.classList.add('left-aligned');
-        }
+    if (isEmoji) {
+        // Эмодзи — крупный, по центру
+        bubble.style.fontSize = '2.5em';
+        bubble.style.padding = '8px 14px';
+        bubble.style.maxWidth = 'none';
+        bubble.style.minWidth = 'auto';
     } else {
-        bubble.style.left = (rect.left + rect.width / 2 - 40) + 'px';
-        bubble.style.top = (rect.top - 50) + 'px';
+        // Текст — обычный размер, с переносами
+        bubble.style.fontSize = '1.1em';
+        bubble.style.padding = '10px 16px';
+        bubble.style.maxWidth = '220px';
+        bubble.style.whiteSpace = 'normal';
     }
     
-    bubble.textContent = text;
-    if (isEmoji) bubble.style.fontSize = '2em';
+    // Позиционируем по центру слота игрока
+    const bubbleWidth = isEmoji ? 60 : Math.min(text.length * 9 + 32, 220);
+    const leftPos = rect.left + rect.width / 2 - bubbleWidth / 2;
+    
+    // Ограничиваем, чтобы не вылезало за края экрана
+    const maxLeft = window.innerWidth - bubbleWidth - 10;
+    const finalLeft = Math.max(10, Math.min(leftPos, maxLeft));
+    
+    bubble.style.left = finalLeft + 'px';
+    bubble.style.top = (rect.top - 60) + 'px';
+    
     container.appendChild(bubble);
     setTimeout(() => bubble.remove(), 5000);
     
-    // Отправляем в Firebase
+    // Отправляем в Firebase для других игроков
     if (GameState.roomRef && uid === GameState.myUid) {
         GameState.roomRef.child('speechBubbles').push({
             uid: uid,
@@ -631,36 +641,41 @@ function setupRoomListeners() {
 
     // 2. ОТДЕЛЬНЫЙ слушатель для облачков (ВНЕ callback'a 'value'!)
     GameState.roomRef.child('speechBubbles').limitToLast(20).on('child_added', (snapshot) => {
-        const data = snapshot.val();
-        if (!data || data.uid === GameState.myUid) return;
-        
-        const slot = document.querySelector(`.player-slot[data-uid="${data.uid}"]`);
-        if (!slot) return;
-        
-        const rect = slot.getBoundingClientRect();
-        const container = document.getElementById('speechBubbleContainer');
-        const bubble = document.createElement('div');
-        bubble.className = 'speech-bubble';
-        
-        const slotIndex = parseInt(slot.dataset.slot) || 0;
-        const isInRightColumn = slotIndex % 2 === 1;
-        
-        if (data.isTaunt) {
-            if (isInRightColumn) {
-                bubble.classList.add('right-aligned');
-            } else {
-                bubble.classList.add('left-aligned');
-            }
-        } else {
-            bubble.style.left = (rect.left + rect.width / 2 - 40) + 'px';
-            bubble.style.top = (rect.top - 50) + 'px';
-        }
-        
-        bubble.textContent = data.text;
-        if (data.isEmoji) bubble.style.fontSize = '2em';
-        container.appendChild(bubble);
-        setTimeout(() => bubble.remove(), 5000);
-    });
+    const data = snapshot.val();
+    if (!data || data.uid === GameState.myUid) return;
+    
+    const slot = document.querySelector(`.player-slot[data-uid="${data.uid}"]`);
+    if (!slot) return;
+    
+    const rect = slot.getBoundingClientRect();
+    const container = document.getElementById('speechBubbleContainer');
+    const bubble = document.createElement('div');
+    bubble.className = 'speech-bubble';
+    bubble.textContent = data.text;
+    
+    if (data.isEmoji) {
+        bubble.style.fontSize = '2.5em';
+        bubble.style.padding = '8px 14px';
+        bubble.style.maxWidth = 'none';
+        bubble.style.minWidth = 'auto';
+    } else {
+        bubble.style.fontSize = '1.1em';
+        bubble.style.padding = '10px 16px';
+        bubble.style.maxWidth = '220px';
+        bubble.style.whiteSpace = 'normal';
+    }
+    
+    const bubbleWidth = data.isEmoji ? 60 : Math.min(data.text.length * 9 + 32, 220);
+    const leftPos = rect.left + rect.width / 2 - bubbleWidth / 2;
+    const maxLeft = window.innerWidth - bubbleWidth - 10;
+    const finalLeft = Math.max(10, Math.min(leftPos, maxLeft));
+    
+    bubble.style.left = finalLeft + 'px';
+    bubble.style.top = (rect.top - 60) + 'px';
+    
+    container.appendChild(bubble);
+    setTimeout(() => bubble.remove(), 5000);
+});
 
     // 3. Слушатель голосов
     GameState.roomRef.child('votes').on('value', (s) => {
