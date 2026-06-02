@@ -121,7 +121,7 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
-function showNotification(msg, type='info') {
+function showNotification(msg, type='info', autoClose = 0) {
     const tt = {error:'❌ Ошибка', warning:'⚠️ Внимание', success:'✅ Успех', info:'ℹ️ Инфо'};
     const title = document.getElementById('notifyTitle');
     const message = document.getElementById('notifyMessage');
@@ -130,7 +130,17 @@ function showNotification(msg, type='info') {
         title.textContent = tt[type] || 'ℹ️ Уведомление';
         message.textContent = msg;
         modal.style.display = 'block';
-    } else { alert(msg); }
+        
+        // Автозакрытие через N мс, если указан autoClose
+        if (autoClose > 0) {
+            setTimeout(() => {
+                modal.style.display = 'none';
+            }, autoClose);
+        }
+    } else { 
+        // Если модалка не найдена — обычный alert
+        if (autoClose === 0) alert(msg); 
+    }
 }
 
 // [4] ЛОАДЕР
@@ -548,7 +558,7 @@ function setupConnectionListener() {
                 statusEl.className = 'connection-status offline';
                 statusEl.textContent = '○';
                 document.body.classList.add('offline');
-                showNotification('⚠️ Потеряно соединение...', 'warning');
+                showNotification('️ Потеряно соединение...', 'warning', 500);
             }
         }
     });
