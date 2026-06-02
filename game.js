@@ -53,12 +53,12 @@ const CHAT_DEBOUNCE_MS = 1000;
 const OFFLINE_TIMEOUT = 5 * 60 * 1000;
 
 // [K] КОНСТАНТЫ
-const AVATARS = ['','🎭','👻','','🧙','🧝','','🧟','🐉','','🌟','🔥','','👑','🎯','','🕵️','🧪','🛡️','🔫'];
+const AVATARS = ['','🎭','👻','🤖','🧙','🧝','🧛','🧟','🐉','🦄','🌟','🔥','💀','👑','🎯','🧿','🕵️','🧪','🛡️','🔫'];
 const COLORS = ['#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ff8800','#88ff00','#ff0088','#0088ff','#ffffff','#cccccc','#ffaa88','#88ffaa','#aa88ff','#ff8888','#88ff88','#8888ff','#ffaa00','#00ffaa'];
 const TUXEDO_COLORS = ['#222244','#1a1a2e','#2d1a3e','#1a2e1a','#3e1a1a','#1a2e3e','#2e2e1a','#3e1a2e','#0a0a2e','#2e0a0a'];
 const TRIM_COLORS = ['#ffd700','#ff4444','#44ff44','#4444ff','#ff44ff','#44ffff','#ff8800','#ffffff','#ff0088','#00ff88'];
 
-const QUICK_EMOJIS = ['😂','😎','🤔','😱','','🔥','💀','','🤡','😈','','😤','🤫','👀','💪','🙏','','🤣','😏',''];
+const QUICK_EMOJIS = ['😂','😎','🤔','😱','🤯','🔥','💀','👻','🤡','😈','🥶','😤','🤫','👀','💪','🙏','🎉','🤣','😏','🤬'];
 const TAUNTS = {
     evil: ['Ты труп!','Последняя ставка!','Бойся меня!','Я уничтожу тебя!','Твой конец близок!','Бойся!'],
     kind: ['Удачи!','Хорошая игра!','Всё будет хорошо!','Не переживай!','Ты справишься!','Держись!'],
@@ -76,25 +76,25 @@ const ARTIFACTS = [
     {id:'deceiver',emoji:'🎭',name:'ОБМАНЩИК',type:'active',description:'Авто-ставка, обвинитель получает +2 яда',hidden:true},
     {id:'clone',emoji:'🧬',name:'КЛОНИРОВАНИЕ',type:'active',description:'Артефакт становится 6-м кубиком со значением противника',hidden:true},
     {id:'curse',emoji:'☠️',name:'ПРОКЛЯТИЕ',type:'active',description:'Следующая ставка цели автоматически ложная',hidden:true},
-    {id:'spy',emoji:'️',name:'ШПИОН',type:'active',description:'Показывает 1 случайный кубик выбранного противника',hidden:true},
+    {id:'spy',emoji:'🕵️',name:'ШПИОН',type:'active',description:'Показывает 1 случайный кубик выбранного противника',hidden:true},
     {id:'ice',emoji:'🧊',name:'ЛЕДЯНАЯ СТЕНА',type:'active',description:'Замораживает кубики цели на раунд (можно на себя)',hidden:true},
     {id:'defender',emoji:'🛡️',name:'ЗАЩИТНИК',type:'passive',description:'Блокирует ВСЕ яды в раунде (1 раз)',hidden:true},
-    {id:'bloodthirst',emoji:'',name:'КРОВОЖАДНОСТЬ',type:'passive',description:'+1 кровь при верном обвинении, цель получает +2 яда',hidden:true},
+    {id:'bloodthirst',emoji:'🧛',name:'КРОВОЖАДНОСТЬ',type:'passive',description:'+1 кровь при верном обвинении, цель получает +2 яда',hidden:true},
     {id:'analyst',emoji:'🔍',name:'АНАЛИТИК',type:'active',description:'Показывает мин. количество игроков с кубиком номинала',hidden:true},
-    {id:'double',emoji:'',name:'ДВОЙНИК',type:'active',description:'Копирует последнюю ставку выбранного игрока',hidden:false},
+    {id:'double',emoji:'🪞',name:'ДВОЙНИК',type:'active',description:'Копирует последнюю ставку выбранного игрока',hidden:false},
     {id:'evilEye',emoji:'🧿',name:'СГЛАЗ',type:'active',description:'Накладывает невезение на кубики цели (70% на 1-3)',hidden:true},
     {id:'wildDie',emoji:'🎲',name:'ДИКИЙ КУБИК',type:'passive',description:'Считается любым номиналом при подсчёте ставки владельца',hidden:true},
     {id:'sacrifice',emoji:'💀',name:'ЖЕРТВОПРИНОШЕНИЕ',type:'active',description:'+1 яд ради мощного эффекта на выбор',hidden:true},
     {id:'circus',emoji:'🎪',name:'ЦИРКАЧ',type:'active',description:'Обмен 2 кубиками с целью (требуется ≥2 кубиков у обоих)',hidden:true},
     {id:'darkPact',emoji:'🌑',name:'ТЁМНЫЙ ДОГОВОР',type:'passive',description:'Текущий раунд: +2 яда при обвинении. Следующий: щит на раунд',hidden:true},
-    {id:'sniper',emoji:'',name:'ОТСТРЕЛ',type:'active',description:'Уничтожает все кубики номинала у всех (кроме замороженных, нельзя на текущую ставку). После использования нельзя обвинять',hidden:true}
+    {id:'sniper',emoji:'🔫',name:'ОТСТРЕЛ',type:'active',description:'Уничтожает все кубики номинала у всех (кроме замороженных, нельзя на текущую ставку). После использования нельзя обвинять',hidden:true}
 ];
 
 const GHOST_ABILITIES = [
     {id:'oathOfVengeance',emoji:'⚔️',name:'Месть',type:'active',limit:'once_per_ghost',description:'Выберите цель. Если она умрёт — вы воскреснете (1 жизнь, 0 крови)'},
     {id:'familiarCurse',emoji:'🔮',name:'Проклятие Фамильяра',type:'active',limit:'once_per_ghost',description:'Следующая ставка цели автоматически ложная (до конца раунда)'},
     {id:'poltergeist',emoji:'🌀',name:'Полтергейст',type:'active',limit:'once_per_ghost',description:'Случайный эффект: саботаж/благословение/перемешивание'},
-    {id:'keeperOfSecrets',emoji:'️',name:'Хранитель Тайн',type:'active',limit:'unlimited',description:'Видите кубики всех живых игроков'},
+    {id:'keeperOfSecrets',emoji:'👁️',name:'Хранитель Тайн',type:'active',limit:'unlimited',description:'Видите кубики всех живых игроков'},
     {id:'soulReaper',emoji:'💀',name:'Жатва Душ',type:'active',limit:'once_per_ghost',description:'20% шанс эффекта на каждого живого. При убийстве — воскрешение (1 жизнь, 0 крови)'}
 ];
 
@@ -544,37 +544,17 @@ function setupConnectionListener() {
     });
 }
 
-GameState.roomRef.child('speechBubbles').limitToLast(20).on('child_added', (snapshot) => {
-    const data = snapshot.val();
-    if (!data || data.uid === GameState.myUid) return;
-    
-    const slot = document.querySelector(`.player-slot[data-uid="${data.uid}"]`);
-    if (!slot) return;
-    
-    const rect = slot.getBoundingClientRect();
-    const container = document.getElementById('speechBubbleContainer');
-    const bubble = document.createElement('div');
-    bubble.className = 'speech-bubble';
-    
-    const slotIndex = parseInt(slot.dataset.slot) || 0;
-    const isInRightColumn = slotIndex % 2 === 1;
-    
-    if (data.isTaunt) {
-        if (isInRightColumn) {
-            bubble.classList.add('right-aligned');
-        } else {
-            bubble.classList.add('left-aligned');
-        }
-    } else {
-        bubble.style.left = (rect.left + rect.width / 2 - 40) + 'px';
-        bubble.style.top = (rect.top - 50) + 'px';
-    }
-    
-    bubble.textContent = data.text;
-    if (data.isEmoji) bubble.style.fontSize = '2em';
-    container.appendChild(bubble);
-    setTimeout(() => bubble.remove(), 5000);
-});
+// ============================================================
+// СЛУШАТЕЛИ КОМНАТЫ (ИСПРАВЛЕНО!)
+// ============================================================
+function setupRoomListeners() {
+    // 1. Основной слушатель состояния комнаты
+    GameState.roomRef.on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) return;
+        
+        GameState.players = data.players || {};
+        GameState.gameState = data.state || 'lobby';
 
         if (data.settings) {
             if (data.settings.defaultLives) {
@@ -648,100 +628,6 @@ GameState.roomRef.child('speechBubbles').limitToLast(20).on('child_added', (snap
             botTurn(GameState.currentPlayerUid);
         }
     });
-}
-function setupRoomListeners() {
-    GameState.roomRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) return;
-        
-        GameState.players = data.players || {};
-        GameState.gameState = data.state || 'lobby';
-
-        if (data.settings) {
-            if (data.settings.defaultLives) {
-                GameState.defaultLives = data.settings.defaultLives;
-                const el = document.getElementById('menuLives');
-                if (el) el.textContent = `❤️ Жизни: ${GameState.defaultLives}`;
-            }
-            if (typeof data.settings.specialDiceEnabled === 'boolean') {
-                GameState.specialDiceEnabled = data.settings.specialDiceEnabled;
-                const el = document.getElementById('menuArtifacts');
-                if (el) el.textContent = `🎲 Артефакты: ${GameState.specialDiceEnabled ? '✅' : '❌'}`;
-            }
-        }
-
-        GameState.lastBet = (data.lastBet && validateBet(data.lastBet)) ? data.lastBet : null;
-        GameState.roundNumber = data.round || 0;
-        GameState.artifactHistory = Array.isArray(data.artifactHistory) ? data.artifactHistory.slice(-MAX_HISTORY) : [];
-        GameState.turnCounter = data.turnCounter || 0;
-        GameState.currentPlayerUid = data.currentPlayerUid || null;
-
-        Object.keys(GameState.players).forEach(uid => {
-            if (!validatePlayerData(GameState.players[uid])) logError(`⚠️ Bad player data: ${uid}`);
-        });
-
-        // [3] АВТО-УДАЛЕНИЕ ОФФЛАЙН ИГРОКОВ
-        const now = Date.now();
-        Object.keys(GameState.players).forEach(uid => {
-            const p = GameState.players[uid];
-            if (p && p.connected === false && p.disconnectedAt) {
-                if (now - p.disconnectedAt > OFFLINE_TIMEOUT && uid !== GameState.myUid) {
-                    const firstUid = Object.keys(GameState.players).sort((a,b) => (GameState.players[a].joinedAt||0)-(GameState.players[b].joinedAt||0))[0];
-                    if (firstUid === GameState.myUid) {
-                        GameState.roomRef.child('players').child(uid).remove();
-                        appendChat(`👋 ${p.name} удалён (оффлайн > 5 мин)`, 'system');
-                    }
-                }
-            }
-        });
-
-        const me = GameState.players[GameState.myUid];
-        if (me) {
-            GameState.isGhost = me.isGhost || false;
-            GameState.ghostTarget = me.ghostTarget || null;
-            GameState.devilDealsUsed = me.devilDealsUsed || 0;
-            GameState.blood = me.blood || 0;
-            GameState.usedSpecialThisRound = me.usedSpecialThisRound || {};
-            GameState.thiefUsedThisRound = me.thiefUsedThisRound || false;
-            GameState.sniperShotUsedThisRound = me.sniperShotUsedThisRound || false;
-        }
-
-        const panel = document.getElementById('accusationPanel');
-        if (GameState.gameState === 'accusing') {
-            if (panel) panel.style.display = 'block';
-            const ad = data.accusingData;
-            if (ad && GameState.lastBet) {
-                const accused = GameState.players[ad.accused];
-                const ph = document.getElementById('accusationPhrase');
-                if (ph && accused) ph.textContent = `${accused.name} обвинён в блефе! Проверка...`;
-                
-                let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
-                Object.values(GameState.players).forEach(p => {
-                    if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
-                });
-                const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}x${getDieEmoji(k)}`).join(' ');
-                const sumEl = document.getElementById('accusationDiceSummary');
-                if (sumEl) sumEl.textContent = `📊 Всего на столе: ${sm || 'Нет кубиков'}`;
-            }
-            const res = data.accusationResult;
-            if (res) {
-                const rEl = document.getElementById('accusationResult');
-                const eEl = document.getElementById('accusationEffects');
-                if (rEl) { rEl.textContent = res.resultText; rEl.className = res.resultClass; }
-                if (eEl && res.effects) eEl.innerHTML = res.effects;
-            }
-        } else {
-            if (panel && panel.style.display === 'block') panel.style.display = 'none';
-        }
-
-        renderUI();
-
-        if (GameState.gameState === 'betting' && GameState.currentPlayerUid && 
-            GameState.players[GameState.currentPlayerUid]?.isBot && 
-            GameState.currentPlayerUid !== GameState.myUid && !GameState.isBotThinking) {
-            botTurn(GameState.currentPlayerUid);
-        }
-    });
 
     // 2. ОТДЕЛЬНЫЙ слушатель для облачков (ВНЕ callback'a 'value'!)
     GameState.roomRef.child('speechBubbles').limitToLast(20).on('child_added', (snapshot) => {
@@ -776,19 +662,13 @@ function setupRoomListeners() {
         setTimeout(() => bubble.remove(), 5000);
     });
 
-    GameState.roomRef.child('chat').limitToLast(60).on('child_added', (s) => {
-        const msg = s.val();
-        if (!msg) return;
-        const isMe = msg.sender === GameState.myName;
-        const player = Object.values(GameState.players).find(p => p.name === msg.sender);
-        appendChat(`${msg.sender}: ${msg.text}`, msg.type || 'normal', isMe ? GameState.myColor : (player?.color || '#fff'), isMe ? GameState.myAvatar : (player?.avatar || ''));
-    });
-
+    // 3. Слушатель голосов
     GameState.roomRef.child('votes').on('value', (s) => {
         const votes = s.val();
         if (votes && GameState.currentVoteTarget && votes[GameState.currentVoteTarget]) updateVoteUI(votes[GameState.currentVoteTarget]);
     });
 }
+
 // ============================================================
 // РЕНДЕРИНГ [J]
 // ============================================================
@@ -859,34 +739,30 @@ function renderPlayerList() {
         const uid = sortedUids[idx];
         const p = uid ? GameState.players[uid] : null;
 
-        // Сброс
         slot.className = 'player-slot' + (p ? '' : ' empty');
         slot.dataset.uid = uid || '';
+        slot.dataset.slot = idx;
         slot.innerHTML = '';
 
         if (!p) return;
 
         if (uid === cu && GameState.gameState === 'betting' && !p.isGhost) slot.classList.add('active');
 
-        // Ник
         const nick = document.createElement('div');
         nick.className = 'slot-nick';
         nick.style.color = p.color || '#fff';
         nick.textContent = p.name || 'НИК';
         slot.appendChild(nick);
 
-        // Тело
         const body = document.createElement('div');
         body.className = 'slot-body';
 
-        // Голова (эмодзи)
         const head = document.createElement('div');
         head.className = 'slot-head';
         const wardrobe = p.wardrobe || { head: p.avatar || '🎲' };
         head.textContent = wardrobe.head || p.avatar || '🎲';
         body.appendChild(head);
 
-        // Смокинг
         const tux = document.createElement('div');
         tux.className = 'slot-tuxedo';
         tux.style.background = wardrobe.tuxedoColor || '#222244';
@@ -904,7 +780,6 @@ function renderPlayerList() {
 
         slot.appendChild(body);
 
-        // Бейджи
         if (p.isGhost) {
             const gb = document.createElement('div');
             gb.className = 'slot-ghost-badge';
@@ -923,7 +798,6 @@ function renderPlayerList() {
         ti.textContent = '⏳';
         slot.appendChild(ti);
 
-        // Жизни
         const lives = document.createElement('div');
         lives.className = 'slot-lives';
         const ml = p.maxLives || 3;
@@ -934,7 +808,7 @@ function renderPlayerList() {
             else if (!p.alive) { sp.className = 'cross'; sp.textContent = '💀'; }
             else if (j < ml && j < p.poisons) { sp.className = 'cross'; sp.textContent = '❌'; }
             else if (j < ml) { sp.className = 'heart'; sp.textContent = '❤️'; }
-            else if (j === ml && p.blood > 0) { sp.className = 'blood'; sp.textContent = ''; }
+            else if (j === ml && p.blood > 0) { sp.className = 'blood'; sp.textContent = '🩸'; }
             lives.appendChild(sp);
         }
         slot.appendChild(lives);
@@ -955,9 +829,6 @@ function renderDiceRow() {
     const m = GameState.players[GameState.myUid];
     if (!m) return;
 
-    // Артефакт (отображается в artifactRow, не здесь)
-
-    // Кубики
     if (m.dice && m.dice.length) {
         m.dice.forEach(d => {
             const s = document.createElement('div');
@@ -1167,7 +1038,7 @@ function accuse() {
     const res = document.getElementById('accusationResult');
     if (res) { res.textContent = 'Проверка кубиков...'; res.className = 'accusation-result'; }
     const eff = document.getElementById('accusationEffects');
-    if (eff) eff.innerHTML = '<h4 style="margin:5px 0; color:#ffd700;"> Эффекты:</h4>';
+    if (eff) eff.innerHTML = '<h4 style="margin:5px 0; color:#ffd700;">📋 Эффекты:</h4>';
 
     let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
     Object.values(GameState.players).forEach(p => {
@@ -1180,7 +1051,6 @@ function accuse() {
     document.getElementById('accusationPanel').style.display = 'block';
     playSound('accuse');
 
-    // Сохраняем для кнопки ПРОВЕРКА
     GameState.lastAccusationData = {
         phrase: ph?.textContent || '',
         diceSummary: sum?.textContent || '',
@@ -1263,7 +1133,6 @@ function resolveAccusation(accusedUid) {
     updates['accusationResult'] = { isLie, effects: html, resultText: resultText, resultClass: resultClass };
     safeUpdate(GameState.roomRef, updates, 'resolve-result');
 
-    // Сохраняем для ПРОВЕРКА
     GameState.lastAccusationData = {
         phrase: document.getElementById('accusationPhrase')?.textContent || '',
         diceSummary: document.getElementById('accusationDiceSummary')?.textContent || '',
@@ -1544,7 +1413,6 @@ async function startNewRound() {
     addLogEntry('system', `=== РАУНД ${GameState.roundNumber} НАЧАЛСЯ! ===`);
     playSound('round');
 
-    // Сброс ставки
     GameState.betCount = 1;
     GameState.betValue = 1;
 
@@ -1577,7 +1445,7 @@ function addBot() {
     if (cnt >= 5) return showNotification('Максимум 5 ботов', 'warning');
     const id = 'bot_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
     const data = {
-        name: '🤖 Бот', uid: id, avatar: '', color: '#aaa',
+        name: '🤖 Бот', uid: id, avatar: '🤖', color: '#aaa',
         wardrobe: { head: '🤖', tuxedoColor: '#444466', trimColor: '#888888' },
         dice: [], poisons: 0, blood: 0,
         alive: true, isGhost: false, artifact: null, usedSpecialThisRound: {}, lastBetInRound: null,
@@ -2060,7 +1928,7 @@ function useArtifact(id) {
             }); break;
         case 'sacrifice':
             if(m.poisons>=(m.maxLives||3)&&!confirm('⚠️ ВЫ УМРЁТЕ! Вы уверены?')) { GameState.pendingArtifact = null; return; }
-            if(!confirm('️ Вы получите +1 яд. Продолжить?')) { GameState.pendingArtifact = null; return; }
+            if(!confirm('⚠️ Вы получите +1 яд. Продолжить?')) { GameState.pendingArtifact = null; return; }
             showEffectModal(eff=>{
                 applyPoison(GameState.myUid, 1, 'Жертва');
                 if(eff.id==='shield') safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {devilShield:true, devilShieldRound:GameState.roundNumber}, 'sac-sh');
@@ -2393,7 +2261,7 @@ function bindEventListeners() {
     document.getElementById('menuInvite')?.addEventListener('click', ()=>{copyInviteLink();if(dd)dd.style.display='none';});
     document.getElementById('menuNewRoom')?.addEventListener('click', ()=>{if(confirm('Новая комната?')){if(GameState.roomRef)GameState.roomRef.child('players').child(GameState.myUid).onDisconnect().cancel();clearAllTimers();newRoom();if(dd)dd.style.display='none';}});
     document.getElementById('menuKick')?.addEventListener('click', ()=>{startVoteKick();if(dd)dd.style.display='none';});
-    document.getElementById('menuSound')?.addEventListener('click', ()=>{GameState.soundEnabled=!GameState.soundEnabled;document.getElementById('menuSound').textContent=GameState.soundEnabled?' Звук: ВКЛ':' Звук: ВЫКЛ';if(dd)dd.style.display='none';});
+    document.getElementById('menuSound')?.addEventListener('click', ()=>{GameState.soundEnabled=!GameState.soundEnabled;document.getElementById('menuSound').textContent=GameState.soundEnabled?'🔊 Звук: ВКЛ':'🔇 Звук: ВЫКЛ';if(dd)dd.style.display='none';});
     document.getElementById('menuArtifacts')?.addEventListener('click', ()=>{if(GameState.gameState!=='lobby')return showNotification('Только в лобби!', 'warning');GameState.specialDiceEnabled=!GameState.specialDiceEnabled;document.getElementById('menuArtifacts').textContent=`🎲 Артефакты: ${GameState.specialDiceEnabled?'✅':'❌'}`;safeUpdate(GameState.roomRef.child('settings'), {specialDiceEnabled:GameState.specialDiceEnabled}, 'toggle-art');if(dd)dd.style.display='none';});
     document.getElementById('menuLives')?.addEventListener('click', ()=>{if(GameState.gameState!=='lobby')return showNotification('Только в лобби!', 'warning');const o=[3,4,5,6,2];GameState.defaultLives=o[(o.indexOf(GameState.defaultLives)+1)%o.length];document.getElementById('menuLives').textContent=`❤️ Жизни: ${GameState.defaultLives}`;safeUpdate(GameState.roomRef.child('settings'), {defaultLives:GameState.defaultLives}, 'toggle-lives');Object.keys(GameState.players).forEach(uid=>{if(GameState.players[uid]&&!GameState.players[uid].isBot)safeUpdate(GameState.roomRef.child('players').child(uid), {maxLives:GameState.defaultLives}, 'upd-lives');});if(dd)dd.style.display='none';});
 
@@ -2414,27 +2282,23 @@ function bindEventListeners() {
     document.getElementById('btnPlaceBet')?.addEventListener('click', placeBet);
     document.getElementById('btnAccuse')?.addEventListener('click', accuse);
 
-    // [UI] Кнопки управления ставкой
     document.getElementById('btnBetCountUp')?.addEventListener('click', ()=>changeBetCount(1));
     document.getElementById('btnBetCountDown')?.addEventListener('click', ()=>changeBetCount(-1));
     document.getElementById('btnBetValueUp')?.addEventListener('click', ()=>changeBetValue(1));
     document.getElementById('btnBetValueDown')?.addEventListener('click', ()=>changeBetValue(-1));
 
-    // [UI] Эмодзи и таунты
     document.getElementById('quickEmojiBtn')?.addEventListener('click', openQuickEmoji);
     document.getElementById('tauntBtn')?.addEventListener('click', openTaunt);
     document.querySelectorAll('.mood-btn').forEach(b=>{
         b.addEventListener('click', ()=>selectTauntMood(b.dataset.mood));
     });
 
-    // [UI] ЛОГ и ПРОВЕРКА
     document.getElementById('btnLog')?.addEventListener('click', ()=>{
         renderLog('all');
         document.getElementById('modalLog').style.display='block';
     });
     document.getElementById('btnCheck')?.addEventListener('click', showLastCheck);
 
-    // Фильтры лога
     document.querySelectorAll('.filter-btn').forEach(b=>{
         b.addEventListener('click', ()=>{
             document.querySelectorAll('.filter-btn').forEach(x=>x.classList.remove('active'));
@@ -2443,24 +2307,20 @@ function bindEventListeners() {
         });
     });
 
-    // Артефакт инфо
     document.getElementById('artifactInfoBtn')?.addEventListener('click', ()=>{
         const m=GameState.players[GameState.myUid];
         if(m?.artifact) showArtifactInfo(m.artifact);
     });
 
-    // Призраки
     document.getElementById('ghVengeance')?.addEventListener('click', ()=>useGhostAbility('oathOfVengeance'));
     document.getElementById('ghFamiliarCurse')?.addEventListener('click', ()=>useGhostAbility('familiarCurse'));
     document.getElementById('ghPoltergeist')?.addEventListener('click', ()=>useGhostAbility('poltergeist'));
     document.getElementById('ghKeeper')?.addEventListener('click', ()=>useGhostAbility('keeperOfSecrets'));
     document.getElementById('ghReaper')?.addEventListener('click', ()=>useGhostAbility('soulReaper'));
 
-    // Голосование
     document.getElementById('voteYes')?.addEventListener('click', ()=>castVote('yes'));
     document.getElementById('voteNo')?.addEventListener('click', ()=>castVote('no'));
 
-    // Закрытие модалок
     document.querySelectorAll('.close-btn').forEach(b=>b.addEventListener('click', function(){
         const m=this.closest('.modal');
         if(m && m.id === 'devilModal') return;
@@ -2475,16 +2335,13 @@ function bindEventListeners() {
         }
     });
 
-    // Закрытие ПРОВЕРКА
     document.getElementById('accusationCloseBtn')?.addEventListener('click', ()=>{
         document.getElementById('accusationPanel').style.display='none';
     });
 
-    // Гардероб
     document.getElementById('menuMyLook')?.addEventListener('click', ()=>{openWardrobe();if(dd)dd.style.display='none';});
     document.getElementById('btnSaveWardrobe')?.addEventListener('click', saveWardrobe);
 
-    // Боты
     document.getElementById('menuBotAdd')?.addEventListener('click', ()=>{addBot();if(dd)dd.style.display='none';});
     document.getElementById('menuBotRemoveAll')?.addEventListener('click', ()=>{removeAllBots();if(dd)dd.style.display='none';});
     document.getElementById('menuBotDifficulty')?.addEventListener('click', e=>{e.stopPropagation();setBotDifficulty((GameState.botDifficulty+1)%4);if(dd)dd.style.display='none';});
