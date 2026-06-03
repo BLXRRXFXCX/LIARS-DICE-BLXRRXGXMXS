@@ -1449,6 +1449,9 @@ async function startNewRound() {
 
     GameState.betCount = 1;
     GameState.betValue = 1;
+    
+    updateBetDisplays();
+    updateControls();
 
     if (GameState.currentPlayerUid && GameState.players[GameState.currentPlayerUid]?.isBot && GameState.currentPlayerUid !== GameState.myUid && !GameState.isBotThinking) {
         botTurn(GameState.currentPlayerUid);
@@ -2306,7 +2309,11 @@ function bindEventListeners() {
         const bc=Object.keys(GameState.players).filter(u=>GameState.players[u]&&GameState.players[u].isBot).length;
         if((ac>=1&&bc>=1)||ac>=2) {
             GameState.isActionInProgress = true;
-            startNewRound().finally(() => { GameState.isActionInProgress = false; });
+                        startNewRound().finally(() => { 
+                GameState.isActionInProgress = false;
+                updateControls();
+                updateBetDisplays();
+            });
         }
         else showNotification('Нужен 1 игрок + 1 бот или 2 игрока', 'warning');
         if(dd)dd.style.display='none';
