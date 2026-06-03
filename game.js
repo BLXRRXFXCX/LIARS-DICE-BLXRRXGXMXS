@@ -2299,9 +2299,8 @@ function bindEventListeners() {
     document.getElementById('menuNewRoom')?.addEventListener('click', ()=>{if(confirm('Новая комната?')){if(GameState.roomRef)GameState.roomRef.child('players').child(GameState.myUid).onDisconnect().cancel();clearAllTimers();newRoom();if(dd)dd.style.display='none';}});
     document.getElementById('menuKick')?.addEventListener('click', ()=>{startVoteKick();if(dd)dd.style.display='none';});
     document.getElementById('menuSound')?.addEventListener('click', ()=>{GameState.soundEnabled=!GameState.soundEnabled;document.getElementById('menuSound').textContent=GameState.soundEnabled?'🔊 Звук: ВКЛ':'🔇 Звук: ВЫКЛ';if(dd)dd.style.display='none';});
-    document.getElementById('menuArtifacts')?.addEventListener('click', ()=>{if(GameState.gameState!=='lobby')return showNotification('Только в лобби!', 'warning');GameState.specialDiceEnabled=!GameState.specialDiceEnabled;document.getElementById('menuArtifacts').textContent=`🎲 Артефакты: ${GameState.specialDiceEnabled?'✅':'❌'}`;safeUpdate(GameState.roomRef.child('settings'), {specialDiceEnabled:GameState.specialDiceEnabled}, 'toggle-art');if(dd)dd.style.display='none';});
-    document.getElementById('menuLives')?.addEventListener('click', ()=>{if(GameState.gameState!=='lobby')return showNotification('Только в лобби!', 'warning');const o=[3,4,5,6,2];GameState.defaultLives=o[(o.indexOf(GameState.defaultLives)+1)%o.length];document.getElementById('menuLives').textContent=`❤️ Жизни: ${GameState.defaultLives}`;safeUpdate(GameState.roomRef.child('settings'), {defaultLives:GameState.defaultLives}, 'toggle-lives');Object.keys(GameState.players).forEach(uid=>{if(GameState.players[uid]&&!GameState.players[uid].isBot)safeUpdate(GameState.roomRef.child('players').child(uid), {maxLives:GameState.defaultLives}, 'upd-lives');});if(dd)dd.style.display='none';});
-
+    document.getElementById('menuArtifacts')?.addEventListener('click', ()=>{if(GameState.gameState!=='lobby')return showNotification('Только в лобби!', 'warning');GameState.specialDiceEnabled=!GameState.specialDiceEnabled;document.getElementById('menuArtifacts').textContent=`🎲 Артефакты: ${GameState.specialDiceEnabled?'✅':'❌'}`;safeUpdate(GameState.roomRef.child('settings'), {specialDiceEnabled:GameState.specialDiceEnabled}, 'toggle-art');});    
+    document.getElementById('menuLives')?.addEventListener('click', ()=>{if(GameState.gameState!=='lobby')return showNotification('Только в лобби!', 'warning');const o=[3,4,5,6,2];GameState.defaultLives=o[(o.indexOf(GameState.defaultLives)+1)%o.length];document.getElementById('menuLives').textContent=`❤️ Жизни: ${GameState.defaultLives}`;safeUpdate(GameState.roomRef.child('settings'), {defaultLives:GameState.defaultLives}, 'toggle-lives');Object.keys(GameState.players).forEach(uid=>{if(GameState.players[uid]&&!GameState.players[uid].isBot)safeUpdate(GameState.roomRef.child('players').child(uid), {maxLives:GameState.defaultLives}, 'upd-lives');});});
     document.getElementById('btnStartGame')?.addEventListener('click', ()=>{
         if (GameState.isActionInProgress) return;
         if(GameState.gameState!=='lobby')return showNotification('Игра уже идёт!', 'warning');
@@ -2386,10 +2385,9 @@ document.getElementById('notifyOkBtn')?.addEventListener('click', ()=>{
     document.getElementById('menuMyLook')?.addEventListener('click', ()=>{openWardrobe();if(dd)dd.style.display='none';});
     document.getElementById('btnSaveWardrobe')?.addEventListener('click', saveWardrobe);
 
-    document.getElementById('menuBotAdd')?.addEventListener('click', ()=>{addBot();if(dd)dd.style.display='none';});
-    document.getElementById('menuBotRemoveAll')?.addEventListener('click', ()=>{removeAllBots();if(dd)dd.style.display='none';});
-    document.getElementById('menuBotDifficulty')?.addEventListener('click', e=>{e.stopPropagation();setBotDifficulty((GameState.botDifficulty+1)%4);if(dd)dd.style.display='none';});
-
+document.getElementById('menuBotAdd')?.addEventListener('click', ()=>{addBot();});    
+document.getElementById('menuBotRemoveAll')?.addEventListener('click', ()=>{removeAllBots();});    
+document.getElementById('menuBotDifficulty')?.addEventListener('click', e=>{e.stopPropagation();setBotDifficulty((GameState.botDifficulty+1)%4);});
     window.addEventListener('beforeunload', clearAllTimers);
 }
 
