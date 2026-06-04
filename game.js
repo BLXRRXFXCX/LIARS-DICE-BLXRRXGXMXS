@@ -2155,29 +2155,70 @@ function showTargetModal(uids, cb) {
 }
 function showTargetModalFirst(uids, cb) { showTargetModal(uids, cb); }
 function showNominalModal(cb) {
-    const l=document.getElementById('modalNominalList'); if(!l) return; l.innerHTML='';
-    for(let i=1;i<=6;i++){
-        const b=document.createElement('button'); b.className='select-item'; b.textContent=getDieEmoji(i); b.style.width='60px'; b.style.height='60px'; b.style.fontSize='1.8em';
-        b.onclick=()=>{cb(i);closeModal('modalNominal');}; l.appendChild(b);
+    const l = document.getElementById('modalNominalList');
+    if (!l) return;
+    l.innerHTML = '';
+    
+    // Сетка 3+3
+    l.style.display = 'grid';
+    l.style.gridTemplateColumns = 'repeat(3, 1fr)';
+    l.style.gap = '12px';
+    l.style.maxWidth = '320px';
+    l.style.margin = '0 auto';
+    
+    for (let i = 1; i <= 6; i++) {
+        const b = document.createElement('button');
+        b.className = 'select-item';
+        b.textContent = getDieEmoji(i);
+        b.style.width = '80px';      // Было 60px
+        b.style.height = '80px';     // Было 60px
+        b.style.fontSize = '3em';    // Было 1.8em
+        b.style.padding = '10px';
+        b.style.borderRadius = '12px';
+        b.onclick = () => { cb(i); closeModal('modalNominal'); };
+        l.appendChild(b);
     }
-    document.getElementById('modalNominal').style.display='block';
+    document.getElementById('modalNominal').style.display = 'block';
 }
 let dynamicNominalInterval=null;
+
 function showDynamicNominalModal(cb) {
-    const l=document.getElementById('modalNominalList'); if(!l) return;
-    if(dynamicNominalInterval) clearInterval(dynamicNominalInterval);
-    const render=()=>{
-        l.innerHTML='';
-        for(let i=1;i<=6;i++){
-            const b=document.createElement('button'); b.className='select-item'; b.textContent=getDieEmoji(i); b.style.width='60px'; b.style.height='60px'; b.style.fontSize='1.8em';
-            if(GameState.lastBet&&GameState.lastBet.value===i){b.style.opacity='0.3';b.style.cursor='not-allowed';b.disabled=true;}
-            else{b.onclick=()=>{cb(i);closeModal('modalNominal');clearInterval(dynamicNominalInterval);dynamicNominalInterval=null;};}
+    const l = document.getElementById('modalNominalList');
+    if (!l) return;
+    if (dynamicNominalInterval) clearInterval(dynamicNominalInterval);
+    
+    // Сетка 3+3
+    l.style.display = 'grid';
+    l.style.gridTemplateColumns = 'repeat(3, 1fr)';
+    l.style.gap = '12px';
+    l.style.maxWidth = '320px';
+    l.style.margin = '0 auto';
+    
+    const render = () => {
+        l.innerHTML = '';
+        for (let i = 1; i <= 6; i++) {
+            const b = document.createElement('button');
+            b.className = 'select-item';
+            b.textContent = getDieEmoji(i);
+            b.style.width = '80px';
+            b.style.height = '80px';
+            b.style.fontSize = '3em';
+            b.style.padding = '10px';
+            b.style.borderRadius = '12px';
+            
+            if (GameState.lastBet && GameState.lastBet.value === i) {
+                b.style.opacity = '0.3';
+                b.style.cursor = 'not-allowed';
+                b.disabled = true;
+            } else {
+                b.onclick = () => { cb(i); closeModal('modalNominal'); clearInterval(dynamicNominalInterval); dynamicNominalInterval = null; };
+            }
             l.appendChild(b);
         }
     };
     render();
-    dynamicNominalInterval=setInterval(render, 200);
-    document.getElementById('modalNominal').style.display='block';
+    dynamicNominalInterval = setInterval(render, 200);
+    document.getElementById('modalNominal').style.display = 'block';
 }
 function showEffectModal(cb) {
     const ef=[{id:'shield',name:'🛡️ Щит Дьявола'},{id:'reroll',name:'🔁 Переброс стола'},{id:'forceBluff',name:'🎭 Принудительный блеф'}];
@@ -2190,8 +2231,22 @@ function showEffectModal(cb) {
 }
 
 function closeModal(id) {
-    const m=document.getElementById(id); if(m) m.style.display='none';
-    if(id==='modalNominal'&&dynamicNominalInterval){clearInterval(dynamicNominalInterval);dynamicNominalInterval=null;}
+    const m = document.getElementById(id);
+    if (m) m.style.display = 'none';
+    if (id === 'modalNominal' && dynamicNominalInterval) {
+        clearInterval(dynamicNominalInterval);
+        dynamicNominalInterval = null;
+    }
+    // Сброс стилей сетки номиналов
+    if (id === 'modalNominal') {
+        const l = document.getElementById('modalNominalList');
+        if (l) {
+            l.style.display = '';
+            l.style.gridTemplateColumns = '';
+            l.style.gap = '';
+            l.style.maxWidth = '';
+        }
+    }
     if (['modalTarget', 'modalNominal', 'modalEffect'].includes(id)) {
         if (GameState.pendingArtifact) {
             log(`ℹ️ Закрытие модалки без выбора: артефакт ${GameState.pendingArtifact} остаётся активным`);
