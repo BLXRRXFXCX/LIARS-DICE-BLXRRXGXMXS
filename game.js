@@ -1097,7 +1097,7 @@ function resolveAccusation(accusedUid) {
     safeUpdate(GameState.roomRef, updates, 'resolve-result');
     GameState.lastAccusationData = {
         phrase: document.getElementById('accusationPhrase')?.textContent || '',
-        diceSummary: document.getElementById('accusationDiceSummary')?.innerHTML || '',
+        diceSummary: document.getElementById('accusationDiceSummary')?.textContent || '',
         resultText: resultText,
         resultClass: resultClass,
         effects: html
@@ -1762,23 +1762,32 @@ function accuseFromBot(botId) {
         resultClass: '',
         effects: ''
     };
-    setTimeout(() => {
-        const rEl = document.getElementById('accusationResult');
-        const eEl = document.getElementById('accusationEffects');
-        const resultText = isLie ? '✅ ЛОЖНАЯ СТАВКА!' : '❌ ПРАВДИВАЯ СТАВКА!';
-        const resultClass = isLie ? 'accusation-result effect-green' : 'accusation-result effect-red';
-        if (rEl) { rEl.textContent = resultText; rEl.className = resultClass; }
-        GameState.lastAccusationData.resultText = resultText;
-        GameState.lastAccusationData.resultClass = resultClass;
-        GameState.lastAccusationData.effects = eEl?.innerHTML || '';
-    }, 3000);
-    setTimeout(() => {
-        document.getElementById('accusationPanel').style.display = 'none';
-        GameState.gameState='betting';
-        safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
-        checkDeath();
-        setTimeout(startNewRound, 3000);
-    }, 5000);
+    // Показываем результат через 3 секунды (как у игрока)
+setTimeout(() => {
+    // Обновляем результат на панели
+    const rEl = document.getElementById('accusationResult');
+    const eEl = document.getElementById('accusationEffects');
+    const resultText = isLie ? '✅ ЛОЖНАЯ СТАВКА!' : '❌ ПРАВДИВАЯ СТАВКА!';
+    const resultClass = isLie ? 'accusation-result effect-green' : 'accusation-result effect-red';
+    if (rEl) { rEl.textContent = resultText; rEl.className = resultClass; }
+    
+    // Сохраняем результат для кнопки ПРОВЕРКА
+    GameState.lastAccusationData.resultText = resultText;
+    GameState.lastAccusationData.resultClass = resultClass;
+    GameState.lastAccusationData.effects = eEl?.innerHTML || '';
+    
+    // ←←← ДОБАВЬ ЭТО: Сохраняем в Firebase для других игроков
+    const updates = {};
+    const html = eEl?.innerHTML || '';
+    updates['accusationResult'] = { 
+        isLie: isLie, 
+        effects: html, 
+        resultText: resultText, 
+        resultClass: resultClass 
+    };
+    safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
+    
+}, 3000););
 }
 
 function useArtifact(id) {
