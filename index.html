@@ -159,23 +159,18 @@ body {
 .slot-tuxedo .trim-right { right: 15px; }
 .slot-lives {
     margin-top: auto;
-    font-size: 1.1em;
+    font-size: 0.85em;
     display: flex;
     align-items: center;
     gap: 2px;
-    flex-wrap: nowrap; /* Запрещаем перенос */
+    flex-wrap: nowrap;
     justify-content: center;
     overflow: hidden;
 }
 
-/* Уменьшаем размер при 4+ жизнях */
-.slot-lives.compact {
-    font-size: 0.85em;
-}
-
-.slot-lives.compact .heart,
-.slot-lives.compact .cross,
-.slot-lives.compact .blood {
+.slot-lives .heart,
+.slot-lives .cross,
+.slot-lives .blood {
     font-size: 0.95em;
 }
 
