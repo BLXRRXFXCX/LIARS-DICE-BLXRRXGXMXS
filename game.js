@@ -1097,7 +1097,7 @@ function resolveAccusation(accusedUid) {
     safeUpdate(GameState.roomRef, updates, 'resolve-result');
     GameState.lastAccusationData = {
         phrase: document.getElementById('accusationPhrase')?.textContent || '',
-        diceSummary: document.getElementById('accusationDiceSummary')?.textContent || '',
+        diceSummary: document.getElementById('accusationDiceSummary')?.innerHTML || '',
         resultText: resultText,
         resultClass: resultClass,
         effects: html
@@ -1696,18 +1696,23 @@ function accuseFromBot(botId) {
     const tv=GameState.lastBet.value;
     const acc=GameState.players[auid];
     const bot = GameState.players[botId];
+    
     GameState.gameState = 'accusing';
     safeUpdate(GameState.roomRef, {
         state: 'accusing',
         accusingData: { accuser: botId, accused: auid, bet: GameState.lastBet, timestamp: Date.now() }
     }, 'bot-accuse-start');
+    
     const phrases = [`${bot.name} бьёт по столу: "${acc?.name || 'Цель'}, ложь!"`, `"${acc?.name || 'Цель'}, вскрывайся!" — ${bot.name}`, `${bot.name} указывает: "${acc?.name || 'Цель'}, блеф!"`, `"Не верю!" — ${bot.name}`];
     const ph = document.getElementById('accusationPhrase');
     if (ph) ph.textContent = phrases[Math.floor(Math.random()*phrases.length)];
+    
     const res = document.getElementById('accusationResult');
     if (res) { res.textContent = 'Проверка кубиков...'; res.className = 'accusation-result'; }
+    
     const eff = document.getElementById('accusationEffects');
     if (eff) eff.innerHTML = '<h4 style="margin:5px 0; color:#ffd700;">📋 Эффекты:</h4>';
+    
     let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
     Object.values(GameState.players).forEach(p => {
         if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
@@ -1717,15 +1722,11 @@ function accuseFromBot(botId) {
     ).join(' ');
     const sum = document.getElementById('accusationDiceSummary');
     if (sum) sum.innerHTML = sm || 'Нет кубиков';
+    
     document.getElementById('accusationPanel').style.display = 'block';
-    GameState.lastAccusationData = {
-        phrase: ph?.textContent || '',
-        diceSummary: sum?.innerHTML || '',
-        resultText: 'Проверка...',
-        resultClass: '',
-        effects: ''
-    };
     playSound('accuse');
+    
+    // Сохраняем для кнопки ПРОВЕРКА
     GameState.lastAccusationData = {
         phrase: ph?.textContent || '',
         diceSummary: sum?.innerHTML || '',
@@ -1733,7 +1734,10 @@ function accuseFromBot(botId) {
         resultClass: '',
         effects: ''
     };
+    
     addLogEntry('accuse', `${bot.name} обвиняет ${acc?.name || 'Цель'}!`);
+    
+    // Считаем результат
     let tw=0;
     Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost)p.dice.forEach(d=>{if(parseInt(d)===tv)tw++;});});
     const ilw=tw<GameState.lastBet.count;
@@ -1741,6 +1745,7 @@ function accuseFromBot(botId) {
     if(acc?.artifact?.id==='wildDie'){tot++;ws=true;}
     let isLie=tot<GameState.lastBet.count;
     if(acc?.cursed||acc?.familiarCursed) isLie=true;
+    
     if(isLie) {
         applyPoison(auid,1,'Ложная (бот)');
         if(acc?.artifact?.id==='bloodthirst'){applyBlood(botId,1);applyPoison(auid,2,'Кровь (бот)');}
@@ -1755,23 +1760,32 @@ function accuseFromBot(botId) {
             safeUpdate(GameState.roomRef.child('players').child(auid), up, 'bot-acc-dp');
         }
     }
-    GameState.lastAccusationData = {
-        phrase: ph?.textContent || '',
-        diceSummary: sum?.innerHTML || '',
-        resultText: 'Проверка кубиков...',
-        resultClass: '',
-        effects: ''
-    };
+    
+    // Показываем результат через 3 секунды
     setTimeout(() => {
         const rEl = document.getElementById('accusationResult');
         const eEl = document.getElementById('accusationEffects');
         const resultText = isLie ? '✅ ЛОЖНАЯ СТАВКА!' : '❌ ПРАВДИВАЯ СТАВКА!';
         const resultClass = isLie ? 'accusation-result effect-green' : 'accusation-result effect-red';
         if (rEl) { rEl.textContent = resultText; rEl.className = resultClass; }
+        
+        // Сохраняем результат для кнопки ПРОВЕРКА
         GameState.lastAccusationData.resultText = resultText;
         GameState.lastAccusationData.resultClass = resultClass;
         GameState.lastAccusationData.effects = eEl?.innerHTML || '';
+        
+        // ←←← ДОБАВЬ ЭТО: Сохраняем в Firebase для других игроков
+        const updates = {};
+        updates['accusationResult'] = {
+            isLie: isLie,
+            effects: eEl?.innerHTML || '',
+            resultText: resultText,
+            resultClass: resultClass
+        };
+        safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
     }, 3000);
+    
+    // Закрываем панель через 5 секунд
     setTimeout(() => {
         document.getElementById('accusationPanel').style.display = 'none';
         GameState.gameState='betting';
@@ -1863,16 +1877,16 @@ function useArtifact(id) {
                 markArtifactUsed(id);
             }); break;
         case 'spy':
-            if(GameState.spyMemory[GameState.myUid]&&GameState.spyMemory[GameState.myUid].value&&GameState.roundNumber===GameState.spyMemory[GameState.myUid].round) {
-                const targetName = GameState.players[GameState.spyMemory[GameState.myUid].target]?.name || 'Цель';
-                const emoji = getDieEmoji(GameState.spyMemory[GameState.myUid].value);
-                showNotification(
-                    `<span style="font-size:0.9em;">Шпион: у ${targetName} есть</span> <span style="font-size:2em; vertical-align:middle;">${emoji}</span>`,
-                    'info', 0, true
-                );
-                GameState.pendingArtifact = null;
-                break;
-            }
+           if(GameState.spyMemory[GameState.myUid]&&GameState.spyMemory[GameState.myUid].value&&GameState.roundNumber===GameState.spyMemory[GameState.myUid].round) {
+    const targetName = GameState.players[GameState.spyMemory[GameState.myUid].target]?.name || 'Цель';
+    const emoji = getDieEmoji(GameState.spyMemory[GameState.myUid].value);
+    showNotification(
+        `<span style="font-size:0.9em;">Шпион: у ${targetName} есть</span> <span style="font-size:2em; vertical-align:middle;">${emoji}</span>`,
+        'info', 0, true
+    );
+    GameState.pendingArtifact = null;
+    break;
+}
             const sp=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
             if(!sp.length) { GameState.pendingArtifact = null; return showNotification('Нет целей!', 'warning'); }
             showTargetModal(sp, t=>{
@@ -2071,8 +2085,7 @@ function closeModal(id) {
 }
 
 function resetGame() {
-    if(!confirm('⚠️ Сбросить игру?\n\nВесь прогресс будет потерян.')) return;
-    if(!confirm('🔴 ТОЧНО сбросить?')) return;
+   if(!confirm('⚠️ Сбросить игру?\n\nВесь прогресс будет потерян.')) return;
     GameState.gameState='lobby'; GameState.roundNumber=0; GameState.lastBet=null; GameState.currentPlayerUid=null;
     GameState.thiefUsedThisRound=false; GameState.sniperShotUsedThisRound=false; GameState.usedSpecialThisRound={};
     GameState.artifactHistory=[]; GameState.blood=0;
