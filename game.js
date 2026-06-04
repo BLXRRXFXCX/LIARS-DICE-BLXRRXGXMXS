@@ -2070,14 +2070,17 @@ function useArtifact(id) {
                 markArtifactUsed(id);
             }); break;
         case 'spy':
-            if(GameState.spyMemory[GameState.myUid]&&GameState.spyMemory[GameState.myUid].value&&GameState.roundNumber===GameState.spyMemory[GameState.myUid].round) {
-                showNotification(
-    `<span style="font-size:0.9em;">Шпион: у ${GameState.players[t].name} есть</span> <span style="font-size:2em; vertical-align:middle;">${getDieEmoji(val)}</span>`, 
-    'info', 0, true
-);
-                GameState.pendingArtifact = null;
-                break;
-            }
+          case 'spy':
+    if(GameState.spyMemory[GameState.myUid]&&GameState.spyMemory[GameState.myUid].value&&GameState.roundNumber===GameState.spyMemory[GameState.myUid].round) {
+        const targetName = GameState.players[GameState.spyMemory[GameState.myUid].target]?.name || 'Цель';
+        const emoji = getDieEmoji(GameState.spyMemory[GameState.myUid].value);
+        showNotification(
+            `<span style="font-size:0.9em;">Шпион: у ${targetName} есть</span> <span style="font-size:2em; vertical-align:middle;">${emoji}</span>`,
+            'info', 0, true
+        );
+        GameState.pendingArtifact = null;
+        break;
+    }
             const sp=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
             if(!sp.length) { GameState.pendingArtifact = null; return showNotification('Нет целей!', 'warning'); }
             showTargetModal(sp, t=>{
