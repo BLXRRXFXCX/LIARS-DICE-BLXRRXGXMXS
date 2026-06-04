@@ -640,6 +640,35 @@ function setupRoomListeners() {
             };
         }
 
+        // Восстановление панели обвинения при обновлении страницы (ДО renderUI)
+        const panel = document.getElementById('accusationPanel');
+        if (GameState.gameState === 'accusing') {
+            if (panel) panel.style.display = 'block';
+            const ad = data.accusingData;
+            if (ad && GameState.lastBet) {
+                const accused = GameState.players[ad.accused];
+                const ph = document.getElementById('accusationPhrase');
+                if (ph && accused) ph.textContent = `${accused.name} обвинён в блефе! Проверка...`;
+                
+                let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
+                Object.values(GameState.players).forEach(p => {
+                    if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
+                });
+                const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×${getDieEmoji(k)}`).join(' ');
+                const sumEl = document.getElementById('accusationDiceSummary');
+                if (sumEl) sumEl.innerHTML = `📊 Всего на столе:<br>${sm || 'Нет кубиков'}`;
+            }
+            const res = data.accusationResult;
+            if (res) {
+                const rEl = document.getElementById('accusationResult');
+                const eEl = document.getElementById('accusationEffects');
+                if (rEl) { rEl.textContent = res.resultText; rEl.className = res.resultClass; }
+                if (eEl && res.effects) eEl.innerHTML = res.effects;
+            }
+        } else {
+            if (panel && panel.style.display === 'block') panel.style.display = 'none';
+        }
+
         renderUI();
 
         if (GameState.gameState === 'betting' && GameState.currentPlayerUid &&
@@ -651,41 +680,41 @@ function setupRoomListeners() {
 
     // 2. ОТДЕЛЬНЫЙ слушатель для облачков (ВНЕ callback'a 'value'!)
     GameState.roomRef.child('speechBubbles').limitToLast(20).on('child_added', (snapshot) => {
-    const data = snapshot.val();
-    if (!data || data.uid === GameState.myUid) return;
-    
-    const slot = document.querySelector(`.player-slot[data-uid="${data.uid}"]`);
-    if (!slot) return;
-    
-    const rect = slot.getBoundingClientRect();
-    const container = document.getElementById('speechBubbleContainer');
-    const bubble = document.createElement('div');
-    bubble.className = 'speech-bubble';
-    bubble.textContent = data.text;
-    
-    if (data.isEmoji) {
-        bubble.style.fontSize = '2.5em';
-        bubble.style.padding = '8px 14px';
-        bubble.style.maxWidth = 'none';
-        bubble.style.minWidth = 'auto';
-    } else {
-        bubble.style.fontSize = '1.1em';
-        bubble.style.padding = '10px 16px';
-        bubble.style.maxWidth = '220px';
-        bubble.style.whiteSpace = 'normal';
-    }
-    
-    const bubbleWidth = data.isEmoji ? 60 : Math.min(data.text.length * 9 + 32, 220);
-    const leftPos = rect.left + rect.width / 2 - bubbleWidth / 2;
-    const maxLeft = window.innerWidth - bubbleWidth - 10;
-    const finalLeft = Math.max(10, Math.min(leftPos, maxLeft));
-    
-    bubble.style.left = finalLeft + 'px';
-    bubble.style.top = (rect.top - 60) + 'px';
-    
-    container.appendChild(bubble);
-    setTimeout(() => bubble.remove(), 5000);
-});
+        const data = snapshot.val();
+        if (!data || data.uid === GameState.myUid) return;
+        
+        const slot = document.querySelector(`.player-slot[data-uid="${data.uid}"]`);
+        if (!slot) return;
+        
+        const rect = slot.getBoundingClientRect();
+        const container = document.getElementById('speechBubbleContainer');
+        const bubble = document.createElement('div');
+        bubble.className = 'speech-bubble';
+        bubble.textContent = data.text;
+        
+        if (data.isEmoji) {
+            bubble.style.fontSize = '2.5em';
+            bubble.style.padding = '8px 14px';
+            bubble.style.maxWidth = 'none';
+            bubble.style.minWidth = 'auto';
+        } else {
+            bubble.style.fontSize = '1.1em';
+            bubble.style.padding = '10px 16px';
+            bubble.style.maxWidth = '220px';
+            bubble.style.whiteSpace = 'normal';
+        }
+        
+        const bubbleWidth = data.isEmoji ? 60 : Math.min(data.text.length * 9 + 32, 220);
+        const leftPos = rect.left + rect.width / 2 - bubbleWidth / 2;
+        const maxLeft = window.innerWidth - bubbleWidth - 10;
+        const finalLeft = Math.max(10, Math.min(leftPos, maxLeft));
+        
+        bubble.style.left = finalLeft + 'px';
+        bubble.style.top = (rect.top - 60) + 'px';
+        
+        container.appendChild(bubble);
+        setTimeout(() => bubble.remove(), 5000);
+    });
 
     // 3. Слушатель голосов
     GameState.roomRef.child('votes').on('value', (s) => {
