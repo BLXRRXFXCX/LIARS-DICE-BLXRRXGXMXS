@@ -166,13 +166,10 @@ function addLogEntry(type, text) {
         round: GameState.roundNumber,
         author: GameState.myName
     };
-    // Пишем в Firebase — все игроки увидят через слушатель
+    // Пишем ТОЛЬКО в Firebase — listener добавит локально
     if (GameState.roomRef) {
         GameState.roomRef.child('gameLog').push(entry);
     }
-    // Локально тоже добавляем для мгновенного отображения
-    GameState.gameLog.push(entry);
-    if (GameState.gameLog.length > 100) GameState.gameLog.shift();
 }
 
 function renderLog(filter = 'all') {
@@ -665,7 +662,7 @@ Object.values(GameState.players).forEach(p => {
     if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
 });
 const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>
-    `<span class="dice-item"><span class="dice-label">${ct[k]}×</span><span class="big-die">${getDieEmoji(k)}</span></span>`
+    `<span class="dice-item"><span class="dice-count">${ct[k]}×</span><span class="big-die">${getDieEmoji(k)}</span></span>`
 ).join(' ');
 const sum = document.getElementById('accusationDiceSummary');
 if (sum) sum.innerHTML = sm || 'Нет кубиков';
@@ -1151,7 +1148,7 @@ Object.values(GameState.players).forEach(p => {
     if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
 });
 const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>
-    `<span class="dice-item"><span class="dice-label">${ct[k]}×</span><span class="big-die">${getDieEmoji(k)}</span></span>`
+    `<span class="dice-item"><span class="dice-count">${ct[k]}×</span><span class="big-die">${getDieEmoji(k)}</span></span>`
 ).join(' ');
 const sum = document.getElementById('accusationDiceSummary');
 if (sum) sum.innerHTML = sm || 'Нет кубиков';
@@ -1161,7 +1158,7 @@ if (sum) sum.innerHTML = sm || 'Нет кубиков';
 
    GameState.lastAccusationData = {
     phrase: ph?.textContent || '',
-    diceSummary: sum?.innerHTML || '',  // ← сохраняем с <br>
+    diceSummary: sum?.innerHTML || '',  // ← innerHTML
     resultText: 'Проверка...',
     resultClass: '',
     effects: ''
@@ -1896,7 +1893,7 @@ Object.values(GameState.players).forEach(p => {
     if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
 });
 const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>
-    `<span class="dice-item"><span class="dice-label">${ct[k]}×</span><span class="big-die">${getDieEmoji(k)}</span></span>`
+    `<span class="dice-item"><span class="dice-count">${ct[k]}×</span><span class="big-die">${getDieEmoji(k)}</span></span>`
 ).join(' ');
 const sum = document.getElementById('accusationDiceSummary');
 if (sum) sum.innerHTML = sm || 'Нет кубиков';
@@ -1904,13 +1901,13 @@ if (sum) sum.innerHTML = sm || 'Нет кубиков';
     document.getElementById('accusationPanel').style.display = 'block';
     playSound('accuse');
     
-    GameState.lastAccusationData = {
-        phrase: ph?.textContent || '',
-        diceSummary: sum?.innerHTML || '',
-        resultText: 'Проверка...',
-        resultClass: '',
-        effects: ''
-    };
+   GameState.lastAccusationData = {
+    phrase: ph?.textContent || '',
+    diceSummary: sum?.innerHTML || '',  // ← innerHTML
+    resultText: 'Проверка...',
+    resultClass: '',
+    effects: ''
+};
     
     addLogEntry('accuse', `${bot.name} обвиняет ${acc?.name || 'Цель'}!`);
     // === КОНЕЦ ПОКАЗА ПАНЕЛИ ===
