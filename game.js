@@ -2063,12 +2063,12 @@ function useArtifact(id) {
                 addLogEntry('artifact', `${m.name} заморозил ${GameState.players[t].name}`);
                 markArtifactUsed(id);
             }); break;
-        case 'analyst':
-            showNominalModal(n=>{
-                let c=0; Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost&&p.dice.includes(n))c++;});
-                showNotification(`АНАЛИТИК: ${c} игроков имеют ${getDieEmoji(n)}`, 'info');
-                markArtifactUsed(id);
-            }); break;
+       case 'analyst':
+    showNominalModal(n=>{
+        let c=0; Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost&&p.dice.includes(n))c++;});
+        showNotification(`АНАЛИТИК: ${c} игроков имеют ${getDieEmoji(n)}`, 'info');
+        markArtifactUsed(id);
+    }); break;
         case 'double':
             if(!GameState.lastBet) { GameState.pendingArtifact = null; return showNotification('Нет ставок!', 'warning'); }
             const td=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.lastBetInRound);
