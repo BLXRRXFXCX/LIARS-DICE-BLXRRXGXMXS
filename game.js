@@ -1082,8 +1082,8 @@ function accuse() {
         if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
     });
     const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×${getDieEmoji(k)}`).join(' ');
-    const sum = document.getElementById('accusationDiceSummary');
-    if (sum) sum.textContent = `📊 Всего на столе: ${sm || 'Нет кубиков'}`;
+   const sum = document.getElementById('accusationDiceSummary');
+if (sum) sum.innerHTML = `📊 Всего на столе:<br>${sm || 'Нет кубиков'}`;
 
     document.getElementById('accusationPanel').style.display = 'block';
     playSound('accuse');
