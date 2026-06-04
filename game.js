@@ -2366,7 +2366,7 @@ function useGhostAbility(id) {
                 Object.values(GameState.players).forEach(p=>{
                     if(p?.alive&&!p.isGhost) {
                         const d=document.createElement('div'); d.style.marginBottom='10px'; d.style.background='rgba(255,255,255,0.05)'; d.style.padding='8px'; d.style.borderRadius='5px';
-                        d.innerHTML=`<strong style="color:#ffd700">${escapeHtml(p.name)}</strong>: <span style="font-size:1.2em">${p.dice.map(d=>getDieEmoji(parseInt(d)||1)).join(' ')}</span>`;
+                        d.innerHTML=`<strong style="color:#ffd700">${escapeHtml(p.name)}</strong>: <span style="font-size:2.5em">${p.dice.map(d=>getDieEmoji(parseInt(d)||1)).join(' ')}</span>`;
                         cd.appendChild(d);
                     }
                 });
