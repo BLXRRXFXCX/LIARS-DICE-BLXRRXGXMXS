@@ -157,10 +157,22 @@ function showLoading(show = true) {
 }
 
 // [LOG] Система лога
+// [LOG] Система лога через Firebase (общий для всех)
 function addLogEntry(type, text) {
-    const entry = { type, text, time: Date.now(), round: GameState.roundNumber };
+    const entry = {
+        type: type,
+        text: text,
+        time: Date.now(),
+        round: GameState.roundNumber,
+        author: GameState.myName
+    };
+    // Пишем в Firebase — все игроки увидят через слушатель
+    if (GameState.roomRef) {
+        GameState.roomRef.child('gameLog').push(entry);
+    }
+    // Локально тоже добавляем для мгновенного отображения
     GameState.gameLog.push(entry);
-    if (GameState.gameLog.length > 200) GameState.gameLog.shift();
+    if (GameState.gameLog.length > 100) GameState.gameLog.shift();
 }
 
 function renderLog(filter = 'all') {
@@ -354,7 +366,6 @@ function openQuickEmoji() {
         b.textContent = em;
         b.onclick = () => {
             showSpeechBubble(GameState.myUid, em, true, false);
-            addLogEntry('system', `${GameState.myName} отправил эмодзи ${em}`);
             closeModal('modalQuickEmoji');
         };
         list.appendChild(b);
@@ -377,7 +388,6 @@ function selectTauntMood(mood) {
         b.textContent = txt;
         b.onclick = () => {
             showSpeechBubble(GameState.myUid, txt, false, true);
-            addLogEntry('system', `${GameState.myName}: ${txt}`);
             closeModal('modalTaunt');
         };
         list.appendChild(b);
@@ -716,7 +726,7 @@ function setupRoomListeners() {
         setTimeout(() => bubble.remove(), 5000);
     });
 
-        // 4. Слушатель АКТИВНОГО голосования (для всех игроков)
+        // 3. Слушатель АКТИВНОГО голосования (для всех игроков)
     GameState.roomRef.child('activeVote').on('value', (snapshot) => {
         const vote = snapshot.val();
         if (!vote) return;
@@ -729,11 +739,24 @@ function setupRoomListeners() {
             }
         }
     });
-       // 3. Слушатель голосов в activeVote (реальное время для всех)
+       // 4. Слушатель голосов в activeVote (реальное время для всех)
     GameState.roomRef.child('activeVote').child('votes').on('value', (s) => {
         const votes = s.val();
         if (votes && GameState.currentVoteTarget) {
             updateVoteUI({ votes: votes });
+        }
+        
+    });
+        // 5. Слушатель общего лога игры
+    GameState.roomRef.child('gameLog').limitToLast(100).on('child_added', (snapshot) => {
+        const entry = snapshot.val();
+        if (!entry) return;
+        
+        // Проверяем, нет ли уже такой записи локально (чтобы не дублировать)
+        const exists = GameState.gameLog.some(e => e.time === entry.time && e.text === entry.text);
+        if (!exists) {
+            GameState.gameLog.push(entry);
+            if (GameState.gameLog.length > 100) GameState.gameLog.shift();
         }
     });
 }
@@ -2131,7 +2154,10 @@ function resetGame() {
     GameState.gameState='lobby'; GameState.roundNumber=0; GameState.lastBet=null; GameState.currentPlayerUid=null;
     GameState.thiefUsedThisRound=false; GameState.sniperShotUsedThisRound=false; GameState.usedSpecialThisRound={};
     GameState.artifactHistory=[]; GameState.blood=0;
-    GameState.gameLog = [];
+   GameState.gameLog = [];
+if (GameState.roomRef) {
+    GameState.roomRef.child('gameLog').remove();
+}
     clearAllTimers();
 
     const updates={};
