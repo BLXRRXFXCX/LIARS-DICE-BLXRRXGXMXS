@@ -5,7 +5,7 @@ const DEBUG = false;
 function log(...args) { if (DEBUG) console.log('[Game]', ...args); }
 function logError(...args) { console.error('[Game Error]', ...args); }
 
-const DIE_EMOJI_CACHE = ['?', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
+const DIE_EMOJI_CACHE = ['?', '⚀', '⚁', '⚂', '', '⚄', '⚅'];
 function getDieEmoji(v) {
     const val = parseInt(v) || 1;
     return DIE_EMOJI_CACHE[val] || '';
@@ -1095,13 +1095,13 @@ function resolveAccusation(accusedUid) {
     const resultClass = r?.className || '';
     updates['accusationResult'] = { isLie, effects: html, resultText: resultText, resultClass: resultClass };
     safeUpdate(GameState.roomRef, updates, 'resolve-result');
-GameState.lastAccusationData = {
-    phrase: document.getElementById('accusationPhrase')?.textContent || '',
-    diceSummary: document.getElementById('accusationDiceSummary')?.innerHTML || '',  // ← innerHTML
-    resultText: resultText,
-    resultClass: resultClass,
-    effects: html
-};
+    GameState.lastAccusationData = {
+        phrase: document.getElementById('accusationPhrase')?.textContent || '',
+        diceSummary: document.getElementById('accusationDiceSummary')?.innerHTML || '',
+        resultText: resultText,
+        resultClass: resultClass,
+        effects: html
+    };
     addLogEntry('accuse', `Результат: ${resultText}`);
     setTimeout(() => {
         document.getElementById('accusationPanel').style.display = 'none';
@@ -1787,6 +1787,7 @@ function accuseFromBot(botId) {
     safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
     
 }, 3000);
+}
 
 function useArtifact(id) {
     if(GameState.gameState!=='betting') return;
