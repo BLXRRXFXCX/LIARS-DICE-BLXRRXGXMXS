@@ -649,42 +649,42 @@ function setupRoomListeners() {
         }
 
         // Восстановление панели обвинения при обновлении страницы (ДО renderUI)
-        const panel = document.getElementById('accusationPanel');
-        if (GameState.gameState === 'accusing') {
-            if (panel) panel.style.display = 'block';
-            const ad = data.accusingData;
-            if (ad && GameState.lastBet) {
-                const accused = GameState.players[ad.accused];
-                const ph = document.getElementById('accusationPhrase');
-                if (ph && accused) ph.textContent = `${accused.name} обвинён в блефе! Проверка...`;
-                
-              let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
-Object.values(GameState.players).forEach(p => {
-    if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
-});
-const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×${getDieEmoji(k)}`).join(' ');
-const sumEl = document.getElementById('accusationDiceSummary');
-if (sumEl) sumEl.innerHTML = ` Всего на столе:<br>${sm || 'Нет кубиков'}`;
-
-// Сохраняем для кнопки ПРОВЕРКА
-GameState.lastAccusationData = {
-    phrase: ph?.textContent || '',
-    diceSummary: sumEl?.innerHTML || '',
-    resultText: res?.resultText || '',
-    resultClass: res?.resultClass || '',
-    effects: res?.effects || ''
-};
-            }
-            const res = data.accusationResult;
-            if (res) {
-                const rEl = document.getElementById('accusationResult');
-                const eEl = document.getElementById('accusationEffects');
-                if (rEl) { rEl.textContent = res.resultText; rEl.className = res.resultClass; }
-                if (eEl && res.effects) eEl.innerHTML = res.effects;
-            }
-        } else {
-            if (panel && panel.style.display === 'block') panel.style.display = 'none';
-        }
+        // Восстановление панели обвинения при обновлении страницы (ДО renderUI)
+const panel = document.getElementById('accusationPanel');
+const res = data.accusationResult;  // ← Перенесли объявление ВВЕРХ!
+if (GameState.gameState === 'accusing') {
+    if (panel) panel.style.display = 'block';
+    const ad = data.accusingData;
+    if (ad && GameState.lastBet) {
+        const accused = GameState.players[ad.accused];
+        const ph = document.getElementById('accusationPhrase');
+        if (ph && accused) ph.textContent = `${accused.name} обвинён в блефе! Проверка...`;
+        
+        let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
+        Object.values(GameState.players).forEach(p => {
+            if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
+        });
+        const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×${getDieEmoji(k)}`).join(' ');
+        const sumEl = document.getElementById('accusationDiceSummary');
+        if (sumEl) sumEl.innerHTML = `📊 Всего на столе:<br>${sm || 'Нет кубиков'}`;
+        // Сохраняем для кнопки ПРОВЕРКА
+        GameState.lastAccusationData = {
+            phrase: ph?.textContent || '',
+            diceSummary: sumEl?.innerHTML || '',
+            resultText: res?.resultText || '',
+            resultClass: res?.resultClass || '',
+            effects: res?.effects || ''
+        };
+    }
+    if (res) {
+        const rEl = document.getElementById('accusationResult');
+        const eEl = document.getElementById('accusationEffects');
+        if (rEl) { rEl.textContent = res.resultText; rEl.className = res.resultClass; }
+        if (eEl && res.effects) eEl.innerHTML = res.effects;
+    }
+} else {
+    if (panel && panel.style.display === 'block') panel.style.display = 'none';
+}
 
         renderUI();
 
