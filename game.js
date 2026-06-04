@@ -660,13 +660,13 @@ function setupRoomListeners() {
                 const ph = document.getElementById('accusationPhrase');
                 if (ph && accused) ph.textContent = `${accused.name} обвинён в блефе! Проверка...`;
                 
-                let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
-                Object.values(GameState.players).forEach(p => {
-                    if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
-                });
-                const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×${getDieEmoji(k)}`).join(' ');
-                const sumEl = document.getElementById('accusationDiceSummary');
-                if (sumEl) sumEl.innerHTML = `📊 Всего на столе:<br>${sm || 'Нет кубиков'}`;
+               let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
+Object.values(GameState.players).forEach(p => {
+    if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
+});
+const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×<span class="big-die">${getDieEmoji(k)}</span>`).join(' ');
+const sumEl = document.getElementById('accusationDiceSummary');
+if (sumEl) sumEl.innerHTML = `<span class="dice-label">📊 Всего на столе:</span><span class="dice-values">${sm || 'Нет кубиков'}</span>`;
             }
             const res = data.accusationResult;
             if (res) {
@@ -1144,13 +1144,13 @@ function accuse() {
     const eff = document.getElementById('accusationEffects');
     if (eff) eff.innerHTML = '<h4 style="margin:5px 0; color:#ffd700;">📋 Эффекты:</h4>';
 
-    let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
-    Object.values(GameState.players).forEach(p => {
-        if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
-    });
-    const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×${getDieEmoji(k)}`).join(' ');
-   const sum = document.getElementById('accusationDiceSummary');
-if (sum) sum.innerHTML = `📊 Всего на столе:<br>${sm || 'Нет кубиков'}`;
+   let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
+Object.values(GameState.players).forEach(p => {
+    if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
+});
+const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×<span class="big-die">${getDieEmoji(k)}</span>`).join(' ');
+const sum = document.getElementById('accusationDiceSummary');
+if (sum) sum.innerHTML = `<span class="dice-label">📊 Всего на столе:</span><span class="dice-values">${sm || 'Нет кубиков'}</span>`;
 
     document.getElementById('accusationPanel').style.display = 'block';
     playSound('accuse');
@@ -1887,13 +1887,13 @@ function accuseFromBot(botId) {
     const eff = document.getElementById('accusationEffects');
     if (eff) eff.innerHTML = '<h4 style="margin:5px 0; color:#ffd700;">📋 Эффекты:</h4>';
     
-    let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
-    Object.values(GameState.players).forEach(p => {
-        if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
-    });
-    const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×${getDieEmoji(k)}`).join(' ');
-    const sum = document.getElementById('accusationDiceSummary');
-    if (sum) sum.innerHTML = `📊 Всего на столе:<br>${sm || 'Нет кубиков'}`;
+   let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
+Object.values(GameState.players).forEach(p => {
+    if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
+});
+const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×${getDieEmoji(k)}`).join(' ');
+const sum = document.getElementById('accusationDiceSummary');
+if (sum) sum.innerHTML = `📊 Всего на столе: <br>${sm || 'Нет кубиков'}`;
     
     document.getElementById('accusationPanel').style.display = 'block';
     playSound('accuse');
