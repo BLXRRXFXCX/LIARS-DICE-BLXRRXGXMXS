@@ -163,12 +163,25 @@ body {
     display: flex;
     align-items: center;
     gap: 2px;
-    flex-wrap: wrap;
+    flex-wrap: nowrap; /* Запрещаем перенос */
     justify-content: center;
+    overflow: hidden;
 }
+
+/* Уменьшаем размер при 4+ жизнях */
+.slot-lives.compact {
+    font-size: 0.85em;
+}
+
+.slot-lives.compact .heart,
+.slot-lives.compact .cross,
+.slot-lives.compact .blood {
+    font-size: 0.95em;
+}
+
 .slot-lives .heart { color: #ff4444; }
 .slot-lives .cross { color: #888; text-decoration: line-through; opacity: 0.7; }
-.slot-lives .blood { color: #cc0000; margin-left: 4px; font-size: 0.9em; }
+.slot-lives .blood { color: #cc0000; margin-left: 2px; font-size: 0.9em; }
 .slot-turn-indicator {
     position: absolute;
     top: 2px;
