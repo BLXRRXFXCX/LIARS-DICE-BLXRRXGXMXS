@@ -380,10 +380,15 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
     cursor: pointer;
     flex-shrink: 0;
 }
+    
 #artifactIcon {
     flex-shrink: 0;
     cursor: pointer;
 }
+    #checkPhrase, #checkEffects {
+    font-size: 0.9em;
+}
+    
 #artifactName {
     font-weight: bold;
     color: #ffd700;
@@ -551,6 +556,11 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
     overflow-y: auto;
     position: relative;
 }
+
+    #modalCheck .modal-content h2 {
+    font-size: 1em;
+}
+    
 .close-btn {
     position: absolute;
     top: 8px;
@@ -821,12 +831,20 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
     padding: 20px;
     overflow-y: auto;
 }
+
+    #accusationPanel h2 {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+}
+    
 .accusation-result {
     font-weight: bold;
     text-align: center;
     padding: 10px;
     margin: 10px 0;
     border-radius: 8px;
+    font-size: 1.1em;
+    padding: 8px;
 }
 .effect-green { background: rgba(0,255,0,0.2); color: #00ff00; }
 .effect-red { background: rgba(255,0,0,0.2); color: #ff4444; }
@@ -837,11 +855,10 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
     margin-top: 10px;
 }
 #accusationPhrase {
-    text-align: center;
-    color: #fff;
-    margin: 10px 0;
-    font-style: italic;
+    font-size: 0.9em;
+    margin: 8px 0;
 }
+    
 #accusationCloseBtn {
     display: block;
     margin: 15px auto;
