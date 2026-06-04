@@ -127,7 +127,7 @@ function showNotification(msg, type='info', autoClose = 0, isHtml = false) {
     const message = document.getElementById('notifyMessage');
     const modal = document.getElementById('modalNotify');
     if (title && message && modal) {
-        title.textContent = tt[type] || '️ Уведомление';
+        title.textContent = tt[type] || 'ℹ️ Уведомление';
         if (isHtml) {
             message.innerHTML = msg;
         } else {
@@ -2057,7 +2057,10 @@ function useArtifact(id) {
             }); break;
         case 'spy':
             if(GameState.spyMemory[GameState.myUid]&&GameState.spyMemory[GameState.myUid].value&&GameState.roundNumber===GameState.spyMemory[GameState.myUid].round) {
-                showNotification(`Шпион: у ${GameState.players[GameState.spyMemory[GameState.myUid].target]?.name} есть ${getDieEmoji(GameState.spyMemory[GameState.myUid].value)}`, 'info');
+                showNotification(
+    `<span style="font-size:0.9em;">Шпион: у ${GameState.players[t].name} есть</span> <span style="font-size:2em; vertical-align:middle;">${getDieEmoji(val)}</span>`, 
+    'info', 0, true
+);
                 GameState.pendingArtifact = null;
                 break;
             }
@@ -2081,7 +2084,10 @@ function useArtifact(id) {
        case 'analyst':
     showNominalModal(n=>{
         let c=0; Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost&&p.dice.includes(n))c++;});
-        showNotification(`АНАЛИТИК: ${c} игроков имеют ${getDieEmoji(n)}`, 'info');
+        showNotification(
+    `АНАЛИТИК: ${c} игроков имеют <span style="font-size:2em; vertical-align:middle;">${getDieEmoji(n)}</span>`, 
+    'info', 0, true
+);
         markArtifactUsed(id);
     }); break;
         case 'double':
