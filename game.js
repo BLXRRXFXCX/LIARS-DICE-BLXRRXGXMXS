@@ -121,24 +121,25 @@ function escapeHtml(str) {
     return div.innerHTML;
 }
 
-function showNotification(msg, type='info', autoClose = 0) {
+function showNotification(msg, type='info', autoClose = 0, isHtml = false) {
     const tt = {error:'❌ Ошибка', warning:'⚠️ Внимание', success:'✅ Успех', info:'ℹ️ Инфо'};
     const title = document.getElementById('notifyTitle');
     const message = document.getElementById('notifyMessage');
     const modal = document.getElementById('modalNotify');
     if (title && message && modal) {
-        title.textContent = tt[type] || 'ℹ️ Уведомление';
-        message.textContent = msg;
+        title.textContent = tt[type] || '️ Уведомление';
+        if (isHtml) {
+            message.innerHTML = msg;
+        } else {
+            message.textContent = msg;
+        }
         modal.style.display = 'block';
-        
-        // Автозакрытие через N мс, если указан autoClose
         if (autoClose > 0) {
             setTimeout(() => {
                 modal.style.display = 'none';
             }, autoClose);
         }
     } else { 
-        // Если модалка не найдена — обычный alert
         if (autoClose === 0) alert(msg); 
     }
 }
@@ -661,11 +662,18 @@ function setupRoomListeners() {
 Object.values(GameState.players).forEach(p => {
     if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
 });
-const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>
-    `<span class="dice-item"><span class="dice-count">${ct[k]}×</span><span class="big-die">${getDieEmoji(k)}</span></span>`
-).join(' ');
-const sum = document.getElementById('accusationDiceSummary');
-if (sum) sum.innerHTML = sm || 'Нет кубиков';
+const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×${getDieEmoji(k)}`).join(' ');
+const sumEl = document.getElementById('accusationDiceSummary');
+if (sumEl) sumEl.innerHTML = ` Всего на столе:<br>${sm || 'Нет кубиков'}`;
+
+// Сохраняем для кнопки ПРОВЕРКА
+GameState.lastAccusationData = {
+    phrase: ph?.textContent || '',
+    diceSummary: sumEl?.innerHTML || '',
+    resultText: res?.resultText || '',
+    resultClass: res?.resultClass || '',
+    effects: res?.effects || ''
+};
             }
             const res = data.accusationResult;
             if (res) {
@@ -1158,7 +1166,7 @@ if (sum) sum.innerHTML = sm || 'Нет кубиков';
 
    GameState.lastAccusationData = {
     phrase: ph?.textContent || '',
-    diceSummary: sum?.innerHTML || '',  // ← innerHTML
+    diceSummary: sum?.innerHTML || '',
     resultText: 'Проверка...',
     resultClass: '',
     effects: ''
@@ -1899,6 +1907,13 @@ const sum = document.getElementById('accusationDiceSummary');
 if (sum) sum.innerHTML = sm || 'Нет кубиков';
     
     document.getElementById('accusationPanel').style.display = 'block';
+    GameState.lastAccusationData = {
+    phrase: ph?.textContent || '',
+    diceSummary: sum?.innerHTML || '',
+    resultText: 'Проверка...',
+    resultClass: '',
+    effects: ''
+};
     playSound('accuse');
     
    GameState.lastAccusationData = {
@@ -2051,7 +2066,7 @@ function useArtifact(id) {
             showTargetModal(sp, t=>{
                 const val=GameState.players[t].dice[Math.floor(Math.random()*GameState.players[t].dice.length)];
                 GameState.spyMemory[GameState.myUid]={target:t,value:val,round:GameState.roundNumber};
-                showNotification(`Шпион: у ${GameState.players[t].name} есть ${getDieEmoji(val)}`, 'info');
+              showNotification(`Шпион: у ${GameState.players[t].name} есть <span style="font-size:1.8em; vertical-align:middle;">${getDieEmoji(val)}</span>`, 'info', 0, true);
                 addLogEntry('artifact', `${m.name} шпионит за ${GameState.players[t].name}`);
                 markArtifactUsed(id);
             }); break;
@@ -2066,7 +2081,7 @@ function useArtifact(id) {
        case 'analyst':
     showNominalModal(n=>{
         let c=0; Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost&&p.dice.includes(n))c++;});
-        showNotification(`Аналитик: ${c} игроков имеют <span style="font-size:2em; vertical-align:middle;">${getDieEmoji(n)}</span>`, 'info');
+        showNotification(`АНАЛИТИК: ${c} игроков имеют ${getDieEmoji(n)}`, 'info');
         markArtifactUsed(id);
     }); break;
         case 'double':
