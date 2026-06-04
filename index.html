@@ -3,14 +3,20 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1">
-<title>LIAR'S DICE — v8.5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+<title>BLXRRXDXCX 3.0</title>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { width: 100%; height: 100%; overflow-x: hidden; }
+
+/* ===== БАЗОВЫЙ ШРИФТ ===== */
 body {
-    font-family: 'Courier New', monospace;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 10px;
     background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
     color: #fff;
     min-height: 100vh;
@@ -19,6 +25,46 @@ body {
     align-items: center;
     padding: 5px;
 }
+
+/* ===== ПРИМЕНЕНИЕ ШРИФТА КО ВСЕМ ЭЛЕМЕНТАМ ===== */
+body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
+.action-btn, .bottom-btn, .ghost-ability-btn, .modal-content,
+.dropdown, .dropdown button, .modal h2, .modal h3,
+.slot-nick, .slot-head, .slot-lives, .die, #betCountDisplay, #betValueDisplay,
+#roundInfo, #turnInfo, #lastBetDisplay, #artifactName,
+.select-item, .wardrobe-option, .color-option,
+.mood-btn, .taunt-text-btn, .quick-emoji-btn,
+.filter-btn, .log-entry, .devil-opt, #btnRefuseDeal,
+#notifyTitle, #notifyMessage, #notifyOkBtn,
+#accusationPhrase, #accusationDiceSummary, #accusationResult, #accusationEffects,
+#accusationCloseBtn, #voteTimer, #voteResult,
+#profileNameInput, #profileUid, #profileStatus, #btnSaveProfile,
+#btnSaveWardrobe, .speech-bubble {
+    font-family: 'Press Start 2P', cursive;
+}
+
+/* ===== РАЗМЕРЫ ===== */
+.action-btn { font-size: 0.9em; padding: 10px 8px; }
+.bottom-btn { font-size: 0.85em; padding: 8px 6px; }
+.ghost-ability-btn { font-size: 0.8em; padding: 8px 6px; }
+.modal-content { font-size: 0.8em; }
+.modal h2 { font-size: 1.1em; }
+#roundInfo, #turnInfo { font-size: 0.85em; }
+#lastBetDisplay { font-size: 0.9em; }
+#artifactName { font-size: 0.75em; }
+.slot-nick { font-size: 0.7em; }
+.slot-head { font-size: 1.8em; }
+.slot-lives { font-size: 0.9em; }
+.die { font-size: 1.6em; }
+#betCountDisplay { font-size: 1.4em; }
+#betValueDisplay { font-size: 1.6em; }
+.dropdown { font-size: 0.75em; }
+.dropdown button { font-size: 0.9em; padding: 6px; }
+.modal-content h3 { font-size: 0.9em; }
+.wardrobe-option { font-size: 1.3em; }
+.color-option { width: 28px; height: 28px; }
+.select-item { font-size: 0.85em; }
+
 .no-select { user-select: none; -webkit-user-select: none; }
 
 /* ===== TOP BAR ===== */
@@ -36,7 +82,6 @@ body {
 }
 #gameInfo { display: flex; gap: 15px; align-items: center; }
 #roundInfo, #turnInfo {
-    font-size: 1.1em;
     font-weight: bold;
     color: #ffd700;
     text-shadow: 1px 1px 2px #000;
@@ -60,7 +105,6 @@ body {
     background: rgba(0,0,0,0.4);
     border-radius: 6px;
     margin-bottom: 6px;
-    font-size: 1.2em;
     color: #ffd700;
     font-weight: bold;
     text-shadow: 1px 1px 2px #000;
@@ -74,7 +118,10 @@ body {
     line-height: 1.6;
     margin: 10px 0;
     font-size: 1.1em;
+    text-align: center;
+    color: #ffd700;
 }
+
 /* ===== PLAYER GRID (6 slots) ===== */
 #playerGrid {
     width: 100%;
@@ -105,7 +152,6 @@ body {
     box-shadow: 0 0 10px rgba(255,215,0,0.5);
 }
 .slot-nick {
-    font-size: 0.85em;
     font-weight: bold;
     text-align: center;
     margin-bottom: 4px;
@@ -125,7 +171,6 @@ body {
     position: relative;
 }
 .slot-head {
-    font-size: 2em;
     line-height: 1;
     margin-bottom: -5px;
     z-index: 2;
@@ -164,7 +209,6 @@ body {
 .slot-tuxedo .trim-right { right: 15px; }
 .slot-lives {
     margin-top: auto;
-    font-size: 0.85em;
     display: flex;
     align-items: center;
     gap: 2px;
@@ -172,13 +216,11 @@ body {
     justify-content: center;
     overflow: hidden;
 }
-
 .slot-lives .heart,
 .slot-lives .cross,
 .slot-lives .blood {
     font-size: 0.95em;
 }
-
 .slot-lives .heart { color: #ff4444; }
 .slot-lives .cross { color: #888; text-decoration: line-through; opacity: 0.7; }
 .slot-lives .blood { color: #cc0000; margin-left: 2px; font-size: 0.9em; }
@@ -217,22 +259,7 @@ body {
     color: #000;
     border: 2px solid #333;
     border-radius: 15px;
-    padding: 8px 14px;
-    font-size: 1.3em;
-    font-weight: bold;
-    animation: bubblePop 0.3s ease-out, bubbleFade 0.5s ease-in 4.5s forwards;
-    pointer-events: none;
-    white-space: nowrap;
-    z-index: 9999;
-}
-.speech-bubble {
-    position: absolute;
-    background: #fff;
-    color: #000;
-    border: 2px solid #333;
-    border-radius: 15px;
     padding: 10px 16px;
-    font-size: 1.1em;
     font-weight: bold;
     animation: bubblePop 0.3s ease-out, bubbleFade 0.5s ease-in 4.5s forwards;
     pointer-events: none;
@@ -288,7 +315,6 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2em;
     border: 2px solid #ccc;
     cursor: default;
 }
@@ -304,7 +330,6 @@ body {
     color: #000;
     border: 2px solid #ff8800;
     border-radius: 50%;
-    font-size: 0.9em;
     font-weight: bold;
     cursor: pointer;
     display: flex;
@@ -332,17 +357,14 @@ body {
     color: #000;
     border: 2px solid #ff8800;
     border-radius: 50%;
-    font-size: 1.2em;
     cursor: pointer;
     flex-shrink: 0;
 }
 #artifactIcon {
-    font-size: 2em;
     flex-shrink: 0;
     cursor: pointer;
 }
 #artifactName {
-    font-size: 1em;
     font-weight: bold;
     color: #ffd700;
     text-shadow: 1px 1px 2px #000;
@@ -389,7 +411,6 @@ body {
     cursor: not-allowed;
 }
 #betCountDisplay, #betValueDisplay {
-    font-size: 1.8em;
     font-weight: bold;
     color: #fff;
     text-shadow: 1px 1px 2px #000;
@@ -404,7 +425,7 @@ body {
     padding: 4px;
 }
 
-/* ===== ACTION BUTTONS (СТАВКА / БЛЕФ) ===== */
+/* ===== ACTION BUTTONS ===== */
 #actionButtons {
     width: 100%;
     display: grid;
@@ -414,13 +435,11 @@ body {
 }
 .action-btn {
     padding: 12px;
-    font-size: 1.2em;
     font-weight: bold;
     border: 3px solid;
     border-radius: 8px;
     cursor: pointer;
     text-transform: uppercase;
-    font-family: 'Courier New', monospace;
     text-shadow: 1px 1px 2px #000;
 }
 .action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
@@ -437,7 +456,7 @@ body {
 }
 .accuse-btn:hover:not(:disabled) { background: linear-gradient(180deg, #dd3333, #bb2222); }
 
-/* ===== BOTTOM BUTTONS (ЛОГ / ПРОВЕРКА) ===== */
+/* ===== BOTTOM BUTTONS ===== */
 #bottomButtons {
     width: 100%;
     display: grid;
@@ -447,14 +466,12 @@ body {
 }
 .bottom-btn {
     padding: 10px;
-    font-size: 1.1em;
     font-weight: bold;
     background: linear-gradient(180deg, #5a3a8a, #4a2a7a);
     border: 2px solid #7a5aaa;
     border-radius: 8px;
     color: #fff;
     cursor: pointer;
-    font-family: 'Courier New', monospace;
     text-transform: uppercase;
 }
 .bottom-btn:hover { background: linear-gradient(180deg, #6a4a9a, #5a3a8a); }
@@ -485,8 +502,6 @@ body {
     color: #fff;
     cursor: pointer;
     text-align: left;
-    font-family: 'Courier New', monospace;
-    font-size: 0.9em;
 }
 .dropdown button:hover { background: linear-gradient(180deg, #4a4a6c, #3a3a5c); }
 #roomIdDisplay {
@@ -494,7 +509,6 @@ body {
     font-weight: bold;
     text-align: center;
     margin-bottom: 8px;
-    font-size: 0.9em;
 }
 
 /* ===== MODALS ===== */
@@ -531,18 +545,15 @@ body {
     color: #ffd700;
     text-align: center;
     margin-bottom: 15px;
-    font-size: 1.3em;
 }
 .modal h3 {
     color: #aaa;
     margin: 10px 0 6px;
-    font-size: 1em;
 }
 
 /* Wardrobe */
 .wardrobe-option {
     display: inline-block;
-    font-size: 1.8em;
     margin: 4px;
     padding: 6px;
     background: #333;
@@ -553,8 +564,6 @@ body {
 .wardrobe-option.selected { border-color: #ffd700; background: #444; }
 .color-option {
     display: inline-block;
-    width: 36px;
-    height: 36px;
     margin: 4px;
     border: 2px solid #555;
     border-radius: 6px;
@@ -579,10 +588,8 @@ body {
     border: 2px solid #44cc44;
     border-radius: 8px;
     color: #fff;
-    font-size: 1.1em;
     font-weight: bold;
     cursor: pointer;
-    font-family: 'Courier New', monospace;
     margin-top: 10px;
 }
 
@@ -600,14 +607,11 @@ body {
     border-radius: 4px;
     color: #fff;
     cursor: pointer;
-    font-size: 0.8em;
-    font-family: 'Courier New', monospace;
 }
 .filter-btn.active { background: #ffd700; color: #000; }
 #logContent {
     max-height: 50vh;
     overflow-y: auto;
-    font-size: 0.85em;
 }
 .log-entry {
     padding: 4px 6px;
@@ -631,8 +635,6 @@ body {
     border-radius: 6px;
     color: #fff;
     cursor: pointer;
-    font-size: 1em;
-    font-family: 'Courier New', monospace;
 }
 .mood-btn:hover { background: #444; }
 .taunt-text-btn {
@@ -645,8 +647,6 @@ body {
     border-radius: 6px;
     color: #fff;
     cursor: pointer;
-    font-size: 0.95em;
-    font-family: 'Courier New', monospace;
     text-align: center;
 }
 .taunt-text-btn:hover { background: #3a3a5c; }
@@ -658,7 +658,6 @@ body {
     gap: 6px;
 }
 .quick-emoji-btn {
-    font-size: 2em;
     background: #333;
     border: 2px solid #555;
     border-radius: 8px;
@@ -672,8 +671,8 @@ body {
     max-width: 320px;
     text-align: center;
 }
-#notifyTitle { color: #ffd700; font-size: 1.2em; margin-bottom: 10px; }
-#notifyMessage { margin-bottom: 15px; font-size: 1em; }
+#notifyTitle { color: #ffd700; margin-bottom: 10px; }
+#notifyMessage { margin-bottom: 15px; }
 #notifyOkBtn {
     padding: 8px 30px;
     background: #ffd700;
@@ -682,11 +681,10 @@ body {
     color: #000;
     font-weight: bold;
     cursor: pointer;
-    font-family: 'Courier New', monospace;
 }
 
 /* Rules */
-#modalRules .modal-content { font-size: 0.9em; line-height: 1.5; }
+#modalRules .modal-content { line-height: 1.5; }
 #modalRules ol { padding-left: 20px; }
 #modalRules li { margin-bottom: 6px; }
 
@@ -721,8 +719,6 @@ body {
     color: #fff;
     cursor: pointer;
     text-align: left;
-    font-family: 'Courier New', monospace;
-    font-size: 0.95em;
 }
 .devil-opt:hover { background: linear-gradient(180deg, #5a2a2a, #3a1a1a); }
 #btnRefuseDeal {
@@ -734,8 +730,6 @@ body {
     border-radius: 8px;
     color: #fff;
     cursor: pointer;
-    font-family: 'Courier New', monospace;
-    font-size: 1em;
     margin-top: 10px;
 }
 
@@ -750,8 +744,6 @@ body {
     border-radius: 6px;
     color: #fff;
     cursor: pointer;
-    font-family: 'Courier New', monospace;
-    font-size: 1em;
     text-align: center;
 }
 .select-item:hover { border-color: #ffd700; }
@@ -764,7 +756,6 @@ body {
 #voteResult {
     text-align: center;
     margin: 10px 0;
-    font-size: 1.1em;
 }
 
 /* Target/Nominal/Effect modals */
@@ -783,7 +774,7 @@ body {
     margin-bottom: 8px;
 }
 
-/* Accusation panel (for ПРОВЕРКА) */
+/* Accusation panel */
 #accusationPanel {
     display: none;
     position: fixed;
@@ -794,7 +785,6 @@ body {
     overflow-y: auto;
 }
 .accusation-result {
-    font-size: 1.5em;
     font-weight: bold;
     text-align: center;
     padding: 10px;
@@ -803,12 +793,6 @@ body {
 }
 .effect-green { background: rgba(0,255,0,0.2); color: #00ff00; }
 .effect-red { background: rgba(255,0,0,0.2); color: #ff4444; }
-#accusationDiceSummary {
-    text-align: center;
-    font-size: 1.2em;
-    margin: 10px 0;
-    color: #ffd700;
-}
 #accusationEffects {
     padding: 10px;
     background: rgba(0,0,0,0.5);
@@ -817,7 +801,6 @@ body {
 }
 #accusationPhrase {
     text-align: center;
-    font-size: 1.1em;
     color: #fff;
     margin: 10px 0;
     font-style: italic;
@@ -832,8 +815,6 @@ body {
     color: #000;
     font-weight: bold;
     cursor: pointer;
-    font-family: 'Courier New', monospace;
-    font-size: 1.1em;
 }
 
 /* Ghost abilities */
@@ -850,8 +831,6 @@ body {
     border-radius: 8px;
     color: #fff;
     cursor: pointer;
-    font-family: 'Courier New', monospace;
-    font-size: 1em;
 }
 .ghost-ability-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -892,6 +871,30 @@ body {
 .connection-status.online { color: #00ff00; }
 .connection-status.offline { color: #ff4444; }
 body.offline { opacity: 0.7; }
+
+/* Profile input */
+#profileNameInput {
+    width: 100%;
+    padding: 8px;
+    background: #333;
+    border: 1px solid #555;
+    border-radius: 4px;
+    color: #fff;
+}
+#profileUid { color: #aaa; word-break: break-all; }
+#profileStatus { color: #00ff88; }
+#btnSaveProfile {
+    display: block;
+    width: 100%;
+    padding: 10px;
+    background: #22aa22;
+    border: 2px solid #44cc44;
+    border-radius: 8px;
+    color: #fff;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 15px;
+}
 </style>
 </head>
 <body>
@@ -971,7 +974,7 @@ body.offline { opacity: 0.7; }
 <div id="ghostAbilitiesPanel">
     <button class="ghost-ability-btn" id="ghVengeance">️ Месть</button>
     <button class="ghost-ability-btn" id="ghFamiliarCurse">🔮 Проклятие Фамильяра</button>
-    <button class="ghost-ability-btn" id="ghPoltergeist"> Полтергейст</button>
+    <button class="ghost-ability-btn" id="ghPoltergeist">Полтергейст</button>
     <button class="ghost-ability-btn" id="ghKeeper">👁️ Хранитель Тайн</button>
     <button class="ghost-ability-btn" id="ghReaper">💀 Жатва Душ</button>
 </div>
@@ -984,10 +987,10 @@ body.offline { opacity: 0.7; }
     <button id="menuMyLook">👤 МОЙ ОБРАЗ</button>
     <button id="menuProfile">👤 Профиль</button>
     <button id="menuInvite">🔗 Скопировать ссылку</button>
-    <button id="menuRules"> Правила</button>
+    <button id="menuRules">📜 Правила</button>
     <button id="menuKick">🗳️ Исключить игрока</button>
     <button id="menuSound">🔊 Звук: ВКЛ</button>
-    <button id="menuArtifacts"> Артефакты: ✅</button>
+    <button id="menuArtifacts">🎲 Артефакты: ✅</button>
     <button id="menuLives">❤️ Жизни: 3</button>
     <button id="menuBotDifficulty">🤖 Сложность: Средняя</button>
     <button id="menuBotAdd">🤖 ➕ Добавить бота</button>
@@ -1008,7 +1011,7 @@ body.offline { opacity: 0.7; }
         <div id="tuxedoTrimSelect"></div>
         <h3>️ Предпросмотр</h3>
         <div id="wardrobePreview"></div>
-        <button id="btnSaveWardrobe"> Сохранить образ</button>
+        <button id="btnSaveWardrobe">💾 Сохранить образ</button>
     </div>
 </div>
 
@@ -1066,7 +1069,7 @@ body.offline { opacity: 0.7; }
     </div>
 </div>
 
-<!-- ACCUSATION PANEL (full screen during accusation) -->
+<!-- ACCUSATION PANEL -->
 <div id="accusationPanel">
     <div style="max-width:500px; margin:0 auto; padding:20px;">
         <h2 style="color:#ffd700; text-align:center;">⚖️ ПРОВЕРКА СТАВКИ</h2>
@@ -1112,12 +1115,12 @@ body.offline { opacity: 0.7; }
         <span class="close-btn">×</span>
         <h2>👤 ПРОФИЛЬ</h2>
         <h3>Ник:</h3>
-        <input type="text" id="profileNameInput" style="width:100%; padding:8px; background:#333; border:1px solid #555; border-radius:4px; color:#fff; font-family:'Courier New',monospace;">
+        <input type="text" id="profileNameInput">
         <h3>UID:</h3>
-        <div id="profileUid" style="color:#aaa; font-size:0.8em; word-break:break-all;"></div>
+        <div id="profileUid"></div>
         <h3>Статус:</h3>
-        <div id="profileStatus" style="color:#00ff88;"></div>
-        <button id="btnSaveProfile" style="display:block; width:100%; padding:10px; background:#22aa22; border:2px solid #44cc44; border-radius:8px; color:#fff; font-weight:bold; cursor:pointer; font-family:'Courier New',monospace; margin-top:15px;">💾 Сохранить</button>
+        <div id="profileStatus"></div>
+        <button id="btnSaveProfile">💾 Сохранить</button>
     </div>
 </div>
 
@@ -1128,7 +1131,7 @@ body.offline { opacity: 0.7; }
         <span class="close-btn" style="display:none;">×</span>
         <h2>😈 СДЕЛКА С ДЬЯВОЛОМ</h2>
         <p style="text-align:center; margin-bottom:15px;">Дьявол предлагает воскреснуть за цену. Выбери свою жертву:</p>
-        <p style="text-align:center; color:#ff4400; font-size:0.9em; margin-bottom:15px;">️ Лимит: 2 сделки за игру. После — Призрак.</p>
+        <p style="text-align:center; color:#ff4400; margin-bottom:15px;">️ Лимит: 2 сделки за игру. После — Призрак.</p>
         <div id="devilOptions"></div>
         <button id="btnRefuseDeal">❌ Отказаться (стать Призраком)</button>
     </div>
