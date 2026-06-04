@@ -113,21 +113,31 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
     align-items: center;
     justify-content: center;
 }
-#accusationDiceSummary {
-    white-space: pre-line;
-    line-height: 1.8;
-    margin: 10px 0;
-    font-size: 2em;  /* Было 1.1em, стало 2em — в 2 раза крупнее */
+
+    #accusationDiceSummary, #checkDiceSummary {
+    font-size: 1em;
     text-align: center;
     color: #ffd700;
+    margin: 10px 0;
+    line-height: 1.4;
 }
 
-    #checkDiceSummary {
-    font-size: 1.67em;
-    text-align: center;
-    color: #ffd700;
-    margin: 10px 0;
-    line-height: 1.8;
+.dice-label {
+    font-size: 1em;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.dice-values {
+    font-size: 1.8em;
+    line-height: 1.5;
+    display: block;
+}
+
+.big-die {
+    display: inline-block;
+    font-size: 1.3em;
+    vertical-align: middle;
 }
 
 /* ===== PLAYER GRID (6 slots) ===== */
