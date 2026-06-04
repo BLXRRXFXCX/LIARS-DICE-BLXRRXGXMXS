@@ -2066,7 +2066,7 @@ function useArtifact(id) {
        case 'analyst':
     showNominalModal(n=>{
         let c=0; Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost&&p.dice.includes(n))c++;});
-        showNotification(`АНАЛИТИК: ${c} игроков имеют ${getDieEmoji(n)}`, 'info');
+        showNotification(`АНАЛИТИК: ${c} игроков имеют <span style="font-size:2em; vertical-align:middle;">${getDieEmoji(n)}</span>`, 'info');
         markArtifactUsed(id);
     }); break;
         case 'double':
