@@ -743,7 +743,6 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
 /* Vote */
 .select-item {
     display: block;
-    width: 100%;
     padding: 10px;
     margin: 4px 0;
     background: #333;
@@ -751,7 +750,20 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
     border-radius: 6px;
     color: #fff;
     cursor: pointer;
+    font-family: 'Press Start 2P', cursive;
+    font-size: 1em;
     text-align: center;
+}
+
+/* Специальный класс для кубиков в модалках номиналов */
+.die-select {
+    display: inline-block !important;
+    width: 80px !important;
+    height: 80px !important;
+    font-size: 3em !important;
+    padding: 10px !important;
+    border-radius: 12px !important;
+    margin: 6px !important;
 }
 .select-item:hover { border-color: #ffd700; }
 #voteTimer {
