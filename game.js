@@ -5,7 +5,7 @@ const DEBUG = false;
 function log(...args) { if (DEBUG) console.log('[Game]', ...args); }
 function logError(...args) { console.error('[Game Error]', ...args); }
 
-const DIE_EMOJI_CACHE = ['?', '⚀', '⚁', '⚂', '', '⚄', '⚅'];
+const DIE_EMOJI_CACHE = ['?', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 function getDieEmoji(v) {
     const val = parseInt(v) || 1;
     return DIE_EMOJI_CACHE[val] || '';
