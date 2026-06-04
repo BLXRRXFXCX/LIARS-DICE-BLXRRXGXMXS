@@ -716,10 +716,25 @@ function setupRoomListeners() {
         setTimeout(() => bubble.remove(), 5000);
     });
 
-    // 3. Слушатель голосов
-    GameState.roomRef.child('votes').on('value', (s) => {
+        // 4. Слушатель АКТИВНОГО голосования (для всех игроков)
+    GameState.roomRef.child('activeVote').on('value', (snapshot) => {
+        const vote = snapshot.val();
+        if (!vote) return;
+        
+        // Если голосование уже активно и окно не открыто - открываем
+        if (GameState.currentVoteTarget !== vote.target) {
+            const p = GameState.players[vote.target];
+            if (p) {
+                openVoteModal(vote.target, vote.targetName || p.name, vote.startTime);
+            }
+        }
+    });
+       // 3. Слушатель голосов в activeVote
+    GameState.roomRef.child('activeVote').child('votes').on('value', (s) => {
         const votes = s.val();
-        if (votes && GameState.currentVoteTarget && votes[GameState.currentVoteTarget]) updateVoteUI(votes[GameState.currentVoteTarget]);
+        if (votes && GameState.currentVoteTarget) {
+            updateVoteUI(votes);
+        }
     });
 }
 
@@ -2256,23 +2271,52 @@ function useGhostAbility(id) {
 // ============================================================
 function startVoteKick() {
     if(Date.now()-GameState.lastVoteEndTime<VOTE_COOLDOWN) return showNotification(`Голосование через ${Math.ceil((VOTE_COOLDOWN-(Date.now()-GameState.lastVoteEndTime))/1000)} сек`, 'warning');
-    const tg=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&!GameState.players[u]?.isBot&&GameState.players[u]?.alive);
+    const tg=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive);
     if(!tg.length) return showNotification('Нет целей!', 'warning');
     const ld=document.getElementById('voteTargetsList'); if(!ld) return;
     ld.innerHTML='';
     tg.forEach(u=>{
         const p=GameState.players[u]; if(!p||!p.name) return;
-        const b=document.createElement('button'); b.className='select-item'; b.textContent=p.name+(p.isGhost?' 👻':'');
+        const b=document.createElement('button'); b.className='select-item'; b.textContent=p.name+(p.isGhost?' ':'');
         b.onclick=()=>{
-            GameState.currentVoteTarget=u;
-            const tn=document.getElementById('voteTargetName'); if(tn) tn.textContent=p.name;
-            const rd=document.getElementById('voteResult'); if(rd) rd.textContent='';
-            document.getElementById('modalVote').style.display='block';
-            startVoteTimer(u);
+            // ЗАПУСКАЕМ ГОЛОСОВАНИЕ ДЛЯ ВСЕХ ЧЕРЕЗ FIREBASE
+            const startTime = Date.now();
+            safeSet(GameState.roomRef.child('activeVote'), {
+                target: u,
+                targetName: p.name,
+                initiator: GameState.myUid,
+                startTime: startTime,
+                duration: 30,
+                votes: {}
+            }, 'vote-start');
+            // Локально тоже показываем
+            openVoteModal(u, p.name, startTime);
         };
         ld.appendChild(b);
     });
     document.getElementById('modalVoteTargets').style.display='block';
+}
+
+// Новая функция открытия окна голосования
+function openVoteModal(targetUid, targetName, startTime) {
+    GameState.currentVoteTarget = targetUid;
+    const tn=document.getElementById('voteTargetName'); if(tn) tn.textContent=targetName;
+    const rd=document.getElementById('voteResult'); if(rd) rd.textContent='';
+    document.getElementById('modalVote').style.display='block';
+    
+    // Запускаем таймер локально
+    if(GameState.timers.vote) clearInterval(GameState.timers.vote);
+    const el=document.getElementById('voteTimer');
+    GameState.timers.vote=setInterval(()=>{
+        const elapsed = Math.floor((Date.now() - startTime) / 1000);
+        const remaining = 30 - elapsed;
+        if(el) el.textContent = Math.max(0, remaining);
+        if(remaining <= 0){
+            clearInterval(GameState.timers.vote);
+            GameState.timers.vote=null;
+            resolveVote(targetUid);
+        }
+    },1000);
 }
 function startVoteTimer(tu) {
     let t=30; const el=document.getElementById('voteTimer');
@@ -2285,7 +2329,8 @@ function startVoteTimer(tu) {
 }
 function castVote(v) {
     if(!GameState.currentVoteTarget) return;
-    safeSet(GameState.roomRef.child('votes').child(GameState.currentVoteTarget).child('votes').child(GameState.myUid), v, 'vote-cast');
+    // Голосуем в activeVote (синхронно для всех)
+    safeSet(GameState.roomRef.child('activeVote').child('votes').child(GameState.myUid), v, 'vote-cast'); 
     showNotification(`Голос: ${v==='yes'?'ЗА':'ПРОТИВ'}`, 'info');
 }
 function updateVoteUI(vd) {
@@ -2296,18 +2341,24 @@ function updateVoteUI(vd) {
 }
 function resolveVote(tu) {
     document.getElementById('modalVote').style.display='none';
-    GameState.roomRef.child('votes').child(tu).once('value', s=>{
+    // Читаем данные из activeVote
+    GameState.roomRef.child('activeVote').once('value', s=>{
         const vd=s.val(); if(!vd) return;
         const votes=vd.votes||{}; let y=0,n=0;
         Object.values(votes).forEach(v=>{if(v==='yes')y++;if(v==='no')n++;});
-        if(votes[tu]==='yes') y--;
         const tot=y+n; const kicked=tot>0&&y>tot/2;
+        
         if(kicked&&GameState.players[tu]) {
             GameState.roomRef.child('players').child(tu).remove();
             addLogEntry('system', `${GameState.players[tu].name} исключён! (ЗА:${y} ПРОТИВ:${n})`);
-        } else addLogEntry('system', `${GameState.players[tu]?.name||'Игрок'} остался! (ЗА:${y} ПРОТИВ:${n})`);
-        GameState.roomRef.child('votes').child(tu).remove();
-        GameState.lastVoteEndTime=Date.now(); GameState.currentVoteTarget=null;
+        } else if(GameState.players[tu]) {
+            addLogEntry('system', `${GameState.players[tu]?.name||'Игрок'} остался! (ЗА:${y} ПРОТИВ:${n})`);
+        }
+        
+        // Очищаем activeVote
+        GameState.roomRef.child('activeVote').remove();
+        GameState.lastVoteEndTime=Date.now(); 
+        GameState.currentVoteTarget=null;
     });
 }
 
@@ -2451,5 +2502,5 @@ window.onload = () => {
 
     setupAudioContext();
     bindEventListeners();
-    log('🎮 Game Loaded v8.7 UI-REDESIGN');
+    log('🎮 BLXRRXDXCX 3.0 BX BLXRRXGXMXS');
 };
