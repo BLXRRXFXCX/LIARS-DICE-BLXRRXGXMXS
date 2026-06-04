@@ -2168,13 +2168,8 @@ function showNominalModal(cb) {
     
     for (let i = 1; i <= 6; i++) {
         const b = document.createElement('button');
-        b.className = 'select-item';
+        b.className = 'select-item die-select';
         b.textContent = getDieEmoji(i);
-        b.style.width = '80px';
-        b.style.height = '80px';
-        b.style.fontSize = '3em';
-        b.style.padding = '10px';
-        b.style.borderRadius = '12px';
         b.onclick = () => { cb(i); closeModal('modalNominal'); };
         l.appendChild(b);
     }
@@ -2197,13 +2192,8 @@ function showDynamicNominalModal(cb) {
         l.innerHTML = '';
         for (let i = 1; i <= 6; i++) {
             const b = document.createElement('button');
-            b.className = 'select-item';
+            b.className = 'select-item die-select';
             b.textContent = getDieEmoji(i);
-            b.style.width = '80px';
-            b.style.height = '80px';
-            b.style.fontSize = '3em';
-            b.style.padding = '10px';
-            b.style.borderRadius = '12px';
             
             if (GameState.lastBet && GameState.lastBet.value === i) {
                 b.style.opacity = '0.3';
