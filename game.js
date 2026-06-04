@@ -2170,9 +2170,9 @@ function showNominalModal(cb) {
         const b = document.createElement('button');
         b.className = 'select-item';
         b.textContent = getDieEmoji(i);
-        b.style.width = '80px';      // Было 60px
-        b.style.height = '80px';     // Было 60px
-        b.style.fontSize = '3em';    // Было 1.8em
+        b.style.width = '80px';
+        b.style.height = '80px';
+        b.style.fontSize = '3em';
         b.style.padding = '10px';
         b.style.borderRadius = '12px';
         b.onclick = () => { cb(i); closeModal('modalNominal'); };
@@ -2180,8 +2180,7 @@ function showNominalModal(cb) {
     }
     document.getElementById('modalNominal').style.display = 'block';
 }
-let dynamicNominalInterval=null;
-
+let dynamicNominalInterval = null;
 function showDynamicNominalModal(cb) {
     const l = document.getElementById('modalNominalList');
     if (!l) return;
