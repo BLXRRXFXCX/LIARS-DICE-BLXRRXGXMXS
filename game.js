@@ -202,7 +202,7 @@ function showLastCheck() {
     const effects = document.getElementById('checkEffects');
 
     if (phrase) phrase.textContent = data?.phrase || 'Нет данных';
-    if (summary) summary.textContent = data?.diceSummary || 'Нет данных';
+    if (summary) summary.innerHTML = data?.diceSummary || 'Нет данных';
     if (result) {
         result.textContent = data?.resultText || 'Нет данных';
         result.className = `accusation-result ${data?.resultClass || ''}`;
@@ -1155,13 +1155,13 @@ if (sum) sum.innerHTML = `📊 Всего на столе:<br>${sm || 'Нет к
     document.getElementById('accusationPanel').style.display = 'block';
     playSound('accuse');
 
-    GameState.lastAccusationData = {
-        phrase: ph?.textContent || '',
-        diceSummary: sum?.textContent || '',
-        resultText: 'Проверка...',
-        resultClass: '',
-        effects: ''
-    };
+   GameState.lastAccusationData = {
+    phrase: ph?.textContent || '',
+    diceSummary: sum?.innerHTML || '',  // ← сохраняем с <br>
+    resultText: 'Проверка...',
+    resultClass: '',
+    effects: ''
+};
 
     addLogEntry('accuse', `${GameState.myName} обвиняет ${t}!`);
 
@@ -1869,6 +1869,47 @@ function accuseFromBot(botId) {
     const auid=GameState.lastBet.player;
     const tv=GameState.lastBet.value;
     const acc=GameState.players[auid];
+    const bot = GameState.players[botId];
+    
+    // === ПОКАЗЫВАЕМ ПАНЕЛЬ ПРОВЕРКИ ДЛЯ ВСЕХ ===
+    GameState.gameState = 'accusing';
+    safeUpdate(GameState.roomRef, {
+        state: 'accusing',
+        accusingData: { accuser: botId, accused: auid, bet: GameState.lastBet, timestamp: Date.now() }
+    }, 'bot-accuse-start');
+    
+    const phrases = [`${bot.name} бьёт по столу: "${acc?.name || 'Цель'}, ложь!"`, `"${acc?.name || 'Цель'}, вскрывайся!" — ${bot.name}`, `${bot.name} указывает: "${acc?.name || 'Цель'}, блеф!"`, `"Не верю!" — ${bot.name}`];
+    const ph = document.getElementById('accusationPhrase');
+    if (ph) ph.textContent = phrases[Math.floor(Math.random()*phrases.length)];
+    
+    const res = document.getElementById('accusationResult');
+    if (res) { res.textContent = 'Проверка кубиков...'; res.className = 'accusation-result'; }
+    const eff = document.getElementById('accusationEffects');
+    if (eff) eff.innerHTML = '<h4 style="margin:5px 0; color:#ffd700;">📋 Эффекты:</h4>';
+    
+    let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
+    Object.values(GameState.players).forEach(p => {
+        if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
+    });
+    const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×${getDieEmoji(k)}`).join(' ');
+    const sum = document.getElementById('accusationDiceSummary');
+    if (sum) sum.innerHTML = `📊 Всего на столе:<br>${sm || 'Нет кубиков'}`;
+    
+    document.getElementById('accusationPanel').style.display = 'block';
+    playSound('accuse');
+    
+    GameState.lastAccusationData = {
+        phrase: ph?.textContent || '',
+        diceSummary: sum?.innerHTML || '',
+        resultText: 'Проверка...',
+        resultClass: '',
+        effects: ''
+    };
+    
+    addLogEntry('accuse', `${bot.name} обвиняет ${acc?.name || 'Цель'}!`);
+    // === КОНЕЦ ПОКАЗА ПАНЕЛИ ===
+    
+    // Считаем результат
     let tw=0;
     Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost)p.dice.forEach(d=>{if(parseInt(d)===tv)tw++;});});
     const ilw=tw<GameState.lastBet.count;
@@ -1891,12 +1932,26 @@ function accuseFromBot(botId) {
             safeUpdate(GameState.roomRef.child('players').child(auid), up, 'bot-acc-dp');
         }
     }
-    GameState.gameState='betting';
-    safeUpdate(GameState.roomRef, {state:'betting'}, 'bot-acc-end');
-    checkDeath();
-    setTimeout(startNewRound, 2500);
+    
+    // Обновляем результат на панели
+    const rEl = document.getElementById('accusationResult');
+    const eEl = document.getElementById('accusationEffects');
+    const resultText = isLie ? '✅ ЛОЖНАЯ СТАВКА!' : '❌ ПРАВДИВАЯ СТАВКА!';
+    const resultClass = isLie ? 'accusation-result effect-green' : 'accusation-result effect-red';
+    if (rEl) { rEl.textContent = resultText; rEl.className = resultClass; }
+    
+    GameState.lastAccusationData.resultText = resultText;
+    GameState.lastAccusationData.resultClass = resultClass;
+    GameState.lastAccusationData.effects = eEl?.innerHTML || '';
+    
+    setTimeout(() => {
+        document.getElementById('accusationPanel').style.display = 'none';
+        GameState.gameState='betting';
+        safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
+        checkDeath();
+        setTimeout(startNewRound, 3000);
+    }, 5000);
 }
-
 // ============================================================
 // АРТЕФАКТЫ
 // ============================================================
