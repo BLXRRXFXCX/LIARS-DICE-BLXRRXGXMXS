@@ -729,11 +729,11 @@ function setupRoomListeners() {
             }
         }
     });
-       // 3. Слушатель голосов в activeVote
+       // 3. Слушатель голосов в activeVote (реальное время для всех)
     GameState.roomRef.child('activeVote').child('votes').on('value', (s) => {
         const votes = s.val();
         if (votes && GameState.currentVoteTarget) {
-            updateVoteUI(votes);
+            updateVoteUI({ votes: votes });
         }
     });
 }
@@ -2330,35 +2330,39 @@ function startVoteTimer(tu) {
 function castVote(v) {
     if(!GameState.currentVoteTarget) return;
     // Голосуем в activeVote (синхронно для всех)
-    safeSet(GameState.roomRef.child('activeVote').child('votes').child(GameState.myUid), v, 'vote-cast'); 
+    safeSet(GameState.roomRef.child('activeVote').child('votes').child(GameState.myUid), v, 'vote-cast');
     showNotification(`Голос: ${v==='yes'?'ЗА':'ПРОТИВ'}`, 'info');
 }
 function updateVoteUI(vd) {
     if(!vd) return;
-    const y=Object.values(vd.votes||{}).filter(v=>v==='yes').length;
-    const n=Object.values(vd.votes||{}).filter(v=>v==='no').length;
-    const rd=document.getElementById('voteResult'); if(rd) rd.textContent=`✅ ЗА: ${y} | ❌ ПРОТИВ: ${n}`;
+    const y = Object.values(vd.votes || {}).filter(v => v === 'yes').length;
+    const n = Object.values(vd.votes || {}).filter(v => v === 'no').length;
+    const rd = document.getElementById('voteResult');
+    if (rd) rd.textContent = `✅ ЗА: ${y} | ❌ ПРОТИВ: ${n}`;
 }
 function resolveVote(tu) {
     document.getElementById('modalVote').style.display='none';
     // Читаем данные из activeVote
-    GameState.roomRef.child('activeVote').once('value', s=>{
-        const vd=s.val(); if(!vd) return;
-        const votes=vd.votes||{}; let y=0,n=0;
-        Object.values(votes).forEach(v=>{if(v==='yes')y++;if(v==='no')n++;});
-        const tot=y+n; const kicked=tot>0&&y>tot/2;
+    GameState.roomRef.child('activeVote').once('value', s => {
+        const vd = s.val();
+        if (!vd) return;
+        const votes = vd.votes || {};
+        let y = 0, n = 0;
+        Object.values(votes).forEach(v => { if(v === 'yes') y++; if(v === 'no') n++; });
+        const tot = y + n;
+        const kicked = tot > 0 && y > tot / 2;
         
-        if(kicked&&GameState.players[tu]) {
+        if (kicked && GameState.players[tu]) {
             GameState.roomRef.child('players').child(tu).remove();
             addLogEntry('system', `${GameState.players[tu].name} исключён! (ЗА:${y} ПРОТИВ:${n})`);
-        } else if(GameState.players[tu]) {
-            addLogEntry('system', `${GameState.players[tu]?.name||'Игрок'} остался! (ЗА:${y} ПРОТИВ:${n})`);
+        } else if (GameState.players[tu]) {
+            addLogEntry('system', `${GameState.players[tu]?.name || 'Игрок'} остался! (ЗА:${y} ПРОТИВ:${n})`);
         }
         
         // Очищаем activeVote
         GameState.roomRef.child('activeVote').remove();
-        GameState.lastVoteEndTime=Date.now(); 
-        GameState.currentVoteTarget=null;
+        GameState.lastVoteEndTime = Date.now();
+        GameState.currentVoteTarget = null;
     });
 }
 
