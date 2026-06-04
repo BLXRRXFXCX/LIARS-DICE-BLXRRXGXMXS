@@ -823,10 +823,17 @@ function renderPlayerList() {
         ti.textContent = '⏳';
         slot.appendChild(ti);
 
+               // Жизни
         const lives = document.createElement('div');
         lives.className = 'slot-lives';
         const ml = p.maxLives || 3;
         const total = ml + (p.blood || 0);
+        
+        // Добавляем класс compact если жизней >= 4
+        if (total >= 4) {
+            lives.classList.add('compact');
+        }
+        
         for (let j = 0; j < Math.min(total, ml + 3); j++) {
             const sp = document.createElement('span');
             if (p.isGhost) { sp.className = 'heart'; sp.textContent = '👻'; }
