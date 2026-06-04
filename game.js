@@ -1952,24 +1952,38 @@ if (sum) sum.innerHTML = sm || 'Нет кубиков';
     }
     
     // Обновляем результат на панели
+   // Сохраняем для кнопки ПРОВЕРКА (без результата пока)
+GameState.lastAccusationData = {
+    phrase: ph?.textContent || '',
+    diceSummary: sum?.innerHTML || '',
+    resultText: 'Проверка кубиков...',  // ← Показываем "Проверка..." как у игрока
+    resultClass: '',
+    effects: ''
+};
+
+// Показываем результат через 3 секунды (как у игрока)
+setTimeout(() => {
+    // Обновляем результат на панели
     const rEl = document.getElementById('accusationResult');
     const eEl = document.getElementById('accusationEffects');
     const resultText = isLie ? '✅ ЛОЖНАЯ СТАВКА!' : '❌ ПРАВДИВАЯ СТАВКА!';
     const resultClass = isLie ? 'accusation-result effect-green' : 'accusation-result effect-red';
     if (rEl) { rEl.textContent = resultText; rEl.className = resultClass; }
     
+    // Сохраняем результат для кнопки ПРОВЕРКА
     GameState.lastAccusationData.resultText = resultText;
     GameState.lastAccusationData.resultClass = resultClass;
     GameState.lastAccusationData.effects = eEl?.innerHTML || '';
-    
-    setTimeout(() => {
-        document.getElementById('accusationPanel').style.display = 'none';
-        GameState.gameState='betting';
-        safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
-        checkDeath();
-        setTimeout(startNewRound, 3000);
-    }, 5000);
-}
+}, 3000);
+
+// Закрываем панель через 5 секунд
+setTimeout(() => {
+    document.getElementById('accusationPanel').style.display = 'none';
+    GameState.gameState='betting';
+    safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
+    checkDeath();
+    setTimeout(startNewRound, 3000);
+}, 5000);
 // ============================================================
 // АРТЕФАКТЫ
 // ============================================================
