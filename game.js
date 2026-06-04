@@ -202,7 +202,7 @@ function showLastCheck() {
     const effects = document.getElementById('checkEffects');
 
     if (phrase) phrase.textContent = data?.phrase || 'Нет данных';
-    if (summary) summary.innerHTML = data?.diceSummary || 'Нет данных';
+    if (summary) summary.innerHTML = data?.diceSummary || 'Нет данных'; // ← innerHTML вместо textContent
     if (result) {
         result.textContent = data?.resultText || 'Нет данных';
         result.className = `accusation-result ${data?.resultClass || ''}`;
