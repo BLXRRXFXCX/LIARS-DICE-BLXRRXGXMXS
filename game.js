@@ -1725,7 +1725,7 @@ function accuseFromBot(botId) {
         diceSummary: sum?.innerHTML || '',
         resultText: 'Проверка...',
         resultClass: '',
-        effects: eff?.innerHTML || ''
+        effects: ''
     };
     
     addLogEntry('accuse', `${bot.name} обвиняет ${acc?.name || 'Цель'}!`);
@@ -1734,59 +1734,59 @@ function accuseFromBot(botId) {
     let tw=0;
     Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost)p.dice.forEach(d=>{if(parseInt(d)===tv)tw++;});});
     const ilw=tw<GameState.lastBet.count;
-let tot=tw; let ws=false;
+    let tot=tw; let ws=false;
     if(acc?.artifact?.id==='wildDie'){tot++;ws=true;}
-    const isLieWithoutWild = tw < GameState.lastBet.count;  // ← ДОБАВЬ ЭТУ СТРОКУ!
+    const isLieWithoutWild = tw < GameState.lastBet.count;
     let isLie=tot<GameState.lastBet.count;
     if(acc?.cursed||acc?.familiarCursed) isLie=true;
 
-    // === ДОБАВЛЯЕМ ЭФФЕКТЫ НА ПАНЕЛЬ (как в resolveAccusation) ===
-    if(isLie) {
-        applyPoison(auid,1,'Ложная (бот)');
-        addEffectLine(`🔴 ${acc?.name || 'Цель'} получает +1 яд`, eff);
-        
-        if(acc?.artifact?.id==='bloodthirst'){
-            applyBlood(botId,1);
-            applyPoison(auid,2,'Кровь (бот)');
-            addEffectLine(`🟢 ${bot.name} +1 кровь | 🔴 ${acc.name} +2 яда`, eff);
-        }
-        else if(acc?.artifact?.id==='deceiver') {
-            applyPoison(botId,2,'Обманщик (бот)');
-            addEffectLine(`🟣 ${acc.name}: Обманщик | 🔴 ${bot.name} +2 яда`, eff);
-        }
-        else if(acc?.darkPact) {
-            applyPoison(auid,1,'Договор (бот)');
-            addEffectLine(`🟣 ${acc.name}: Тёмный Договор → +1 доп. яд`, eff);
-        }
-        
-        if(ws&&ilw&&!isLie) {
-            applyPoison(botId,2,'Дикий (бот)');
-            addEffectLine(`🔵 Дикий Кубик спас ставку! ${bot.name} +2 яда`, eff);
-        }
-    } else {
-        applyPoison(botId,1,'Ошибка (бот)');
-        addEffectLine(`🔴 ${bot.name} получает +1 яд`, eff);
-        
-        if(acc?.artifact?.id==='bloodthirst') {
-            applyBlood(auid,1);
-            addEffectLine(`🟢 ${acc.name} получает +1 кровь`, eff);
-        }
-        if(acc?.darkPact) {
-            const up={darkPact:false,darkPactShield:true,darkPactRound:GameState.roundNumber+1};
-            safeUpdate(GameState.roomRef.child('players').child(auid), up, 'bot-acc-dp');
-            addEffectLine(`🟡 ${acc.name}: Тёмный Договор → щит`, eff);
-        }
-        if(ws && !isLieWithoutWild) addEffectLine(`🔵 Дикий Кубик был, но ставка и так верна`, eff);
-    }
-    // === КОНЕЦ БЛОКА ЭФФЕКТОВ ===
-
-       // Показываем результат и эффекты через 3 секунды
+    // Показываем результат И ЭФФЕКТЫ через 3 секунды
     setTimeout(() => {
         const rEl = document.getElementById('accusationResult');
         const eEl = document.getElementById('accusationEffects');
         const resultText = isLie ? '✅ ЛОЖНАЯ СТАВКА!' : '❌ ПРАВДИВАЯ СТАВКА!';
         const resultClass = isLie ? 'accusation-result effect-green' : 'accusation-result effect-red';
         if (rEl) { rEl.textContent = resultText; rEl.className = resultClass; }
+        
+        // === ДОБАВЛЯЕМ ЭФФЕКТЫ (теперь внутри setTimeout!) ===
+        if(isLie) {
+            applyPoison(auid,1,'Ложная (бот)');
+            addEffectLine(`🔴 ${acc?.name || 'Цель'} получает +1 яд`, eEl);
+            
+            if(acc?.artifact?.id==='bloodthirst'){
+                applyBlood(botId,1);
+                applyPoison(auid,2,'Кровь (бот)');
+                addEffectLine(`🟢 ${bot.name} +1 кровь | 🔴 ${acc.name} +2 яда`, eEl);
+            }
+            else if(acc?.artifact?.id==='deceiver') {
+                applyPoison(botId,2,'Обманщик (бот)');
+                addEffectLine(`🟣 ${acc.name}: Обманщик | 🔴 ${bot.name} +2 яда`, eEl);
+            }
+            else if(acc?.darkPact) {
+                applyPoison(auid,1,'Договор (бот)');
+                addEffectLine(`🟣 ${acc.name}: Тёмный Договор → +1 доп. яд`, eEl);
+            }
+            
+            if(ws&&ilw&&!isLie) {
+                applyPoison(botId,2,'Дикий (бот)');
+                addEffectLine(`🔵 Дикий Кубик спас ставку! ${bot.name} +2 яда`, eEl);
+            }
+        } else {
+            applyPoison(botId,1,'Ошибка (бот)');
+            addEffectLine(`🔴 ${bot.name} получает +1 яд`, eEl);
+            
+            if(acc?.artifact?.id==='bloodthirst') {
+                applyBlood(auid,1);
+                addEffectLine(`🟢 ${acc.name} получает +1 кровь`, eEl);
+            }
+            if(acc?.darkPact) {
+                const up={darkPact:false,darkPactShield:true,darkPactRound:GameState.roundNumber+1};
+                safeUpdate(GameState.roomRef.child('players').child(auid), up, 'bot-acc-dp');
+                addEffectLine(`🟡 ${acc.name}: Тёмный Договор → щит`, eEl);
+            }
+            if(ws && !isLieWithoutWild) addEffectLine(`🔵 Дикий Кубик был, но ставка и так верна`, eEl);
+        }
+        // === КОНЕЦ БЛОКА ЭФФЕКТОВ ===
         
         GameState.lastAccusationData.resultText = resultText;
         GameState.lastAccusationData.resultClass = resultClass;
@@ -1802,6 +1802,16 @@ let tot=tw; let ws=false;
         };
         safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
     }, 3000);
+
+    // Закрываем панель через 5 секунд
+    setTimeout(() => {
+        document.getElementById('accusationPanel').style.display = 'none';
+        GameState.gameState='betting';
+        safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
+        checkDeath();
+        setTimeout(startNewRound, 3000);
+    }, 5000);
+}
 
 function useArtifact(id) {
     if(GameState.gameState!=='betting') return;
