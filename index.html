@@ -114,24 +114,21 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
     justify-content: center;
 }
 
-   #accusationDiceSummary, #checkDiceSummary {
+  #accusationDiceSummary, #checkDiceSummary {
     font-size: 1em;
     text-align: center;
     color: #ffd700;
     margin: 10px 0;
-    line-height: 2;
-    white-space: nowrap; /* Запрещаем перенос */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 15px;
-    flex-wrap: nowrap;
+    line-height: 1.8;
+    /* УБРАЛИ: white-space: nowrap, display: flex, justify-content, align-items, gap, flex-wrap */
 }
 
 .dice-label {
-    font-size: 0.8em; /* Было 1em - уменьшаем */
+    font-size: 1em;
     margin-bottom: 8px;
-    display: inline-block;
+    display: block;  /* ← ИЗМЕНИЛИ с inline-block на block */
+    color: #ffd700;
+    font-weight: bold;
 }
 
  .dice-item {
@@ -148,6 +145,7 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
     font-size: 0.9em;
     vertical-align: middle;
 }
+
 
 
 .dice-values {
