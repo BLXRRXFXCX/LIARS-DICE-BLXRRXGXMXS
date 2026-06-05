@@ -597,9 +597,11 @@ function setupRoomListeners() {
                 Object.values(GameState.players).forEach(p => {
                     if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
                 });
-                const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>`${ct[k]}×${getDieEmoji(k)}`).join(' ');
-                const sumEl = document.getElementById('accusationDiceSummary');
-                if (sumEl) sumEl.innerHTML = `📊 Всего на столе:<br>${sm || 'Нет кубиков'}`;
+                const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>
+    `<span class="dice-item"><span class="dice-count">${ct[k]}×</span><span class="big-die">${getDieEmoji(k)}</span></span>`
+).join(' ');
+const sumEl = document.getElementById('accusationDiceSummary');
+if (sumEl) sumEl.innerHTML = `<span class="dice-label">📊 Всего на столе:</span><br>${sm || 'Нет кубиков'}`;
                 GameState.lastAccusationData = {
                     phrase: ph?.textContent || '',
                     diceSummary: sumEl?.innerHTML || '',
