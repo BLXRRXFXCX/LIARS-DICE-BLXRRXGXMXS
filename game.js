@@ -575,15 +575,7 @@ function setupRoomListeners() {
                 localStorage.setItem('ld_wardrobe', JSON.stringify(GameState.myWardrobe));
             }
         }
-        if (data.accusationResult) {
-            GameState.lastAccusationData = {
-                phrase: data.accusingData ? `${GameState.players[data.accusingData.accused]?.name || 'Цель'} обвинён!` : '',
-                diceSummary: '—',
-                resultText: data.accusationResult.resultText || '',
-                resultClass: data.accusationResult.resultClass || '',
-                effects: data.accusationResult.effects || ''
-            };
-        }
+       
         const panel = document.getElementById('accusationPanel');
         const res = data.accusationResult;
         if (GameState.gameState === 'accusing') {
