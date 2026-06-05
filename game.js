@@ -1734,8 +1734,9 @@ function accuseFromBot(botId) {
     let tw=0;
     Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost)p.dice.forEach(d=>{if(parseInt(d)===tv)tw++;});});
     const ilw=tw<GameState.lastBet.count;
-    let tot=tw; let ws=false;
+let tot=tw; let ws=false;
     if(acc?.artifact?.id==='wildDie'){tot++;ws=true;}
+    const isLieWithoutWild = tw < GameState.lastBet.count;  // ← ДОБАВЬ ЭТУ СТРОКУ!
     let isLie=tot<GameState.lastBet.count;
     if(acc?.cursed||acc?.familiarCursed) isLie=true;
 
@@ -1779,7 +1780,7 @@ function accuseFromBot(botId) {
     }
     // === КОНЕЦ БЛОКА ЭФФЕКТОВ ===
 
-    // Показываем результат через 3 секунды
+       // Показываем результат и эффекты через 3 секунды
     setTimeout(() => {
         const rEl = document.getElementById('accusationResult');
         const eEl = document.getElementById('accusationEffects');
@@ -1801,16 +1802,6 @@ function accuseFromBot(botId) {
         };
         safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
     }, 3000);
-    
-    // Закрываем панель через 5 секунд
-    setTimeout(() => {
-        document.getElementById('accusationPanel').style.display = 'none';
-        GameState.gameState='betting';
-        safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
-        checkDeath();
-        setTimeout(startNewRound, 3000);
-    }, 5000);
-}
 
 function useArtifact(id) {
     if(GameState.gameState!=='betting') return;
