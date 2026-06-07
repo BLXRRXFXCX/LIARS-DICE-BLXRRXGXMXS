@@ -1,13 +1,12 @@
+Проверь данный код целиком именно на наличие ошибок, которые могут не запускать игру, т.к. у меня не появляются игроки, не начинается стадия лобби и т.д., а не на внутренние помехи и некорректности, игра НЕ ЗАПУСКАЕТСЯ в целом, найди КРИТИЧНЫЕ ошибки
+
 /* ============================================================
 LIAR'S DICE v8.7 — FINAL RELEASE (UI REDESIGN)
 ============================================================ */
 const DEBUG = false;
 function log(...args) { if (DEBUG) console.log('[Game]', ...args); }
 function logError(...args) { console.error('[Game Error]', ...args); }
-window.onerror = function(msg, url, line) {
-    alert('Ошибка: ' + msg + '\nСтрока: ' + line);
-};
-}
+
 const DIE_EMOJI_CACHE = ['?', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
 function getDieEmoji(v) {
     const val = parseInt(v) || 1;
@@ -357,23 +356,8 @@ function selectTauntMood(mood) {
 
 let audioContext = null;
 function setupAudioContext() {
-    // Не создаём сразу, ждём касания
-    if (!audioContext) {
-        // Вешаем слушатель на первое касание
-        const initAudio = () => {
-            try { 
-                audioContext = new (window.AudioContext || window.webkitAudioContext)(); 
-                // Пытаемся включить звук (он будет в suspend состоянии)
-                if (audioContext.state === 'suspended') {
-                    audioContext.resume();
-                }
-                document.removeEventListener('touchstart', initAudio);
-                document.removeEventListener('click', initAudio);
-            } catch(e) { logError('AudioContext:', e); }
-        };
-        document.addEventListener('touchstart', initAudio);
-        document.addEventListener('click', initAudio);
-    }
+    try { audioContext = new (window.AudioContext || window.webkitAudioContext)(); }
+    catch(e) { logError('AudioContext:', e); }
 }
 
 function playSound(type) {
