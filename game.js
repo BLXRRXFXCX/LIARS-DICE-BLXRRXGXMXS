@@ -722,9 +722,9 @@ function getCurrentPlayerUid() {
 function updateLastBetDisplay() {
     const el = document.getElementById('lastBetDisplay');
     if (!el) return;
-    if (GameState.lastBet && GameState.players[GameState.lastBet.player]) {
-        const p = GameState.players[GameState.lastBet.player];
-        el.innerHTML = `${escapeHtml(p.name)}: ${GameState.lastBet.count}×<span style="font-size:1.4em;">${getDieEmoji(GameState.lastBet.value)}</span>`;
+   if (GameState.lastBet && GameState.players[GameState.lastBet.player]) {
+    const p = GameState.players[GameState.lastBet.player];
+    el.innerHTML = `${escapeHtml(p.name)}: ${GameState.lastBet.count}×<span style="font-size:1.4em;">${getDieEmoji(GameState.lastBet.value)}</span>`;
     } else {
         el.textContent = 'Последняя ставка: —';
     }
@@ -1126,11 +1126,11 @@ function resolveAccusation(accusedUid) {
     checkDeath();
     // Устанавливаем lastBet на accuser, чтобы следующий ход был после него
     if (GameState.lastAccuser) {
-        GameState.lastBet = { player: GameState.lastAccuser, count: 1, value: 1 };
-    }
+    GameState.lastBet = { player: GameState.lastAccuser, count: 1, value: 1 };
+}
     setTimeout(startNewRound, 1000);
 }, 2000);
-
+}
 function addEffectLine(t, c) {
     if (c) { const d = document.createElement('div'); d.textContent = t; c.appendChild(d); }
 }
