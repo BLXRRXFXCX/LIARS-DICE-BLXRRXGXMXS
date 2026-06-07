@@ -543,7 +543,8 @@ function setupRoomListeners() {
         GameState.roundNumber = data.round || 0;
         GameState.artifactHistory = Array.isArray(data.artifactHistory) ? data.artifactHistory.slice(-MAX_HISTORY) : [];
         GameState.turnCounter = data.turnCounter || 0;
-        GameState.currentPlayerUid = data.currentPlayerUid || null;
+      GameState.currentPlayerUid = data.currentPlayerUid || null;
+GameState.lastAccuser = data.lastAccuser || null;  // ← читаем обвинителя
         Object.keys(GameState.players).forEach(uid => {
             if (!validatePlayerData(GameState.players[uid])) logError(`⚠️ Bad player data: ${uid}`);
         });
@@ -1109,8 +1110,9 @@ function resolveAccusation(accusedUid) {
     const html = e?.innerHTML || '';
     const resultText = r?.textContent || '';
     const resultClass = r?.className || '';
-    updates['accusationResult'] = { isLie, effects: html, resultText: resultText, resultClass: resultClass };
-    safeUpdate(GameState.roomRef, updates, 'resolve-result');
+   updates['accusationResult'] = { isLie, effects: html, resultText: resultText, resultClass: resultClass };
+updates['lastAccuser'] = GameState.lastAccuser;  // ← сохраняем обвинителя в Firebase
+safeUpdate(GameState.roomRef, updates, 'resolve-result');
     GameState.lastAccusationData = {
         phrase: document.getElementById('accusationPhrase')?.textContent || '',
         diceSummary: document.getElementById('accusationDiceSummary')?.innerHTML || '',
@@ -1119,15 +1121,12 @@ function resolveAccusation(accusedUid) {
         effects: html
     };
     addLogEntry('accuse', `Результат: ${resultText}`);
-   setTimeout(() => {
+  setTimeout(() => {
     document.getElementById('accusationPanel').style.display = 'none';
     GameState.gameState = 'betting';
     safeUpdate(GameState.roomRef, { state: 'betting', accusingData: null, accusationResult: null }, 'resolve-end');
     checkDeath();
-    // Устанавливаем lastBet на accuser, чтобы следующий ход был после него
-    if (GameState.lastAccuser) {
-    GameState.lastBet = { player: GameState.lastAccuser, count: 1, value: 1 };
-}
+    // lastAccuser уже сохранён в Firebase — startNewRound использует его
     setTimeout(startNewRound, 1000);
 }, 2000);
 }
@@ -1363,16 +1362,23 @@ async function startNewRound() {
     updates.turnCounter = GameState.turnCounter;
     updates.artifactHistory = GameState.artifactHistory;
     const au = Object.keys(GameState.players).filter(u => GameState.players[u]?.alive && !GameState.players[u]?.isGhost);
-    if (au.length) {
-        au.sort((a,b)=>(GameState.players[a].joinedAt||0)-(GameState.players[b].joinedAt||0));
-        if (lastBetCopy && lastBetCopy.player) {
-            const idx = au.indexOf(lastBetCopy.player);
-            updates.currentPlayerUid = idx !== -1 ? au[(idx+1)%au.length] : au[0];
-        } else {
-            updates.currentPlayerUid = au[0];
-        }
-        GameState.currentPlayerUid = updates.currentPlayerUid;
+   if (au.length) {
+    au.sort((a,b)=>(GameState.players[a].joinedAt||0)-(GameState.players[b].joinedAt||0));
+    
+    // Если было обвинение — ход переходит к обвинителю (а не к следующему!)
+    if (GameState.lastAccuser && au.includes(GameState.lastAccuser)) {
+        updates.currentPlayerUid = GameState.lastAccuser;
+        updates['lastAccuser'] = null;  // очищаем после использования
+        GameState.lastAccuser = null;
+    } else if (lastBetCopy && lastBetCopy.player) {
+        // Обычный случай — ход переходит к следующему после того, кто сделал ставку
+        const idx = au.indexOf(lastBetCopy.player);
+        updates.currentPlayerUid = idx !== -1 ? au[(idx+1)%au.length] : au[0];
+    } else {
+        updates.currentPlayerUid = au[0];
     }
+    GameState.currentPlayerUid = updates.currentPlayerUid;
+}
     safeUpdate(GameState.roomRef, updates, 'newRound');
     addLogEntry('system', `=== РАУНД ${GameState.roundNumber} НАЧАЛСЯ! ===`);
     playSound('round');
@@ -1816,24 +1822,24 @@ function accuseFromBot(botId) {
         GameState.lastAccusationData.effects = eEl?.innerHTML || '';
         
         // Сохраняем в Firebase для других игроков
-        const updates = {};
-        updates['accusationResult'] = {
-            isLie: isLie,
-            effects: eEl?.innerHTML || '',
-            resultText: resultText,
-            resultClass: resultClass
-        };
-        safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
+const updates = {};
+updates['accusationResult'] = {
+    isLie: isLie,
+    effects: eEl?.innerHTML || '',
+    resultText: resultText,
+    resultClass: resultClass
+};
+updates['lastAccuser'] = botId;  // ← сохраняем бота-обвинителя
+safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
     }, 3000);
 
     // Закрываем панель через 5 секунд
-  setTimeout(() => {
+setTimeout(() => {
     document.getElementById('accusationPanel').style.display = 'none';
     GameState.gameState='betting';
     safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
     checkDeath();
-    // Устанавливаем lastBet на бота-обвинителя, чтобы следующий ход был после него
-    GameState.lastBet = { player: botId, count: 1, value: 1 };
+    // lastAccuser уже сохранён в Firebase — startNewRound использует его
     setTimeout(startNewRound, 3000);
 }, 5000);
 }
