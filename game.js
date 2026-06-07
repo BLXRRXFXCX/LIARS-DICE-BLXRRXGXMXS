@@ -585,15 +585,14 @@ function setupRoomListeners() {
                 const accused = GameState.players[ad.accused];
                 const ph = document.getElementById('accusationPhrase');
                 if (ph && accused) ph.textContent = `${accused.name} обвинён в блефе! Проверка...`;
-                let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
+                              let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
                 Object.values(GameState.players).forEach(p => {
                     if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
                 });
-                const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>
-    `<span class="dice-item"><span class="dice-count">${ct[k]}×</span><span class="big-die">${getDieEmoji(k)}</span></span>`
-).join(' ');
-const sumEl = document.getElementById('accusationDiceSummary');
-if (sumEl) sumEl.innerHTML = `<span class="dice-label">📊 Всего на столе:</span><br>${sm || 'Нет кубиков'}`;
+                const diceHtml = renderDiceAndBetInfo(ct);
+                const sumEl = document.getElementById('accusationDiceSummary');
+                if (sumEl) sumEl.innerHTML = diceHtml;
+                
                 GameState.lastAccusationData = {
                     phrase: ph?.textContent || '',
                     diceSummary: sumEl?.innerHTML || '',
@@ -988,6 +987,30 @@ function placeBet() {
     nextTurn();
 }
 
+
+function renderDiceAndBetInfo(ct) {
+    const fmt = keys => keys.filter(k => ct[k] > 0).map(k =>
+        `<span class="dice-item"><span class="big-die">${getDieEmoji(k)}</span><span class="dice-count">×${ct[k]}</span></span>`
+    ).join(' ');
+    
+    const top = fmt([1,2,3]);
+    const bot = fmt([4,5,6]);
+    
+    let html = `<div class="dice-rows">`;
+    if (top) html += `<div class="dice-line">${top}</div>`;
+    if (bot) html += `<div class="dice-line">${bot}</div>`;
+    if (!top && !bot) html += `<div class="dice-line">Нет кубиков</div>`;
+    html += `</div>`;
+    
+    // Добавляем информацию о ставке
+    if (GameState.lastBet && GameState.players[GameState.lastBet.player]) {
+        const p = GameState.players[GameState.lastBet.player];
+        html += `<div class="bet-info">⚖️ Обвиняемая ставка: <strong>${p.name}</strong> — ${GameState.lastBet.count}×${getDieEmoji(GameState.lastBet.value)}</div>`;
+    }
+    return html;
+}
+
+
 function accuse() {
     if (GameState.isActionInProgress) return;
     if (GameState.gameState !== 'betting' || !isMyTurn()) return;
@@ -1008,15 +1031,14 @@ function accuse() {
     if (res) { res.textContent = 'Проверка кубиков...'; res.className = 'accusation-result'; }
     const eff = document.getElementById('accusationEffects');
     if (eff) eff.innerHTML = '<h4 style="margin:5px 0; color:#ffd700;">📋 Эффекты:</h4>';
-    let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
+       let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
     Object.values(GameState.players).forEach(p => {
         if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
     });
-    const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>
-        `<span class="dice-item"><span class="dice-count">${ct[k]}×</span><span class="big-die">${getDieEmoji(k)}</span></span>`
-    ).join(' ');
+    const diceHtml = renderDiceAndBetInfo(ct);
     const sum = document.getElementById('accusationDiceSummary');
-if (sum) sum.innerHTML = `<span class="dice-label">📊 Всего на столе:</span><br>${sm || 'Нет кубиков'}`;
+    if (sum) sum.innerHTML = diceHtml;
+    
     document.getElementById('accusationPanel').style.display = 'block';
     playSound('accuse');
     GameState.lastAccusationData = {
@@ -1707,15 +1729,13 @@ function accuseFromBot(botId) {
     const eff = document.getElementById('accusationEffects');
     if (eff) eff.innerHTML = '<h4 style="margin:5px 0; color:#ffd700;">📋 Эффекты:</h4>';
     
-    let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
+       let ct = {1:0,2:0,3:0,4:0,5:0,6:0};
     Object.values(GameState.players).forEach(p => {
         if (p?.alive && !p.isGhost) p.dice.forEach(d => ct[parseInt(d)||1]++);
     });
-    const sm = Object.keys(ct).filter(k=>ct[k]>0).map(k=>
-        `<span class="dice-item"><span class="dice-count">${ct[k]}×</span><span class="big-die">${getDieEmoji(k)}</span></span>`
-    ).join(' ');
+    const diceHtml = renderDiceAndBetInfo(ct);
     const sum = document.getElementById('accusationDiceSummary');
-    if (sum) sum.innerHTML = `<span class="dice-label">📊 Всего на столе:</span><br>${sm || 'Нет кубиков'}`;
+    if (sum) sum.innerHTML = diceHtml;
     
     document.getElementById('accusationPanel').style.display = 'block';
     playSound('accuse');
