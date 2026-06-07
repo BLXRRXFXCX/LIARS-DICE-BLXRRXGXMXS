@@ -1050,6 +1050,7 @@ function accuse() {
     };
     addLogEntry('accuse', `${GameState.myName} обвиняет ${t}!`);
     if (GameState.timers.accusation) clearTimeout(GameState.timers.accusation);
+    GameState.lastAccuser = GameState.myUid;
     GameState.timers.accusation = setTimeout(() => resolveAccusation(GameState.lastBet.player), 3000);
 }
 
@@ -1119,14 +1120,17 @@ function resolveAccusation(accusedUid) {
         effects: html
     };
     addLogEntry('accuse', `Результат: ${resultText}`);
-    setTimeout(() => {
-        document.getElementById('accusationPanel').style.display = 'none';
-        GameState.gameState = 'betting';
-        safeUpdate(GameState.roomRef, { state: 'betting', accusingData: null, accusationResult: null }, 'resolve-end');
-        checkDeath();
-        setTimeout(startNewRound, 1000);
-    }, 2000);
-}
+   setTimeout(() => {
+    document.getElementById('accusationPanel').style.display = 'none';
+    GameState.gameState = 'betting';
+    safeUpdate(GameState.roomRef, { state: 'betting', accusingData: null, accusationResult: null }, 'resolve-end');
+    checkDeath();
+    // Устанавливаем lastBet на accuser, чтобы следующий ход был после него
+    if (GameState.lastAccuser) {
+        GameState.lastBet = { player: GameState.lastAccuser, count: 1, value: 1 };
+    }
+    setTimeout(startNewRound, 1000);
+}, 2000);
 
 function addEffectLine(t, c) {
     if (c) { const d = document.createElement('div'); d.textContent = t; c.appendChild(d); }
@@ -1824,14 +1828,15 @@ function accuseFromBot(botId) {
     }, 3000);
 
     // Закрываем панель через 5 секунд
-    setTimeout(() => {
-        document.getElementById('accusationPanel').style.display = 'none';
-        GameState.gameState='betting';
-        safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
-        checkDeath();
-        setTimeout(startNewRound, 3000);
-    }, 5000);
-}
+  setTimeout(() => {
+    document.getElementById('accusationPanel').style.display = 'none';
+    GameState.gameState='betting';
+    safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
+    checkDeath();
+    // Устанавливаем lastBet на бота-обвинителя, чтобы следующий ход был после него
+    GameState.lastBet = { player: botId, count: 1, value: 1 };
+    setTimeout(startNewRound, 3000);
+}, 5000);
 
 function useArtifact(id) {
     if(GameState.gameState!=='betting') return;
