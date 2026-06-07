@@ -247,15 +247,14 @@ function openWardrobe() {
 function renderWardrobePreview() {
     const preview = document.getElementById('wardrobePreview');
     if (!preview) return;
-    preview.innerHTML = `
-        <div style="display:flex; flex-direction:column; align-items:center;">
-            <div style="font-size:3em;">${GameState.myWardrobe.head}</div>
-            <div style="width:60px; height:50px; background:${GameState.myWardrobe.tuxedoColor}; border-radius:4px 4px 8px 8px; position:relative; border:2px solid ${GameState.myWardrobe.trimColor};">
-                <div style="position:absolute; left:15px; top:5px; width:2px; height:40px; background:${GameState.myWardrobe.trimColor};"></div>
-                <div style="position:absolute; right:15px; top:5px; width:2px; height:40px; background:${GameState.myWardrobe.trimColor};"></div>
-            </div>
-        </div>
-    `;
+  preview.innerHTML = `
+<div style="display:flex; flex-direction:column; align-items:center;">
+    <div style="font-size:3em;">${GameState.myWardrobe.head}</div>
+    <div style="width:60px; height:50px; background:${GameState.myWardrobe.tuxedoColor}; border-radius:4px 4px 8px 8px; position:relative; border:2px solid ${GameState.myWardrobe.trimColor};">
+        <div style="position:absolute; left:15px; top:5px; width:2px; height:40px; background:${GameState.myWardrobe.trimColor};"></div>
+        <div style="position:absolute; right:15px; top:5px; width:2px; height:40px; background:${GameState.myWardrobe.trimColor};"></div>
+    </div>
+</div>`;
 }
 
 function saveWardrobe() {
@@ -1837,7 +1836,7 @@ function accuseFromBot(botId) {
     GameState.lastBet = { player: botId, count: 1, value: 1 };
     setTimeout(startNewRound, 3000);
 }, 5000);
-
+}
 function useArtifact(id) {
     if(GameState.gameState!=='betting') return;
     const m=GameState.players[GameState.myUid];
@@ -1920,7 +1919,7 @@ function useArtifact(id) {
                 markArtifactUsed(id);
             }); break;
         case 'spy':
-           if(GameState.spyMemory[GameState.myUid]&&GameState.spyMemory[GameState.myUid].value&&GameState.roundNumber===GameState.spyMemory[GameState.myUid].round) {
+if(GameState.spyMemory[GameState.myUid]&&GameState.spyMemory[GameState.myUid].value&&GameState.roundNumber===GameState.spyMemory[GameState.myUid].round) {
     const targetName = GameState.players[GameState.spyMemory[GameState.myUid].target]?.name || 'Цель';
     const emoji = getDieEmoji(GameState.spyMemory[GameState.myUid].value);
     showNotification(
