@@ -2532,7 +2532,7 @@ function bindEventListeners() {
     document.getElementById('menuBotRemoveAll')?.addEventListener('click', ()=>{removeAllBots();});
     document.getElementById('menuBotDifficulty')?.addEventListener('click', e=>{e.stopPropagation();setBotDifficulty((GameState.botDifficulty+1)%4);});
     window.addEventListener('beforeunload', clearAllTimers);
-    
+}
 window.onload = () => {
     const params=new URLSearchParams(window.location.search);
     let room=params.get('room');
