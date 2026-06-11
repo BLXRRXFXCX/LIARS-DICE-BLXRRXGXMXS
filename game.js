@@ -715,9 +715,20 @@ function getCurrentPlayerUid() {
     });
     if (!au.length) return null;
     au.sort((a,b) => (GameState.players[a].joinedAt||0) - (GameState.players[b].joinedAt||0));
-    if (!GameState.lastBet || !GameState.lastBet.player) return au[0];
-    const idx = au.indexOf(GameState.lastBet.player);
-    return au[(idx + 1) % au.length];
+    
+    // Приоритет 1: используем currentPlayerUid из Firebase (он всегда актуальный)
+    if (GameState.currentPlayerUid && au.includes(GameState.currentPlayerUid)) {
+        return GameState.currentPlayerUid;
+    }
+    
+    // Приоритет 2: fallback — вычисляем следующего после lastBet
+    if (GameState.lastBet && GameState.lastBet.player) {
+        const idx = au.indexOf(GameState.lastBet.player);
+        if (idx !== -1) return au[(idx + 1) % au.length];
+    }
+    
+    // Приоритет 3: первый игрок
+    return au[0];
 }
 
 function updateLastBetDisplay() {
