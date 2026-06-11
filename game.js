@@ -1168,8 +1168,17 @@ function addEffectLine(t, c) {
 }
 
 function applyPoison(uid, amt, reason) {
+   function applyPoison(uid, amt, reason) {
     const p = GameState.players[uid];
     if (!p) return;
+    
+    // Проверка щита Тёмного Договора
+    if (p.darkPactShield && p.darkPactRound === GameState.roundNumber) {
+        addLogEntry('system', `${p.name} защищён ТЁМНЫМ ДОГОВОРОМ!`);
+        safeUpdate(GameState.roomRef.child('players').child(uid), { darkPactShield: false }, 'dark-shield');
+        return;
+    }
+    
     if (p.devilShield && p.devilShieldRound === GameState.roundNumber) {
         addLogEntry('system', `${p.name} защищён ЩИТОМ ДЬЯВОЛА!`);
         safeUpdate(GameState.roomRef.child('players').child(uid), { devilShield: false }, 'shield');
@@ -1180,6 +1189,7 @@ function applyPoison(uid, amt, reason) {
         safeUpdate(GameState.roomRef.child('players').child(uid), { defenderActive: false }, 'defender');
         return;
     }
+
     let rem = amt;
     if (p.blood > 0) {
         const u = Math.min(p.blood, rem);
@@ -1883,24 +1893,34 @@ function useArtifact(id) {
     if(['deceiver','double'].includes(id)&&!isMyTurn()) return showNotification('Только в свой ход!', 'warning');
     if (art.type === 'active') GameState.pendingArtifact = id;
     switch(id) {
-        case 'target':
-            showTargetModalFirst(Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost), target=>{
-                showNominalModal(nom=>{
-                    const t=target;
-                    if(GameState.players[t].dice.length<=1) return showNotification('Нельзя последний кубик!', 'warning');
-                    const i=GameState.players[t].dice.indexOf(nom);
-                    if(i===-1) return showNotification(`Нет кубика ${getDieEmoji(nom)}!`, 'warning');
-                    GameState.players[t].dice.splice(i,1);
-                    safeUpdate(GameState.roomRef.child('players').child(t), {dice:GameState.players[t].dice}, 'target');
-                    addLogEntry('artifact', `${m.name} уничтожил ${getDieEmoji(nom)} у ${GameState.players[t].name}`);
-                    markArtifactUsed(id);
-                });
-            }); break;
-        case 'fireball': case 'luck':
-            const nd=m.dice.map(d=>{if(m.frozen)return d;return id==='luck'?(Math.random()<0.7?Math.floor(Math.random()*3)+4:Math.floor(Math.random()*3)+1):Math.floor(Math.random()*6)+1;});
-            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {dice:nd,evilEyed:false}, 'fireball');
-            addLogEntry('artifact', `${m.name} использовал ${art.name}`);
-            markArtifactUsed(id); break;
+       case 'target':
+    showTargetModalFirst(Object.keys(GameState.players).filter(u =>
+        u !== GameState.myUid &&
+        GameState.players[u]?.alive &&
+        !GameState.players[u]?.isGhost &&
+        !GameState.players[u]?.frozen  // ← ДОБАВИТЬ эту строку
+    ), target => {
+        showNominalModal(nom => {
+            const t = target;
+            if (GameState.players[t].dice.length <= 1) return showNotification('Нельзя последний кубик!', 'warning');
+            const i = GameState.players[t].dice.indexOf(nom);
+            if (i === -1) return showNotification(`Нет кубика ${getDieEmoji(nom)}!`, 'warning');
+            GameState.players[t].dice.splice(i, 1);
+            safeUpdate(GameState.roomRef.child('players').child(t), { dice: GameState.players[t].dice }, 'target');
+            addLogEntry('artifact', `${m.name} уничтожил ${getDieEmoji(nom)} у ${GameState.players[t].name}`);
+            markArtifactUsed(id);
+        });
+    });
+    break;
+      case 'fireball': case 'luck':
+    const nd = m.dice.map(d => {
+        if (m.frozen) return d;
+        return id === 'luck' ? (Math.random() < 0.7 ? Math.floor(Math.random() * 3) + 4 : Math.floor(Math.random() * 3) + 1) : Math.floor(Math.random() * 6) + 1;
+    });
+    safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), { dice: nd, evilEyed: false }, 'fireball');
+    addLogEntry('artifact', `${m.name} использовал ${art.name}`);
+    markArtifactUsed(id);
+    break;
         case 'blessing':
             if(m.poisons>0) {
                 safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {poisons:m.poisons-1}, 'bless');
@@ -1918,10 +1938,15 @@ function useArtifact(id) {
                 }
             } break;
         case 'thief':
-            if(GameState.thiefUsedThisRound) { GameState.pendingArtifact = null; return showNotification('Вор уже использован!', 'warning'); }
-            const tt=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.artifact&&GameState.players[u].artifact.type==='active'&&!GameState.usedSpecialThisRound[GameState.players[u].artifact.id]);
-            if(!tt.length) { GameState.pendingArtifact = null; return showNotification('Некого красть!', 'warning'); }
-            showTargetModal(tt, t=>{
+    if (GameState.thiefUsedThisRound) { GameState.pendingArtifact = null; return showNotification('Вор уже использован!', 'warning'); }
+    const tt = Object.keys(GameState.players).filter(u =>
+        u !== GameState.myUid &&
+        GameState.players[u]?.artifact &&
+        GameState.players[u].artifact.type === 'active' &&
+        !GameState.usedSpecialThisRound[GameState.players[u].artifact.id]
+    );
+    if (!tt.length) { GameState.pendingArtifact = null; return showNotification('Нечего красть!', 'warning'); }
+    showTargetModal(tt, t => {
                 const st=GameState.players[t].artifact;
                 if(GameState.usedSpecialThisRound[st.id]) delete GameState.usedSpecialThisRound[st.id];
                 safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {artifact:st,usedSpecialThisRound:GameState.usedSpecialThisRound}, 'thief');
@@ -1939,7 +1964,9 @@ function useArtifact(id) {
             safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {lastBetInRound:nb}, 'deceiver-p');
             GameState.turnCounter++; renderUI();
             addLogEntry('artifact', `${m.name} использовал Обманщика`);
-            markArtifactUsed(id); break;
+            markArtifactUsed(id); 
+            nextTurn();
+            break;
         case 'clone':
             const tc=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost);
             if(!tc.length) { GameState.pendingArtifact = null; return; }
@@ -1984,29 +2011,36 @@ if(GameState.spyMemory[GameState.myUid]&&GameState.spyMemory[GameState.myUid].va
                 addLogEntry('artifact', `${m.name} заморозил ${GameState.players[t].name}`);
                 markArtifactUsed(id);
             }); break;
-        case 'analyst':
-            showNominalModal(n=>{
-                let c=0; Object.values(GameState.players).forEach(p=>{if(p?.alive&&!p.isGhost&&p.dice.includes(n))c++;});
-                showNotification(
-                    `АНАЛИТИК: ${c} игроков имеют <span style="font-size:2em; vertical-align:middle;">${getDieEmoji(n)}</span>`,
-                    'info', 0, true
-                );
-                markArtifactUsed(id);
-            }); break;
-        case 'double':
-            if(!GameState.lastBet) { GameState.pendingArtifact = null; return showNotification('Нет ставок!', 'warning'); }
-            const td=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.lastBetInRound);
-            if(!td.length) { GameState.pendingArtifact = null; return showNotification('Нет ставок!', 'warning'); }
-            showTargetModal(td, t=>{
-                const lb=GameState.players[t].lastBetInRound;
-                const nb={player:GameState.myUid,count:lb.count,value:lb.value};
-                GameState.lastBet=nb; GameState.players[GameState.myUid].lastBetInRound=nb;
-                safeUpdate(GameState.roomRef, {lastBet:nb,turnCounter:GameState.turnCounter+1}, 'double');
-                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {lastBetInRound:nb}, 'double-p');
-                GameState.turnCounter++; renderUI();
-                addLogEntry('artifact', `${m.name} скопировал ставку ${GameState.players[t].name}`);
-                markArtifactUsed(id);
-            }); break;
+       case 'analyst':
+    showNominalModal(n => {
+        let totalDice = 0;
+        Object.values(GameState.players).forEach(p => {
+            if (p?.alive && !p.isGhost) {
+                totalDice += p.dice.filter(d => d === n).length;
+            }
+        });
+        showNotification(`АНАЛИТИК: ${totalDice} кубиков ${getDieEmoji(n)} на столе`, 'info', 0, true);
+        markArtifactUsed(id);
+    });
+    break;
+       case 'double':
+    if (!GameState.lastBet) { GameState.pendingArtifact = null; return showNotification('Нет ставок!', 'warning'); }
+    const td = Object.keys(GameState.players).filter(u => u !== GameState.myUid && GameState.players[u]?.lastBetInRound);
+    if (!td.length) { GameState.pendingArtifact = null; return showNotification('Нет ставок!', 'warning'); }
+    showTargetModal(td, t => {
+        const lb = GameState.players[t].lastBetInRound;
+        const nb = { player: GameState.myUid, count: lb.count, value: lb.value };
+        GameState.lastBet = nb;
+        GameState.players[GameState.myUid].lastBetInRound = nb;
+        safeUpdate(GameState.roomRef, { lastBet: nb, turnCounter: GameState.turnCounter + 1 }, 'double');
+        safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), { lastBetInRound: nb }, 'double-p');
+        GameState.turnCounter++;
+        renderUI();
+        addLogEntry('artifact', `${m.name} скопировал ставку ${GameState.players[t].name}`);
+        markArtifactUsed(id);
+        nextTurn();
+    });
+    break;
         case 'evilEye':
             const te=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost&&!GameState.players[u]?.evilEyed);
             if(!te.length) { GameState.pendingArtifact = null; return; }
@@ -2031,9 +2065,16 @@ if(GameState.spyMemory[GameState.myUid]&&GameState.spyMemory[GameState.myUid].va
                 markArtifactUsed(id);
             }); break;
         case 'circus':
-            const cc=Object.keys(GameState.players).filter(u=>u!==GameState.myUid&&GameState.players[u]?.alive&&!GameState.players[u]?.isGhost&&!GameState.players[u]?.frozen&&GameState.players[u].dice.length>=2&&m.dice.length>=2);
-            if(!cc.length) { GameState.pendingArtifact = null; return showNotification('Нет целей!', 'warning'); }
-            showTargetModal(cc, t=>{
+    const cc = Object.keys(GameState.players).filter(u =>
+        u !== GameState.myUid &&
+        GameState.players[u]?.alive &&
+        !GameState.players[u]?.isGhost &&
+        !GameState.players[u]?.frozen && 
+        GameState.players[u].dice.length >= 2 &&
+        m.dice.length >= 2
+    );
+    if (!cc.length) { GameState.pendingArtifact = null; return showNotification('Нет целей!', 'warning'); }
+    showTargetModal(cc, t => {
                 let md=[...m.dice], td=[...GameState.players[t].dice];
                 let mi1=Math.floor(Math.random()*md.length), mi2=Math.floor(Math.random()*md.length); while(mi2===mi1)mi2=Math.floor(Math.random()*md.length);
                 let ti1=Math.floor(Math.random()*td.length), ti2=Math.floor(Math.random()*td.length); while(ti2===ti1)ti2=Math.floor(Math.random()*td.length);
