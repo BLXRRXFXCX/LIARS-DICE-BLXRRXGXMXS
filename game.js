@@ -1168,7 +1168,6 @@ function addEffectLine(t, c) {
 }
 
 function applyPoison(uid, amt, reason) {
-   function applyPoison(uid, amt, reason) {
     const p = GameState.players[uid];
     if (!p) return;
     
