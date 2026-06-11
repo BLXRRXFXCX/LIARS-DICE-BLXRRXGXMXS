@@ -1080,11 +1080,19 @@ function resolveAccusation(accusedUid) {
     if (accused?.artifact?.id === 'wildDie') { total++; wildSaved = true; }
     let isLie = total < GameState.lastBet.count;
     if (accused?.cursed || accused?.familiarCursed) isLie = true;
+    
     const r = document.getElementById('accusationResult');
     const e = document.getElementById('accusationEffects');
     const updates = {};
+    
+    // Сохраняем результат для показа
+    let resultText = '';
+    let resultClass = '';
+    let effectsHtml = '';
+    
     if (isLie) {
-        if (r) { r.textContent = '✅ ЛОЖНАЯ СТАВКА!'; r.className = 'accusation-result effect-green'; }
+        resultText = '✅ ЛОЖНАЯ СТАВКА!';
+        resultClass = 'accusation-result effect-green';
         applyPoison(accusedUid, 1, 'Ложная ставка');
         addEffectLine(`🔴 ${accused?.name || 'Цель'} получает +1 яд`, e);
         if (accused?.artifact?.id === 'bloodthirst') {
@@ -1103,7 +1111,8 @@ function resolveAccusation(accusedUid) {
             addEffectLine(`🔵 Дикий Кубик спас ставку! ${GameState.myName} +2 яда`, e);
         }
     } else {
-        if (r) { r.textContent = '❌ ПРАВДИВАЯ СТАВКА!'; r.className = 'accusation-result effect-red'; }
+        resultText = '❌ ПРАВДИВАЯ СТАВКА!';
+        resultClass = 'accusation-result effect-red';
         applyPoison(GameState.myUid, 1, 'Ошибочное обвинение');
         addEffectLine(`🔴 ${GameState.myName} получает +1 яд`, e);
         if (accused?.artifact?.id === 'bloodthirst') {
@@ -1118,28 +1127,35 @@ function resolveAccusation(accusedUid) {
         }
         if (wildSaved && !isLieWithoutWild) addEffectLine(`🔵 Дикий Кубик был, но ставка и так верна`, e);
     }
-    const html = e?.innerHTML || '';
-    const resultText = r?.textContent || '';
-    const resultClass = r?.className || '';
-   updates['accusationResult'] = { isLie, effects: html, resultText: resultText, resultClass: resultClass };
-updates['lastAccuser'] = GameState.lastAccuser;  // ← сохраняем обвинителя в Firebase
-safeUpdate(GameState.roomRef, updates, 'resolve-result');
+    
+    effectsHtml = e?.innerHTML || '';
+    
+    // Сохраняем данные в Firebase
+    updates['accusationResult'] = { isLie, effects: effectsHtml, resultText: resultText, resultClass: resultClass };
+    updates['lastAccuser'] = GameState.lastAccuser;
+    safeUpdate(GameState.roomRef, updates, 'resolve-result');
+    
     GameState.lastAccusationData = {
         phrase: document.getElementById('accusationPhrase')?.textContent || '',
         diceSummary: document.getElementById('accusationDiceSummary')?.innerHTML || '',
         resultText: resultText,
         resultClass: resultClass,
-        effects: html
+        effects: effectsHtml
     };
     addLogEntry('accuse', `Результат: ${resultText}`);
-  setTimeout(() => {
-    document.getElementById('accusationPanel').style.display = 'none';
-    GameState.gameState = 'betting';
-    safeUpdate(GameState.roomRef, { state: 'betting', accusingData: null, accusationResult: null }, 'resolve-end');
-    checkDeath();
-    // lastAccuser уже сохранён в Firebase — startNewRound использует его
-    setTimeout(startNewRound, 2500);
-}, 3000);
+    
+    // ПОКАЗЫВАЕМ РЕЗУЛЬТАТ (обновляем DOM)
+    if (r) { r.textContent = resultText; r.className = resultClass; }
+    
+    // Закрываем панель через 2 секунды ПОСЛЕ показа результата
+    setTimeout(() => {
+        document.getElementById('accusationPanel').style.display = 'none';
+        GameState.gameState = 'betting';
+        safeUpdate(GameState.roomRef, { state: 'betting', accusingData: null, accusationResult: null }, 'resolve-end');
+        checkDeath();
+        // Начинаем новый раунд через 0.5 секунды после закрытия
+        setTimeout(startNewRound, 500);
+    }, 3000);
 }
 function addEffectLine(t, c) {
     if (c) { const d = document.createElement('div'); d.textContent = t; c.appendChild(d); }
@@ -1780,7 +1796,6 @@ function accuseFromBot(botId) {
     let isLie=tot<GameState.lastBet.count;
     if(acc?.cursed||acc?.familiarCursed) isLie=true;
 
-    // Показываем результат И ЭФФЕКТЫ через 3 секунды
     setTimeout(() => {
         const rEl = document.getElementById('accusationResult');
         const eEl = document.getElementById('accusationEffects');
@@ -1788,7 +1803,7 @@ function accuseFromBot(botId) {
         const resultClass = isLie ? 'accusation-result effect-green' : 'accusation-result effect-red';
         if (rEl) { rEl.textContent = resultText; rEl.className = resultClass; }
         
-        // === ДОБАВЛЯЕМ ЭФФЕКТЫ (теперь внутри setTimeout!) ===
+        // === ДОБАВЛЯЕМ ЭФФЕКТЫ ===
         if(isLie) {
             applyPoison(auid,1,'Ложная (бот)');
             addEffectLine(`🔴 ${acc?.name || 'Цель'} получает +1 яд`, eEl);
@@ -1826,34 +1841,33 @@ function accuseFromBot(botId) {
             }
             if(ws && !isLieWithoutWild) addEffectLine(`🔵 Дикий Кубик был, но ставка и так верна`, eEl);
         }
-        // === КОНЕЦ БЛОКА ЭФФЕКТОВ ===
         
         GameState.lastAccusationData.resultText = resultText;
         GameState.lastAccusationData.resultClass = resultClass;
         GameState.lastAccusationData.effects = eEl?.innerHTML || '';
         
         // Сохраняем в Firebase для других игроков
-const updates = {};
-updates['accusationResult'] = {
-    isLie: isLie,
-    effects: eEl?.innerHTML || '',
-    resultText: resultText,
-    resultClass: resultClass
-};
-updates['lastAccuser'] = botId;  // ← сохраняем бота-обвинителя
-safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
-    }, 6000);
-
-    // Закрываем панель через 5 секунд
-setTimeout(() => {
-    document.getElementById('accusationPanel').style.display = 'none';
-    GameState.gameState='betting';
-    safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
-    checkDeath();
-    // lastAccuser уже сохранён в Firebase — startNewRound использует его
-    setTimeout(startNewRound, 2500);
-}, 3000);
-}
+        const updates = {};
+        updates['accusationResult'] = {
+            isLie: isLie,
+            effects: eEl?.innerHTML || '',
+            resultText: resultText,
+            resultClass: resultClass
+        };
+        updates['lastAccuser'] = botId;
+        safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
+        
+        // Закрываем панель через 1.5 секунды после показа результата
+        setTimeout(() => {
+            document.getElementById('accusationPanel').style.display = 'none';
+            GameState.gameState = 'betting';
+            safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
+            checkDeath();
+            // lastAccuser уже сохранён — startNewRound использует его
+            setTimeout(startNewRound, 500);
+        }, 3000);
+        
+    }, 5000); // ← результат появляется через 5 секунд
 function useArtifact(id) {
     if(GameState.gameState!=='betting') return;
     const m=GameState.players[GameState.myUid];
