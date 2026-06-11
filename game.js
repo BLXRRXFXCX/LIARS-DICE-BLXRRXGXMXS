@@ -1062,7 +1062,7 @@ function accuse() {
     addLogEntry('accuse', `${GameState.myName} обвиняет ${t}!`);
     if (GameState.timers.accusation) clearTimeout(GameState.timers.accusation);
     GameState.lastAccuser = GameState.myUid;
-    GameState.timers.accusation = setTimeout(() => resolveAccusation(GameState.lastBet.player), 3000);
+    GameState.timers.accusation = setTimeout(() => resolveAccusation(GameState.lastBet.player), 6000);
 }
 
 function resolveAccusation(accusedUid) {
@@ -1138,8 +1138,8 @@ safeUpdate(GameState.roomRef, updates, 'resolve-result');
     safeUpdate(GameState.roomRef, { state: 'betting', accusingData: null, accusationResult: null }, 'resolve-end');
     checkDeath();
     // lastAccuser уже сохранён в Firebase — startNewRound использует его
-    setTimeout(startNewRound, 1000);
-}, 2000);
+    setTimeout(startNewRound, 500);
+}, 3000);
 }
 function addEffectLine(t, c) {
     if (c) { const d = document.createElement('div'); d.textContent = t; c.appendChild(d); }
@@ -1274,7 +1274,7 @@ function startDevilDeal(uid) {
         GameState.gameState = 'betting';
         safeUpdate(GameState.roomRef, { state: 'betting' }, 'deal-refuse');
         document.getElementById('devilModal').style.display = 'none';
-        setTimeout(startNewRound, 2500);
+        setTimeout(startNewRound, 500);
     };
     const modal = document.getElementById('devilModal');
     const closeBtn = modal?.querySelector('.close-btn');
@@ -1294,7 +1294,7 @@ function resolveDevilDeal(updateData) {
     playSound('devilWin');
     GameState.gameState = 'betting';
     safeUpdate(GameState.roomRef, { state: 'betting' }, 'deal-end');
-    setTimeout(startNewRound, 2500);
+    setTimeout(startNewRound, 500);
 }
 
 function checkVengeance(uid) {
@@ -1842,7 +1842,7 @@ updates['accusationResult'] = {
 };
 updates['lastAccuser'] = botId;  // ← сохраняем бота-обвинителя
 safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
-    }, 3000);
+    }, 6000);
 
     // Закрываем панель через 5 секунд
 setTimeout(() => {
@@ -1851,8 +1851,8 @@ setTimeout(() => {
     safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
     checkDeath();
     // lastAccuser уже сохранён в Firebase — startNewRound использует его
-    setTimeout(startNewRound, 3000);
-}, 5000);
+    setTimeout(startNewRound, 500);
+}, 3000);
 }
 function useArtifact(id) {
     if(GameState.gameState!=='betting') return;
