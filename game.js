@@ -1138,7 +1138,7 @@ safeUpdate(GameState.roomRef, updates, 'resolve-result');
     safeUpdate(GameState.roomRef, { state: 'betting', accusingData: null, accusationResult: null }, 'resolve-end');
     checkDeath();
     // lastAccuser уже сохранён в Firebase — startNewRound использует его
-    setTimeout(startNewRound, 500);
+    setTimeout(startNewRound, 2500);
 }, 3000);
 }
 function addEffectLine(t, c) {
@@ -1274,7 +1274,7 @@ function startDevilDeal(uid) {
         GameState.gameState = 'betting';
         safeUpdate(GameState.roomRef, { state: 'betting' }, 'deal-refuse');
         document.getElementById('devilModal').style.display = 'none';
-        setTimeout(startNewRound, 500);
+        setTimeout(startNewRound, 2500);
     };
     const modal = document.getElementById('devilModal');
     const closeBtn = modal?.querySelector('.close-btn');
@@ -1294,7 +1294,7 @@ function resolveDevilDeal(updateData) {
     playSound('devilWin');
     GameState.gameState = 'betting';
     safeUpdate(GameState.roomRef, { state: 'betting' }, 'deal-end');
-    setTimeout(startNewRound, 500);
+    setTimeout(startNewRound, 2500);
 }
 
 function checkVengeance(uid) {
@@ -1851,7 +1851,7 @@ setTimeout(() => {
     safeUpdate(GameState.roomRef, {state:'betting', accusingData: null, accusationResult: null}, 'bot-acc-end');
     checkDeath();
     // lastAccuser уже сохранён в Firebase — startNewRound использует его
-    setTimeout(startNewRound, 500);
+    setTimeout(startNewRound, 2500);
 }, 3000);
 }
 function useArtifact(id) {
