@@ -1066,7 +1066,7 @@ function accuse() {
 }
 
 function resolveAccusation(accusedUid) {
-    safeUpdate(GameState.roomRef, { accusationResult: null, accusingData: null }, 'resolve-start');
+    // Получаем данные (без записи в Firebase пока)
     const tv = GameState.lastBet.value;
     const accused = GameState.players[accusedUid];
     let totalWithoutWild = 0;
@@ -1081,15 +1081,15 @@ function resolveAccusation(accusedUid) {
     let isLie = total < GameState.lastBet.count;
     if (accused?.cursed || accused?.familiarCursed) isLie = true;
     
+    // Считаем эффекты и применяем их (но результат показываем через 2 секунды)
     const r = document.getElementById('accusationResult');
     const e = document.getElementById('accusationEffects');
-    const updates = {};
     
-    // Сохраняем результат для показа
+    // Сохраняем данные для Firebase и для отложенного показа
     let resultText = '';
     let resultClass = '';
-    let effectsHtml = '';
     
+    // ПРИМЕНЯЕМ ЭФФЕКТЫ СРАЗУ (они должны примениться, даже если результат ещё не показан)
     if (isLie) {
         resultText = '✅ ЛОЖНАЯ СТАВКА!';
         resultClass = 'accusation-result effect-green';
@@ -1120,17 +1120,20 @@ function resolveAccusation(accusedUid) {
             addEffectLine(`🟢 ${accused.name} получает +1 кровь`, e);
         }
         if (accused?.darkPact) {
+            const updates = {};
             updates[`players/${accusedUid}/darkPact`] = false;
             updates[`players/${accusedUid}/darkPactShield`] = true;
             updates[`players/${accusedUid}/darkPactRound`] = GameState.roundNumber + 1;
+            safeUpdate(GameState.roomRef, updates, 'darkpact-resolve');
             addEffectLine(`🟡 ${accused.name}: Тёмный Договор → щит`, e);
         }
         if (wildSaved && !isLieWithoutWild) addEffectLine(`🔵 Дикий Кубик был, но ставка и так верна`, e);
     }
     
-    effectsHtml = e?.innerHTML || '';
+    const effectsHtml = e?.innerHTML || '';
     
-    // Сохраняем данные в Firebase
+    // Сохраняем результат в Firebase
+    const updates = {};
     updates['accusationResult'] = { isLie, effects: effectsHtml, resultText: resultText, resultClass: resultClass };
     updates['lastAccuser'] = GameState.lastAccuser;
     safeUpdate(GameState.roomRef, updates, 'resolve-result');
@@ -1144,18 +1147,21 @@ function resolveAccusation(accusedUid) {
     };
     addLogEntry('accuse', `Результат: ${resultText}`);
     
-    // ПОКАЗЫВАЕМ РЕЗУЛЬТАТ (обновляем DOM)
-    if (r) { r.textContent = resultText; r.className = resultClass; }
-    
-    // Закрываем панель через 2 секунды ПОСЛЕ показа результата
+    // ПОКАЗЫВАЕМ РЕЗУЛЬТАТ через 2 секунды (чтобы игрок успел посмотреть на кубики)
     setTimeout(() => {
-        document.getElementById('accusationPanel').style.display = 'none';
-        GameState.gameState = 'betting';
-        safeUpdate(GameState.roomRef, { state: 'betting', accusingData: null, accusationResult: null }, 'resolve-end');
-        checkDeath();
-        // Начинаем новый раунд через 0.5 секунды после закрытия
-        setTimeout(startNewRound, 500);
-    }, 3000);
+        if (r) { r.textContent = resultText; r.className = resultClass; }
+        
+        // Закрываем панель через 2.5 секунды после показа результата
+        setTimeout(() => {
+            document.getElementById('accusationPanel').style.display = 'none';
+            GameState.gameState = 'betting';
+            safeUpdate(GameState.roomRef, { state: 'betting', accusingData: null, accusationResult: null }, 'resolve-end');
+            checkDeath();
+            // Начинаем новый раунд через 0.5 секунды
+            setTimeout(startNewRound, 500);
+        }, 2500);
+        
+    }, 2000);
 }
 function addEffectLine(t, c) {
     if (c) { const d = document.createElement('div'); d.textContent = t; c.appendChild(d); }
@@ -1868,6 +1874,7 @@ function accuseFromBot(botId) {
         }, 3000);
         
     }, 5000); // ← результат появляется через 5 секунд
+}
 function useArtifact(id) {
     if(GameState.gameState!=='betting') return;
     const m=GameState.players[GameState.myUid];
