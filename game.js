@@ -891,19 +891,13 @@ function renderPlayerList() {
         const wardrobe = p.wardrobe || { head: p.avatar || '🎲' };
         head.textContent = wardrobe.head || p.avatar || '🎲';
         body.appendChild(head);
-        const tux = document.createElement('div');
-        tux.className = 'slot-tuxedo';
-        tux.style.background = wardrobe.tuxedoColor || '#222244';
-        tux.style.borderColor = wardrobe.trimColor || '#ffd700';
-        const trimL = document.createElement('div');
-        trimL.className = 'trim-line trim-left';
-        trimL.style.background = wardrobe.trimColor || '#ffd700';
-        const trimR = document.createElement('div');
-        trimR.className = 'trim-line trim-right';
-        trimR.style.background = wardrobe.trimColor || '#ffd700';
-        tux.appendChild(trimL);
-        tux.appendChild(trimR);
-        body.appendChild(tux);
+       const outfitDiv = document.createElement('div');
+outfitDiv.className = 'slot-outfit';
+const outfitId = wardrobe.outfit || 'tuxedo';
+const outfitColor = wardrobe.tuxedoColor || '#222244';
+const trimColor = wardrobe.trimColor || '#ffd700';
+outfitDiv.innerHTML = getOutfitSVG(outfitId, outfitColor, trimColor);
+body.appendChild(outfitDiv);
         slot.appendChild(body);
         if (p.isGhost) {
             const gb = document.createElement('div');
