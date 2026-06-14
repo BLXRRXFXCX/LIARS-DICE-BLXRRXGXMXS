@@ -335,7 +335,20 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
 }
 .player-slot.active .slot-turn-indicator { display: block; 
 }
-    
+ /* Убираем плавные переходы */
+* {
+    transition: none !important;
+}
+
+/* Пиксельная анимация для активного игрока */
+@keyframes pixelPulse {
+    0%, 100% { box-shadow: 0 0 0 0 #ffd700; }
+    50% { box-shadow: 0 0 0 4px #ffd700; }
+}
+
+.player-slot.active {
+    animation: pixelPulse 1s steps(4) infinite;
+}   
     @keyframes clockRotate {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
