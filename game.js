@@ -30,11 +30,12 @@ const GameState = {
     chatLastSend: 0,
     isActionInProgress: false,
     pendingArtifact: null,
-    myWardrobe: {
-        head: '🙂',
-        tuxedoColor: '#222244',
-        trimColor: '#ffd700'
-    },
+   myWardrobe: {
+    head: '🙂',
+    outfit: 'tuxedo',
+    tuxedoColor: '#222244',
+    trimColor: '#ffd700'
+},
     betCount: 1,
     betValue: 1,
     gameLog: [],
@@ -50,6 +51,17 @@ const AVATARS = ['😇','🧐','🤪','🤢','🫥','👸','👨‍🦲','🤓',
 const COLORS = ['#ff0000','#00ff00','#0000ff','#ffff00','#ff00ff','#00ffff','#ff8800','#88ff00','#ff0088','#0088ff','#ffffff','#cccccc','#ffaa88','#88ffaa','#aa88ff','#ff8888','#88ff88','#8888ff','#ffaa00','#00ffaa'];
 const TUXEDO_COLORS = ['#222244','#1a1a2e','#2d1a3e','#1a2e1a','#3e1a1a','#1a2e3e','#2e2e1a','#3e1a2e','#0a0a2e','#2e0a0a'];
 const TRIM_COLORS = ['#ffd700','#ff4444','#44ff44','#4444ff','#ff44ff','#44ffff','#ff8800','#ffffff','#ff0088','#00ff88'];
+const OUTFITS = [
+    {id: 'tuxedo', name: 'Смокинг', emoji: '🤵'},
+    {id: 'bandit', name: 'Бандит', emoji: '🦹'},
+    {id: 'knight', name: 'Рыцарь', emoji: '🛡️'},
+    {id: 'mage', name: 'Маг', emoji: '🧙'},
+    {id: 'pirate', name: 'Пират', emoji: '🏴‍☠️'},
+    {id: 'astronaut', name: 'Космонавт', emoji: '👨‍🚀'},
+    {id: 'samurai', name: 'Самурай', emoji: '⚔️'},
+    {id: 'clown', name: 'Клоун', emoji: '🤡'},
+    {id: 'anime', name: 'Аниме-тян', emoji: '👧'}
+];
 const QUICK_EMOJIS = ['😂','😎','🤔','😱','🤯','🔥','💀','💩','🤡','😈','🥶','😤','🤫','👀','💪','🙏','🎉','🤣','😏','🤬','🤞','🫰','🖕','🫶','🤟'];
 const TAUNTS = {
     evil: ['Ты чмоня!','ПОЛНЫЙ ХУЕП','Я щас лопну..','Шо ты, лысый..','Плаки-плаки!','Ну ты клоун..'],
@@ -190,10 +202,107 @@ function showLastCheck() {
     document.getElementById('modalCheck').style.display = 'block';
 }
 
+function getOutfitSVG(outfitId, baseColor, trimColor) {
+    const b = baseColor || '#222244';
+    const t = trimColor || '#ffd700';
+    const svg = (content) => `<svg class="outfit-svg" viewBox="0 0 60 50" xmlns="http://www.w3.org/2000/svg">${content}</svg>`;
+    
+    switch(outfitId) {
+        case 'tuxedo':
+            return svg(`
+                <rect x="5" y="5" width="50" height="40" fill="${b}" rx="3"/>
+                <rect x="22" y="5" width="16" height="18" fill="white"/>
+                <polygon points="22,5 38,5 30,14" fill="${t}"/>
+                <line x1="15" y1="10" x2="15" y2="42" stroke="${t}" stroke-width="2"/>
+                <line x1="45" y1="10" x2="45" y2="42" stroke="${t}" stroke-width="2"/>
+                <circle cx="30" cy="28" r="2" fill="${t}"/>
+                <circle cx="30" cy="35" r="2" fill="${t}"/>
+            `);
+        case 'bandit':
+            return svg(`
+                <rect x="5" y="5" width="50" height="40" fill="white" rx="3"/>
+                <rect x="5" y="12" width="50" height="4" fill="${b}"/>
+                <rect x="5" y="22" width="50" height="4" fill="${b}"/>
+                <rect x="5" y="32" width="50" height="4" fill="${b}"/>
+                <rect x="5" y="42" width="50" height="3" fill="${b}"/>
+                <path d="M 20 5 L 40 5 L 35 15 L 25 15 Z" fill="${t}"/>
+            `);
+        case 'knight':
+            return svg(`
+                <rect x="5" y="5" width="50" height="40" fill="#c0c0c0" rx="3"/>
+                <rect x="10" y="10" width="40" height="30" fill="#a0a0a0" rx="2"/>
+                <polygon points="30,5 20,20 40,20" fill="${t}"/>
+                <line x1="30" y1="20" x2="30" y2="45" stroke="${t}" stroke-width="3"/>
+                <line x1="20" y1="30" x2="40" y2="30" stroke="${t}" stroke-width="2"/>
+                <circle cx="30" cy="15" r="3" fill="${t}"/>
+            `);
+        case 'mage':
+            return svg(`
+                <rect x="5" y="5" width="50" height="40" fill="${b}" rx="3"/>
+                <polygon points="30,0 20,15 40,15" fill="${b}"/>
+                <circle cx="20" cy="20" r="2" fill="${t}"/>
+                <circle cx="40" cy="25" r="2" fill="${t}"/>
+                <circle cx="25" cy="35" r="2" fill="${t}"/>
+                <circle cx="35" cy="40" r="2" fill="${t}"/>
+                <line x1="30" y1="15" x2="30" y2="45" stroke="${t}" stroke-width="2"/>
+            `);
+        case 'pirate':
+            return svg(`
+                <rect x="5" y="5" width="50" height="40" fill="white" rx="3"/>
+                <rect x="10" y="10" width="40" height="30" fill="${b}" rx="2"/>
+                <polygon points="15,5 45,5 30,15" fill="${t}"/>
+                <line x1="30" y1="10" x2="30" y2="40" stroke="${t}" stroke-width="2"/>
+                <circle cx="22" cy="20" r="2" fill="${t}"/>
+                <circle cx="38" cy="20" r="2" fill="${t}"/>
+                <circle cx="22" cy="30" r="2" fill="${t}"/>
+                <circle cx="38" cy="30" r="2" fill="${t}"/>
+            `);
+        case 'astronaut':
+            return svg(`
+                <rect x="5" y="5" width="50" height="40" fill="white" rx="3"/>
+                <rect x="10" y="10" width="40" height="30" fill="${b}" rx="2" opacity="0.3"/>
+                <circle cx="30" cy="20" r="8" fill="${t}" opacity="0.5"/>
+                <rect x="20" y="35" width="20" height="8" fill="${t}"/>
+                <circle cx="15" cy="15" r="3" fill="${t}"/>
+                <circle cx="45" cy="15" r="3" fill="${t}"/>
+            `);
+        case 'samurai':
+            return svg(`
+                <rect x="5" y="5" width="50" height="40" fill="${b}" rx="3"/>
+                <polygon points="30,0 15,20 45,20" fill="${t}"/>
+                <rect x="20" y="20" width="20" height="25" fill="${t}" opacity="0.7"/>
+                <line x1="30" y1="20" x2="30" y2="45" stroke="white" stroke-width="2"/>
+                <line x1="20" y1="30" x2="40" y2="30" stroke="white" stroke-width="2"/>
+                <circle cx="30" cy="10" r="3" fill="white"/>
+            `);
+        case 'clown':
+            return svg(`
+                <rect x="5" y="5" width="50" height="40" fill="${b}" rx="3"/>
+                <circle cx="20" cy="20" r="5" fill="${t}"/>
+                <circle cx="40" cy="25" r="5" fill="red"/>
+                <circle cx="25" cy="35" r="5" fill="blue"/>
+                <circle cx="35" cy="40" r="5" fill="green"/>
+                <polygon points="30,0 25,10 35,10" fill="red"/>
+            `);
+        case 'anime':
+            return svg(`
+                <rect x="5" y="5" width="50" height="40" fill="white" rx="3"/>
+                <polygon points="15,5 45,5 40,20 20,20" fill="${b}"/>
+                <polygon points="20,20 40,20 35,25 25,25" fill="${t}"/>
+                <rect x="25" y="25" width="10" height="8" fill="${t}"/>
+                <rect x="15" y="30" width="30" height="15" fill="${b}" rx="2"/>
+                <line x1="15" y1="38" x2="45" y2="38" stroke="white" stroke-width="2"/>
+            `);
+        default:
+            return svg(`<rect x="5" y="5" width="50" height="40" fill="${b}" rx="3"/>`);
+    }
+}
+
 function openWardrobe() {
     const headSelect = document.getElementById('headSelect');
     const tuxSelect = document.getElementById('tuxedoColorSelect');
     const trimSelect = document.getElementById('tuxedoTrimSelect');
+    const outfitSelect = document.getElementById('outfitSelect');
     const preview = document.getElementById('wardrobePreview');
     if (headSelect) {
         headSelect.innerHTML = '';
@@ -240,6 +349,22 @@ function openWardrobe() {
             trimSelect.appendChild(b);
         });
     }
+if (outfitSelect) {
+    outfitSelect.innerHTML = '';
+    OUTFITS.forEach(of => {
+        const b = document.createElement('span');
+        b.className = 'wardrobe-option' + (GameState.myWardrobe.outfit === of.id ? ' selected' : '');
+        b.textContent = of.emoji;
+        b.title = of.name;
+        b.onclick = () => {
+            GameState.myWardrobe.outfit = of.id;
+            outfitSelect.querySelectorAll('.wardrobe-option').forEach(x => x.classList.remove('selected'));
+            b.classList.add('selected');
+            renderWardrobePreview();
+        };
+        outfitSelect.appendChild(b);
+    });
+}
     renderWardrobePreview();
     document.getElementById('modalWardrobe').style.display = 'block';
 }
@@ -247,14 +372,13 @@ function openWardrobe() {
 function renderWardrobePreview() {
     const preview = document.getElementById('wardrobePreview');
     if (!preview) return;
-  preview.innerHTML = `
-<div style="display:flex; flex-direction:column; align-items:center;">
-    <div style="font-size:3em;">${GameState.myWardrobe.head}</div>
-    <div style="width:60px; height:50px; background:${GameState.myWardrobe.tuxedoColor}; border-radius:4px 4px 8px 8px; position:relative; border:2px solid ${GameState.myWardrobe.trimColor};">
-        <div style="position:absolute; left:15px; top:5px; width:2px; height:40px; background:${GameState.myWardrobe.trimColor};"></div>
-        <div style="position:absolute; right:15px; top:5px; width:2px; height:40px; background:${GameState.myWardrobe.trimColor};"></div>
-    </div>
-</div>`;
+    const outfitSVG = getOutfitSVG(GameState.myWardrobe.outfit, GameState.myWardrobe.tuxedoColor, GameState.myWardrobe.trimColor);
+    preview.innerHTML = `
+        <div style="display:flex; flex-direction:column; align-items:center;">
+            <div style="font-size:3em;">${GameState.myWardrobe.head}</div>
+            ${outfitSVG}
+        </div>
+    `;
 }
 
 function saveWardrobe() {
@@ -1455,7 +1579,7 @@ function addBot() {
     const id = 'bot_' + Date.now() + '_' + Math.random().toString(36).substr(2,6);
     const data = {
         name: '🤖 Бот', uid: id, avatar: '🤖', color: '#aaa',
-        wardrobe: { head: '🤖', tuxedoColor: '#444466', trimColor: '#888888' },
+        wardrobe: { head: '🤖', outfit: 'tuxedo', tuxedoColor: '#444466', trimColor: '#888888' },
         dice: [], poisons: 0, blood: 0,
         alive: true, isGhost: false, artifact: null, usedSpecialThisRound: {}, lastBetInRound: null,
         devilDealsUsed: 0, connected: true, lastSeenTurn: 0, maxLives: GameState.defaultLives,
