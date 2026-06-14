@@ -205,96 +205,81 @@ function showLastCheck() {
 function getOutfitSVG(outfitId, baseColor, trimColor) {
     const b = baseColor || '#222244';
     const t = trimColor || '#ffd700';
-    const svg = (content) => `<svg class="outfit-svg" viewBox="0 0 60 50" xmlns="http://www.w3.org/2000/svg">${content}</svg>`;
+    
+    // Пиксельный стиль: используем rect вместо сложных форм
+    const svg = (content) => `<svg class="outfit-svg" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg" shape-rendering="crispEdges">${content}</svg>`;
     
     switch(outfitId) {
         case 'tuxedo':
             return svg(`
-                <rect x="5" y="5" width="50" height="40" fill="${b}" rx="3"/>
-                <rect x="22" y="5" width="16" height="18" fill="white"/>
-                <polygon points="22,5 38,5 30,14" fill="${t}"/>
-                <line x1="15" y1="10" x2="15" y2="42" stroke="${t}" stroke-width="2"/>
-                <line x1="45" y1="10" x2="45" y2="42" stroke="${t}" stroke-width="2"/>
-                <circle cx="30" cy="28" r="2" fill="${t}"/>
-                <circle cx="30" cy="35" r="2" fill="${t}"/>
+                <rect x="2" y="4" width="12" height="10" fill="${b}"/>
+                <rect x="6" y="4" width="4" height="6" fill="white"/>
+                <rect x="7" y="5" width="2" height="2" fill="${t}"/>
+                <rect x="3" y="6" width="1" height="8" fill="${t}"/>
+                <rect x="12" y="6" width="1" height="8" fill="${t}"/>
             `);
         case 'bandit':
             return svg(`
-                <rect x="5" y="5" width="50" height="40" fill="white" rx="3"/>
-                <rect x="5" y="12" width="50" height="4" fill="${b}"/>
-                <rect x="5" y="22" width="50" height="4" fill="${b}"/>
-                <rect x="5" y="32" width="50" height="4" fill="${b}"/>
-                <rect x="5" y="42" width="50" height="3" fill="${b}"/>
-                <path d="M 20 5 L 40 5 L 35 15 L 25 15 Z" fill="${t}"/>
+                <rect x="2" y="4" width="12" height="10" fill="white"/>
+                <rect x="2" y="6" width="12" height="2" fill="${b}"/>
+                <rect x="2" y="10" width="12" height="2" fill="${b}"/>
+                <rect x="6" y="4" width="4" height="3" fill="${t}"/>
             `);
         case 'knight':
             return svg(`
-                <rect x="5" y="5" width="50" height="40" fill="#c0c0c0" rx="3"/>
-                <rect x="10" y="10" width="40" height="30" fill="#a0a0a0" rx="2"/>
-                <polygon points="30,5 20,20 40,20" fill="${t}"/>
-                <line x1="30" y1="20" x2="30" y2="45" stroke="${t}" stroke-width="3"/>
-                <line x1="20" y1="30" x2="40" y2="30" stroke="${t}" stroke-width="2"/>
-                <circle cx="30" cy="15" r="3" fill="${t}"/>
+                <rect x="2" y="4" width="12" height="10" fill="#c0c0c0"/>
+                <rect x="4" y="6" width="8" height="6" fill="#a0a0a0"/>
+                <rect x="7" y="4" width="2" height="10" fill="${t}"/>
+                <rect x="4" y="9" width="8" height="2" fill="${t}"/>
             `);
         case 'mage':
             return svg(`
-                <rect x="5" y="5" width="50" height="40" fill="${b}" rx="3"/>
-                <polygon points="30,0 20,15 40,15" fill="${b}"/>
-                <circle cx="20" cy="20" r="2" fill="${t}"/>
-                <circle cx="40" cy="25" r="2" fill="${t}"/>
-                <circle cx="25" cy="35" r="2" fill="${t}"/>
-                <circle cx="35" cy="40" r="2" fill="${t}"/>
-                <line x1="30" y1="15" x2="30" y2="45" stroke="${t}" stroke-width="2"/>
+                <rect x="2" y="4" width="12" height="10" fill="${b}"/>
+                <rect x="5" y="2" width="6" height="4" fill="${b}"/>
+                <rect x="4" y="6" width="1" height="1" fill="${t}"/>
+                <rect x="11" y="8" width="1" height="1" fill="${t}"/>
+                <rect x="6" y="10" width="1" height="1" fill="${t}"/>
+                <rect x="9" y="12" width="1" height="1" fill="${t}"/>
             `);
         case 'pirate':
             return svg(`
-                <rect x="5" y="5" width="50" height="40" fill="white" rx="3"/>
-                <rect x="10" y="10" width="40" height="30" fill="${b}" rx="2"/>
-                <polygon points="15,5 45,5 30,15" fill="${t}"/>
-                <line x1="30" y1="10" x2="30" y2="40" stroke="${t}" stroke-width="2"/>
-                <circle cx="22" cy="20" r="2" fill="${t}"/>
-                <circle cx="38" cy="20" r="2" fill="${t}"/>
-                <circle cx="22" cy="30" r="2" fill="${t}"/>
-                <circle cx="38" cy="30" r="2" fill="${t}"/>
+                <rect x="2" y="4" width="12" height="10" fill="white"/>
+                <rect x="4" y="6" width="8" height="8" fill="${b}"/>
+                <rect x="5" y="4" width="6" height="3" fill="${t}"/>
+                <rect x="7" y="6" width="2" height="8" fill="${t}"/>
             `);
         case 'astronaut':
             return svg(`
-                <rect x="5" y="5" width="50" height="40" fill="white" rx="3"/>
-                <rect x="10" y="10" width="40" height="30" fill="${b}" rx="2" opacity="0.3"/>
-                <circle cx="30" cy="20" r="8" fill="${t}" opacity="0.5"/>
-                <rect x="20" y="35" width="20" height="8" fill="${t}"/>
-                <circle cx="15" cy="15" r="3" fill="${t}"/>
-                <circle cx="45" cy="15" r="3" fill="${t}"/>
+                <rect x="2" y="4" width="12" height="10" fill="white"/>
+                <rect x="4" y="6" width="8" height="6" fill="${b}" opacity="0.3"/>
+                <rect x="6" y="7" width="4" height="4" fill="${t}" opacity="0.5"/>
+                <rect x="6" y="12" width="4" height="2" fill="${t}"/>
             `);
         case 'samurai':
             return svg(`
-                <rect x="5" y="5" width="50" height="40" fill="${b}" rx="3"/>
-                <polygon points="30,0 15,20 45,20" fill="${t}"/>
-                <rect x="20" y="20" width="20" height="25" fill="${t}" opacity="0.7"/>
-                <line x1="30" y1="20" x2="30" y2="45" stroke="white" stroke-width="2"/>
-                <line x1="20" y1="30" x2="40" y2="30" stroke="white" stroke-width="2"/>
-                <circle cx="30" cy="10" r="3" fill="white"/>
+                <rect x="2" y="4" width="12" height="10" fill="${b}"/>
+                <rect x="5" y="2" width="6" height="4" fill="${t}"/>
+                <rect x="6" y="6" width="4" height="8" fill="${t}" opacity="0.7"/>
+                <rect x="7" y="6" width="2" height="8" fill="white"/>
             `);
         case 'clown':
             return svg(`
-                <rect x="5" y="5" width="50" height="40" fill="${b}" rx="3"/>
-                <circle cx="20" cy="20" r="5" fill="${t}"/>
-                <circle cx="40" cy="25" r="5" fill="red"/>
-                <circle cx="25" cy="35" r="5" fill="blue"/>
-                <circle cx="35" cy="40" r="5" fill="green"/>
-                <polygon points="30,0 25,10 35,10" fill="red"/>
+                <rect x="2" y="4" width="12" height="10" fill="${b}"/>
+                <rect x="4" y="6" width="2" height="2" fill="${t}"/>
+                <rect x="10" y="8" width="2" height="2" fill="red"/>
+                <rect x="6" y="10" width="2" height="2" fill="blue"/>
+                <rect x="9" y="12" width="2" height="2" fill="green"/>
             `);
         case 'anime':
             return svg(`
-                <rect x="5" y="5" width="50" height="40" fill="white" rx="3"/>
-                <polygon points="15,5 45,5 40,20 20,20" fill="${b}"/>
-                <polygon points="20,20 40,20 35,25 25,25" fill="${t}"/>
-                <rect x="25" y="25" width="10" height="8" fill="${t}"/>
-                <rect x="15" y="30" width="30" height="15" fill="${b}" rx="2"/>
-                <line x1="15" y1="38" x2="45" y2="38" stroke="white" stroke-width="2"/>
+                <rect x="2" y="4" width="12" height="10" fill="white"/>
+                <rect x="4" y="4" width="8" height="4" fill="${b}"/>
+                <rect x="6" y="8" width="4" height="2" fill="${t}"/>
+                <rect x="7" y="10" width="2" height="2" fill="${t}"/>
+                <rect x="4" y="12" width="8" height="2" fill="${b}"/>
             `);
         default:
-            return svg(`<rect x="5" y="5" width="50" height="40" fill="${b}" rx="3"/>`);
+            return svg(`<rect x="2" y="4" width="12" height="10" fill="${b}"/>`);
     }
 }
 
