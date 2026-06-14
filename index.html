@@ -40,6 +40,15 @@ body {
     padding: 5px;
 }
 
+   body {
+    background-image: 
+        linear-gradient(45deg, #1a1a2e 25%, transparent 25%),
+        linear-gradient(-45deg, #1a1a2e 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #16213e 75%),
+        linear-gradient(-45deg, transparent 75%, #16213e 75%);
+    background-size: 8px 8px;
+    background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
+}
 /* ===== ПРИМЕНЕНИЕ ШРИФТА КО ВСЕМ ЭЛЕМЕНТАМ ===== */
 body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
 .action-btn, .bottom-btn, .ghost-ability-btn, .modal-content,
@@ -57,7 +66,23 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
     font-family: 'Press Start 2P', cursive;
 }
 
+   /* Убираем плавные переходы */
+* {
+    transition: none !important;
+}
+
+/* Пиксельная анимация для активного игрока */
+@keyframes pixelPulse {
+    0%, 100% { box-shadow: 0 0 0 0 #ffd700; }
+    50% { box-shadow: 0 0 0 4px #ffd700; }
+}
+
+.player-slot.active {
+    animation: pixelPulse 1s steps(4) infinite;
+}
+   
 /* ===== РАЗМЕРЫ ===== */
+
 .action-btn { font-size: 0.9em; padding: 10px 8px; }
 .bottom-btn { font-size: 0.85em; padding: 8px 6px; }
 .ghost-ability-btn { font-size: 0.8em; padding: 8px 6px; }
@@ -444,7 +469,7 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
 }
 .die.frozen { background: #aaddff; border-color: #4488cc; }
 .die.stunned { background: #ffddaa; border-color: #cc8844; }
-.die.special { background: #ffd700; border-color: #ff8800; cursor: pointer; }
+.die.special { background: #ffd700; border-color: #ff8800; cursor: pointer;  filter: contrast(1.2) saturate(1.3); image-rendering: pixelated;}
 .die.special.used { background: #666; opacity: 0.5; cursor: not-allowed; }
 .die.special.passive { background: #88ff88; border-color: #44cc44; }
 .artifact-info-btn {
