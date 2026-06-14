@@ -896,10 +896,14 @@ body.appendChild(outfitDiv);
             ob.textContent = '💤';
             slot.appendChild(ob);
         }
-        const ti = document.createElement('div');
-        ti.className = 'slot-turn-indicator';
-        ti.textContent = '⏳';
-        slot.appendChild(ti);
+       const ti = document.createElement('div');
+ti.className = 'slot-turn-indicator';
+ti.innerHTML = `<svg width="16" height="16" viewBox="0 0 16 16" shape-rendering="crispEdges">
+    <rect x="6" y="2" width="4" height="12" fill="#ffd700"/>
+    <rect x="2" y="6" width="12" height="4" fill="#ffd700"/>
+    <rect x="7" y="7" width="2" height="5" fill="#000"/>
+</svg>`;
+slot.appendChild(ti);
         const lives = document.createElement('div');
         lives.className = 'slot-lives';
         const ml = p.maxLives || 3;
