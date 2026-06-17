@@ -735,8 +735,10 @@ GameState.lastAccuser = data.lastAccuser || null;  // ← читаем обви�
         } else {
             if (panel && panel.style.display === 'block') panel.style.display = 'none';
         }
-        renderUI();
-        if (sandboxPanelVisible) sandboxUpdateSelects();
+       renderUI();
+if (typeof sandboxPanelVisible !== 'undefined' && sandboxPanelVisible) {
+    sandboxUpdateSelects();
+}
         if (GameState.gameState === 'betting' && GameState.currentPlayerUid &&
             GameState.players[GameState.currentPlayerUid]?.isBot &&
             GameState.currentPlayerUid !== GameState.myUid && !GameState.isBotThinking) {
@@ -2662,16 +2664,19 @@ function bindEventListeners() {
 let sandboxPanelVisible = false;
 
 function toggleSandboxMode() {
-    sandboxPanelVisible = !sandboxPanelVisible;
     const panel = document.getElementById('devPanel');
-    const banner = document.getElementById('sandboxBanner');
+    if (!panel) {
+        console.error('❌ Панель devPanel не найдена!');
+        showNotification('❌ Панель не найдена! Проверьте HTML', 'error');
+        return;
+    }
     
-    if (!panel) return;
-    
+    sandboxPanelVisible = !sandboxPanelVisible;
     panel.style.display = sandboxPanelVisible ? 'block' : 'none';
-    if (banner) banner.style.display = sandboxPanelVisible ? 'block' : 'none';
     
-    GameState.sandboxMode = sandboxPanelVisible;
+    // Баннер
+    const banner = document.getElementById('sandboxBanner');
+    if (banner) banner.style.display = sandboxPanelVisible ? 'block' : 'none';
     
     // Обновляем кнопку в меню
     const menuBtn = document.getElementById('menuSandbox');
@@ -2681,18 +2686,22 @@ function toggleSandboxMode() {
         menuBtn.style.borderColor = sandboxPanelVisible ? '#8acc44' : '';
     }
     
+    // Обновляем списки
     if (sandboxPanelVisible) {
-        showNotification('🧪 ПЕСОЧНИЦА ВКЛЮЧЕНА!\nМожно тестировать все механики!', 'success', 3000);
         sandboxUpdateSelects();
+        showNotification('🧪 ПЕСОЧНИЦА ВКЛЮЧЕНА!', 'success', 2000);
     } else {
         showNotification('🧪 Песочница выключена', 'info');
     }
+    
+    console.log(`🧪 Песочница: ${sandboxPanelVisible ? 'ВКЛ' : 'ВЫКЛ'}`);
 }
 
 function sandboxUpdateSelects() {
-    // Обновляем список артефактов
+    console.log('🔄 Обновление списков песочницы...');
+    
+    // Обновляем список артефактов для игрока
     const artSelect = document.getElementById('devArtifactSelect');
-    const botArtSelect = document.getElementById('devBotArtifactSelect');
     if (artSelect) {
         artSelect.innerHTML = '';
         ARTIFACTS.forEach(a => {
@@ -2701,7 +2710,13 @@ function sandboxUpdateSelects() {
             opt.textContent = `${a.emoji} ${a.name}`;
             artSelect.appendChild(opt);
         });
+        console.log(`✅ Заполнено ${ARTIFACTS.length} артефактов`);
+    } else {
+        console.warn('⚠️ devArtifactSelect не найден');
     }
+    
+    // Обновляем список артефактов для бота
+    const botArtSelect = document.getElementById('devBotArtifactSelect');
     if (botArtSelect) {
         botArtSelect.innerHTML = '';
         ARTIFACTS.forEach(a => {
@@ -2725,6 +2740,9 @@ function sandboxUpdateSelects() {
                 botSelect.appendChild(opt);
             }
         });
+        console.log(`✅ Найдено ${botSelect.options.length - 1} ботов`);
+    } else {
+        console.warn('⚠️ devBotSelect не найден');
     }
     
     // Обновляем список целей
