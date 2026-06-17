@@ -2664,19 +2664,29 @@ function bindEventListeners() {
 let sandboxPanelVisible = false;
 
 function toggleSandboxMode() {
+    console.log('🔄 toggleSandboxMode вызвана');
+    
     const panel = document.getElementById('devPanel');
+    console.log('🔍 Панель найдена?', panel);
+    
     if (!panel) {
-        console.error('❌ Панель devPanel не найдена!');
+        console.error('❌ Панель devPanel не найдена в DOM!');
         showNotification('❌ Панель не найдена! Проверьте HTML', 'error');
         return;
     }
     
     sandboxPanelVisible = !sandboxPanelVisible;
+    console.log('🔄 Новое состояние:', sandboxPanelVisible);
+    
     panel.style.display = sandboxPanelVisible ? 'block' : 'none';
+    console.log('🔄 Панель отображена:', panel.style.display);
     
     // Баннер
     const banner = document.getElementById('sandboxBanner');
-    if (banner) banner.style.display = sandboxPanelVisible ? 'block' : 'none';
+    if (banner) {
+        banner.style.display = sandboxPanelVisible ? 'block' : 'none';
+        console.log('🔄 Баннер отображён:', banner.style.display);
+    }
     
     // Обновляем кнопку в меню
     const menuBtn = document.getElementById('menuSandbox');
@@ -2684,17 +2694,19 @@ function toggleSandboxMode() {
         menuBtn.textContent = sandboxPanelVisible ? '🧪 Песочница: ВКЛ' : '🧪 Песочница (тестовый режим)';
         menuBtn.style.background = sandboxPanelVisible ? 'linear-gradient(180deg, #4a6a1a, #2a4a0a)' : '';
         menuBtn.style.borderColor = sandboxPanelVisible ? '#8acc44' : '';
+        console.log('🔄 Кнопка обновлена');
     }
     
     // Обновляем списки
     if (sandboxPanelVisible) {
+        console.log('🔄 Обновляем списки...');
         sandboxUpdateSelects();
         showNotification('🧪 ПЕСОЧНИЦА ВКЛЮЧЕНА!', 'success', 2000);
     } else {
         showNotification('🧪 Песочница выключена', 'info');
     }
     
-    console.log(`🧪 Песочница: ${sandboxPanelVisible ? 'ВКЛ' : 'ВЫКЛ'}`);
+    console.log('✅ toggleSandboxMode завершена');
 }
 
 function sandboxUpdateSelects() {
