@@ -2656,26 +2656,36 @@ function bindEventListeners() {
 }
 
 // ============================================================
-// 🧪 ТЕСТОВЫЙ РЕЖИМ (DEV MODE)
+// 🧪 ПЕСОЧНИЦА (SANDBOX MODE)
 // ============================================================
 
 let sandboxPanelVisible = false;
 
 function toggleSandboxMode() {
+    sandboxPanelVisible = !sandboxPanelVisible;
     const panel = document.getElementById('devPanel');
+    const banner = document.getElementById('sandboxBanner');
+    
     if (!panel) return;
-    devPanelVisible = !devPanelVisible;
-    panel.style.display = devPanelVisible ? 'block' : 'none';
+    
+    panel.style.display = sandboxPanelVisible ? 'block' : 'none';
+    if (banner) banner.style.display = sandboxPanelVisible ? 'block' : 'none';
+    
+    GameState.sandboxMode = sandboxPanelVisible;
     
     // Обновляем кнопку в меню
-    const menuBtn = document.getElementById('menuDevMode');
+    const menuBtn = document.getElementById('menuSandbox');
     if (menuBtn) {
-        menuBtn.textContent = devPanelVisible ? '🧪 Тестовый режим: ВКЛ' : '🧪 Тестовый режим: ВЫКЛ';
+        menuBtn.textContent = sandboxPanelVisible ? '🧪 Песочница: ВКЛ' : '🧪 Песочница (тестовый режим)';
+        menuBtn.style.background = sandboxPanelVisible ? 'linear-gradient(180deg, #4a6a1a, #2a4a0a)' : '';
+        menuBtn.style.borderColor = sandboxPanelVisible ? '#8acc44' : '';
     }
     
-    // Обновляем списки при открытии
-    if (devPanelVisible) {
-        devUpdateSelects();
+    if (sandboxPanelVisible) {
+        showNotification('🧪 ПЕСОЧНИЦА ВКЛЮЧЕНА!\nМожно тестировать все механики!', 'success', 3000);
+        sandboxUpdateSelects();
+    } else {
+        showNotification('🧪 Песочница выключена', 'info');
     }
 }
 
@@ -2711,7 +2721,7 @@ function sandboxUpdateSelects() {
             if (p?.isBot && p.alive) {
                 const opt = document.createElement('option');
                 opt.value = uid;
-                opt.textContent = `${p.name} (${uid.slice(0, 8)})`;
+                opt.textContent = `${p.name}`;
                 botSelect.appendChild(opt);
             }
         });
@@ -2735,7 +2745,7 @@ function sandboxUpdateSelects() {
 }
 
 // 1. Выдать артефакт игроку
-function devGiveArtifactToPlayer() {
+function sandboxGiveArtifactToPlayer() {
     const select = document.getElementById('devArtifactSelect');
     if (!select) return;
     const artId = select.value;
@@ -2757,15 +2767,15 @@ function devGiveArtifactToPlayer() {
     safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {
         artifact: m.artifact,
         usedSpecialThisRound: GameState.usedSpecialThisRound
-    }, 'dev-give-artifact');
+    }, 'sandbox-give-artifact');
     
     renderUI();
     showNotification(`✅ Артефакт ${art.emoji} ${art.name} выдан!`, 'success');
-    devUpdateSelects();
+    sandboxUpdateSelects();
 }
 
 // 2. Выдать артефакт боту
-function devGiveArtifactToBot() {
+function sandboxGiveArtifactToBot() {
     const botSelect = document.getElementById('devBotSelect');
     const artSelect = document.getElementById('devBotArtifactSelect');
     if (!botSelect || !artSelect) return;
@@ -2786,15 +2796,15 @@ function devGiveArtifactToBot() {
     
     safeUpdate(GameState.roomRef.child('players').child(botId), {
         artifact: bot.artifact
-    }, 'dev-give-bot-artifact');
+    }, 'sandbox-give-bot-artifact');
     
     renderUI();
     showNotification(`✅ Бот получил ${art.emoji} ${art.name}`, 'success');
-    devUpdateSelects();
+    sandboxUpdateSelects();
 }
 
 // 3. Принудительное обвинение
-function devForceAccuse(target) {
+function sandboxForceAccuse(target) {
     if (GameState.gameState !== 'betting' && GameState.gameState !== 'lobby') {
         showNotification('Игра должна быть в фазе ставок или лобби!', 'warning');
         return;
@@ -2806,7 +2816,7 @@ function devForceAccuse(target) {
         const bc = Object.keys(GameState.players).filter(u => GameState.players[u] && GameState.players[u].isBot).length;
         if ((ac >= 1 && bc >= 1) || ac >= 2) {
             startNewRound().then(() => {
-                setTimeout(() => devForceAccuse(target), 500);
+                setTimeout(() => sandboxForceAccuse(target), 500);
             });
             return;
         } else {
@@ -2865,11 +2875,11 @@ function devForceAccuse(target) {
         accuseFromBot(accuserId);
     }
     
-    devUpdateSelects();
+    sandboxUpdateSelects();
 }
 
 // 4. Управление жизнями
-function devModifyLives(delta) {
+function sandboxModifyLives(delta) {
     const targetSelect = document.getElementById('devTargetSelect');
     if (!targetSelect) return;
     const targetUid = targetSelect.value;
@@ -2882,14 +2892,14 @@ function devModifyLives(delta) {
     
     safeUpdate(GameState.roomRef.child('players').child(uid), {
         maxLives: newLives
-    }, 'dev-modify-lives');
+    }, 'sandbox-modify-lives');
     
     renderUI();
     showNotification(`${p.name}: ❤️ ${newLives}`, 'info');
-    devUpdateSelects();
+    sandboxUpdateSelects();
 }
 
-function devModifyPoisons(delta) {
+function sandboxModifyPoisons(delta) {
     const targetSelect = document.getElementById('devTargetSelect');
     if (!targetSelect) return;
     const targetUid = targetSelect.value;
@@ -2902,7 +2912,7 @@ function devModifyPoisons(delta) {
     
     safeUpdate(GameState.roomRef.child('players').child(uid), {
         poisons: newPoisons
-    }, 'dev-modify-poisons');
+    }, 'sandbox-modify-poisons');
     
     // Проверяем смерть
     if (newPoisons >= (p.maxLives || 3)) {
@@ -2911,10 +2921,10 @@ function devModifyPoisons(delta) {
     
     renderUI();
     showNotification(`${p.name}: ☠️ ${newPoisons}`, 'info');
-    devUpdateSelects();
+    sandboxUpdateSelects();
 }
 
-function devKillPlayer() {
+function sandboxKillPlayer() {
     const targetSelect = document.getElementById('devTargetSelect');
     if (!targetSelect) return;
     const targetUid = targetSelect.value;
@@ -2926,32 +2936,32 @@ function devKillPlayer() {
     
     safeUpdate(GameState.roomRef.child('players').child(uid), {
         poisons: p.poisons
-    }, 'dev-kill');
+    }, 'sandbox-kill');
     
     setTimeout(() => checkDeath(), 100);
     renderUI();
     showNotification(`💀 ${p.name} убит!`, 'error');
-    devUpdateSelects();
+    sandboxUpdateSelects();
 }
 
 // 5. Управление ходом
-function devForceNextTurn() {
+function sandboxForceNextTurn() {
     if (GameState.gameState !== 'betting') {
         showNotification('Игра не в фазе ставок!', 'warning');
         return;
     }
     nextTurn();
-    devUpdateSelects();
+    sandboxUpdateSelects();
 }
 
-function devResetRound() {
+function sandboxResetRound() {
     if (!GameState.roomRef) return;
     startNewRound();
     showNotification('🔄 Раунд сброшен!', 'success');
-    devUpdateSelects();
+    sandboxUpdateSelects();
 }
 
-function devResetDice() {
+function sandboxResetDice() {
     const targetSelect = document.getElementById('devTargetSelect');
     if (!targetSelect) return;
     const targetUid = targetSelect.value;
@@ -2969,15 +2979,15 @@ function devResetDice() {
         dice: newDice,
         evilEyed: false,
         frozen: false
-    }, 'dev-reset-dice');
+    }, 'sandbox-reset-dice');
     
     renderUI();
     showNotification(`🎲 Кубики ${p.name} сброшены!`, 'success');
-    devUpdateSelects();
+    sandboxUpdateSelects();
 }
 
 // 6. Бот применяет артефакт
-function devForceBotUseArtifact() {
+function sandboxForceBotUseArtifact() {
     const botSelect = document.getElementById('devBotSelect');
     if (!botSelect) return;
     const botId = botSelect.value;
@@ -2999,11 +3009,11 @@ function devForceBotUseArtifact() {
     } else {
         showNotification('❌ Не удалось применить артефакт', 'error');
     }
-    devUpdateSelects();
+    sandboxUpdateSelects();
 }
 
 // 7. Добавить статичного бота
-function devAddStaticBot() {
+function sandboxAddStaticBot() {
     if (GameState.gameState !== 'lobby' && GameState.gameState !== 'ended') {
         showNotification('Добавлять ботов можно только в лобби!', 'warning');
         return;
@@ -3015,7 +3025,7 @@ function devAddStaticBot() {
         return;
     }
     
-    const id = 'devbot_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    const id = 'sandbot_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
     const data = {
         name: '🧪 ТестБот', uid: id, avatar: '🧪', color: '#ff8800',
         wardrobe: { head: '🧪', tuxedoColor: '#444466', trimColor: '#ff8800' },
@@ -3030,14 +3040,14 @@ function devAddStaticBot() {
     };
     
     GameState.bots[id] = { difficulty: 3, knownDice: {} };
-    safeSet(GameState.roomRef.child('players').child(id), data, 'dev-add-bot');
+    safeSet(GameState.roomRef.child('players').child(id), data, 'sandbox-add-bot');
     addLogEntry('system', `🧪 Тестовый бот присоединился`);
     showNotification('✅ Тестовый бот добавлен!', 'success');
-    devUpdateSelects();
+    sandboxUpdateSelects();
 }
 
 // 8. Отладка
-function devShowDebugInfo() {
+function sandboxShowDebugInfo() {
     console.log('=== 🐛 DEBUG INFO ===');
     console.log('GameState:', JSON.parse(JSON.stringify(GameState)));
     console.log('Players:');
