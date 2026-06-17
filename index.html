@@ -1131,10 +1131,22 @@ body.offline { opacity: 0.7; }
     cursor: pointer;
     margin-top: 15px;
 }
+
+@keyframes sandboxFlash {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+    
 </style>
 </head>
 <body>
-
+<!-- Баннер песочницы -->
+<div id="sandboxBanner" style="display:none; position:fixed; top:0; left:0; right:0; 
+    background:linear-gradient(90deg, #ff8800, #ff4400, #ff8800); 
+    color:#fff; text-align:center; padding:4px; font-size:0.7em; 
+    z-index:9998; font-weight:bold; animation: sandboxFlash 1s infinite;">
+    🧪 ПЕСОЧНИЦА ВКЛЮЧЕНА — ТЕСТОВЫЙ РЕЖИМ
+</div>
 <!-- TOP BAR -->
 <div id="topBar" class="no-select">
     <div id="gameInfo">
