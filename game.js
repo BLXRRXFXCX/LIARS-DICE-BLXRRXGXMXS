@@ -13,7 +13,7 @@ function getDieEmoji(v) {
 
 const GameState = {
     roomRef: null,
-    devModeEnabled: false,
+    sandboxMode: false,
     myUid: '', myName: '', myAvatar: '🙂', myColor: '#ffffff',
     currentRoomId: '', isHost: false,
     players: {}, lastBet: null, gameState: 'lobby',
@@ -2651,7 +2651,7 @@ function bindEventListeners() {
     document.getElementById('menuBotAdd')?.addEventListener('click', ()=>{addBot();});
     document.getElementById('menuBotRemoveAll')?.addEventListener('click', ()=>{removeAllBots();});
     document.getElementById('menuBotDifficulty')?.addEventListener('click', e=>{e.stopPropagation();setBotDifficulty((GameState.botDifficulty+1)%4);});
-    document.getElementById('menuDevMode')?.addEventListener('click', toggleDevPanel);
+    document.getElementById('menuSandbox')?.addEventListener('click', toggleSandboxMode);
     window.addEventListener('beforeunload', clearAllTimers);
 }
 
