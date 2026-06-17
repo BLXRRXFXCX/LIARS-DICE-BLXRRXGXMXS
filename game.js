@@ -736,7 +736,7 @@ GameState.lastAccuser = data.lastAccuser || null;  // ← читаем обви�
             if (panel && panel.style.display === 'block') panel.style.display = 'none';
         }
         renderUI();
-        if (devPanelVisible) devUpdateSelects();
+        if (sandboxPanelVisible) sandboxUpdateSelects();
         if (GameState.gameState === 'betting' && GameState.currentPlayerUid &&
             GameState.players[GameState.currentPlayerUid]?.isBot &&
             GameState.currentPlayerUid !== GameState.myUid && !GameState.isBotThinking) {
@@ -2659,9 +2659,9 @@ function bindEventListeners() {
 // 🧪 ТЕСТОВЫЙ РЕЖИМ (DEV MODE)
 // ============================================================
 
-let devPanelVisible = false;
+let sandboxPanelVisible = false;
 
-function toggleDevPanel() {
+function toggleSandboxMode() {
     const panel = document.getElementById('devPanel');
     if (!panel) return;
     devPanelVisible = !devPanelVisible;
@@ -2679,7 +2679,7 @@ function toggleDevPanel() {
     }
 }
 
-function devUpdateSelects() {
+function sandboxUpdateSelects() {
     // Обновляем список артефактов
     const artSelect = document.getElementById('devArtifactSelect');
     const botArtSelect = document.getElementById('devBotArtifactSelect');
