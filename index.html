@@ -638,7 +638,81 @@ body, #topBar, #lastBetRow, #artifactRow, .player-slot, .control-cell,
     text-align: center;
     margin-bottom: 8px;
 }
-
+    
+<!-- DEV PANEL (скрыт по умолчанию) -->
+<div id="devPanel" style="display:none; position:fixed; bottom:10px; left:10px; right:10px; 
+    background:rgba(0,0,0,0.95); border:2px solid #ffd700; border-radius:10px; 
+    padding:12px; max-height:60vh; overflow-y:auto; z-index:9999;
+    box-shadow: 0 0 30px rgba(255,215,0,0.3);">
+    
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="color:#ffd700; margin:0; font-size:0.9em;">🧪 ТЕСТОВЫЙ РЕЖИМ</h3>
+        <button onclick="toggleDevPanel()" style="background:#ff4444; border:none; color:#fff; padding:4px 12px; border-radius:4px; cursor:pointer; font-size:1.2em;">✕</button>
+    </div>
+    
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:8px;">
+        
+        <!-- Артефакты игроку -->
+        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#ffd700; font-size:0.7em; margin-bottom:4px;">🎲 Артефакт СЕБЕ</div>
+            <select id="devArtifactSelect" style="width:100%; padding:4px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:0.7em;">
+            </select>
+            <button onclick="devGiveArtifactToPlayer()" style="width:100%; margin-top:4px; background:#22aa22; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Выдать</button>
+        </div>
+        
+        <!-- Артефакты боту -->
+        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#ffd700; font-size:0.7em; margin-bottom:4px;">🤖 Артефакт БОТУ</div>
+            <select id="devBotSelect" style="width:100%; padding:4px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:0.7em;">
+                <option value="">Выберите бота</option>
+            </select>
+            <select id="devBotArtifactSelect" style="width:100%; margin-top:4px; padding:4px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:0.7em;">
+            </select>
+            <button onclick="devGiveArtifactToBot()" style="width:100%; margin-top:4px; background:#22aa22; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Выдать</button>
+        </div>
+        
+        <!-- Управление обвинением -->
+        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#ffd700; font-size:0.7em; margin-bottom:4px;">⚡ Принудительное обвинение</div>
+            <button onclick="devForceAccuse('bot')" style="width:100%; margin-top:4px; background:#cc2222; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Обвинить бота</button>
+            <button onclick="devForceAccuse('player')" style="width:100%; margin-top:4px; background:#cc2222; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Обвинить игрока</button>
+        </div>
+        
+        <!-- Управление здоровьем и ядами -->
+        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#ffd700; font-size:0.7em; margin-bottom:4px;">❤️ Здоровье и яды</div>
+            <select id="devTargetSelect" style="width:100%; padding:4px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:0.7em;">
+                <option value="me">👤 Себе</option>
+            </select>
+            <div style="display:flex; gap:4px; margin-top:4px;">
+                <button onclick="devModifyLives(-1)" style="flex:1; background:#444; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">❤️−</button>
+                <button onclick="devModifyLives(1)" style="flex:1; background:#444; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">❤️+</button>
+                <button onclick="devKillPlayer()" style="flex:1; background:#cc2222; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">💀</button>
+            </div>
+            <div style="display:flex; gap:4px; margin-top:4px;">
+                <button onclick="devModifyPoisons(-1)" style="flex:1; background:#444; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">☠️−</button>
+                <button onclick="devModifyPoisons(1)" style="flex:1; background:#444; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">☠️+</button>
+            </div>
+        </div>
+        
+        <!-- Управление ходом -->
+        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#ffd700; font-size:0.7em; margin-bottom:4px;">⏭️ Управление ходом</div>
+            <button onclick="devForceNextTurn()" style="width:100%; margin-top:4px; background:#4444aa; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Следующий ход</button>
+            <button onclick="devResetRound()" style="width:100%; margin-top:4px; background:#aa44aa; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Сброс раунда</button>
+            <button onclick="devResetDice()" style="width:100%; margin-top:4px; background:#44aaaa; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Сброс кубиков</button>
+        </div>
+        
+        <!-- Отладка -->
+        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#ffd700; font-size:0.7em; margin-bottom:4px;">🐛 Отладка</div>
+            <button onclick="devShowDebugInfo()" style="width:100%; margin-top:4px; background:#444; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Показать состояние</button>
+            <button onclick="devForceBotUseArtifact()" style="width:100%; margin-top:4px; background:#aa4444; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Бот → применить артефакт</button>
+            <button onclick="devAddStaticBot()" style="width:100%; margin-top:4px; background:#44aa44; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">➕ Статичный бот</button>
+        </div>
+        
+    </div>
+</div>
 /* ===== MODALS ===== */
 .modal {
     display: none;
@@ -1158,6 +1232,7 @@ body.offline { opacity: 0.7; }
     <button id="menuBotAdd">🤖 ➕ Добавить бота</button>
     <button id="menuBotRemoveAll">🤖 🗑️ Удалить всех ботов</button>
     <button id="menuNewRoom">🆕 Новая комната</button>
+    <button id="menuDevMode">🧪 Тестовый режим: ВЫКЛ</button>
 </div>
 
 <!-- WARDROBE MODAL -->
