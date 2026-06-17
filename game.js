@@ -13,6 +13,7 @@ function getDieEmoji(v) {
 
 const GameState = {
     roomRef: null,
+    devModeEnabled: false,
     myUid: '', myName: '', myAvatar: '🙂', myColor: '#ffffff',
     currentRoomId: '', isHost: false,
     players: {}, lastBet: null, gameState: 'lobby',
@@ -735,6 +736,7 @@ GameState.lastAccuser = data.lastAccuser || null;  // ← читаем обви�
             if (panel && panel.style.display === 'block') panel.style.display = 'none';
         }
         renderUI();
+        if (devPanelVisible) devUpdateSelects();
         if (GameState.gameState === 'betting' && GameState.currentPlayerUid &&
             GameState.players[GameState.currentPlayerUid]?.isBot &&
             GameState.currentPlayerUid !== GameState.myUid && !GameState.isBotThinking) {
@@ -2649,8 +2651,422 @@ function bindEventListeners() {
     document.getElementById('menuBotAdd')?.addEventListener('click', ()=>{addBot();});
     document.getElementById('menuBotRemoveAll')?.addEventListener('click', ()=>{removeAllBots();});
     document.getElementById('menuBotDifficulty')?.addEventListener('click', e=>{e.stopPropagation();setBotDifficulty((GameState.botDifficulty+1)%4);});
+    document.getElementById('menuDevMode')?.addEventListener('click', toggleDevPanel);
     window.addEventListener('beforeunload', clearAllTimers);
 }
+
+// ============================================================
+// 🧪 ТЕСТОВЫЙ РЕЖИМ (DEV MODE)
+// ============================================================
+
+let devPanelVisible = false;
+
+function toggleDevPanel() {
+    const panel = document.getElementById('devPanel');
+    if (!panel) return;
+    devPanelVisible = !devPanelVisible;
+    panel.style.display = devPanelVisible ? 'block' : 'none';
+    
+    // Обновляем кнопку в меню
+    const menuBtn = document.getElementById('menuDevMode');
+    if (menuBtn) {
+        menuBtn.textContent = devPanelVisible ? '🧪 Тестовый режим: ВКЛ' : '🧪 Тестовый режим: ВЫКЛ';
+    }
+    
+    // Обновляем списки при открытии
+    if (devPanelVisible) {
+        devUpdateSelects();
+    }
+}
+
+function devUpdateSelects() {
+    // Обновляем список артефактов
+    const artSelect = document.getElementById('devArtifactSelect');
+    const botArtSelect = document.getElementById('devBotArtifactSelect');
+    if (artSelect) {
+        artSelect.innerHTML = '';
+        ARTIFACTS.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.id;
+            opt.textContent = `${a.emoji} ${a.name}`;
+            artSelect.appendChild(opt);
+        });
+    }
+    if (botArtSelect) {
+        botArtSelect.innerHTML = '';
+        ARTIFACTS.forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.id;
+            opt.textContent = `${a.emoji} ${a.name}`;
+            botArtSelect.appendChild(opt);
+        });
+    }
+    
+    // Обновляем список ботов
+    const botSelect = document.getElementById('devBotSelect');
+    if (botSelect) {
+        botSelect.innerHTML = '<option value="">Выберите бота</option>';
+        Object.keys(GameState.players).forEach(uid => {
+            const p = GameState.players[uid];
+            if (p?.isBot && p.alive) {
+                const opt = document.createElement('option');
+                opt.value = uid;
+                opt.textContent = `${p.name} (${uid.slice(0, 8)})`;
+                botSelect.appendChild(opt);
+            }
+        });
+    }
+    
+    // Обновляем список целей
+    const targetSelect = document.getElementById('devTargetSelect');
+    if (targetSelect) {
+        targetSelect.innerHTML = '<option value="me">👤 Себе</option>';
+        Object.keys(GameState.players).forEach(uid => {
+            if (uid === GameState.myUid) return;
+            const p = GameState.players[uid];
+            if (p?.alive) {
+                const opt = document.createElement('option');
+                opt.value = uid;
+                opt.textContent = `${p.isBot ? '🤖' : '👤'} ${p.name}`;
+                targetSelect.appendChild(opt);
+            }
+        });
+    }
+}
+
+// 1. Выдать артефакт игроку
+function devGiveArtifactToPlayer() {
+    const select = document.getElementById('devArtifactSelect');
+    if (!select) return;
+    const artId = select.value;
+    const art = ARTIFACTS.find(a => a.id === artId);
+    if (!art) return;
+    
+    const m = GameState.players[GameState.myUid];
+    if (!m) { showNotification('Игрок не найден!', 'error'); return; }
+    
+    // Удаляем старый артефакт
+    if (m.artifact) {
+        delete GameState.usedSpecialThisRound[m.artifact.id];
+    }
+    
+    // Выдаём новый
+    m.artifact = { ...art };
+    m.usedSpecialThisRound = GameState.usedSpecialThisRound;
+    
+    safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {
+        artifact: m.artifact,
+        usedSpecialThisRound: GameState.usedSpecialThisRound
+    }, 'dev-give-artifact');
+    
+    renderUI();
+    showNotification(`✅ Артефакт ${art.emoji} ${art.name} выдан!`, 'success');
+    devUpdateSelects();
+}
+
+// 2. Выдать артефакт боту
+function devGiveArtifactToBot() {
+    const botSelect = document.getElementById('devBotSelect');
+    const artSelect = document.getElementById('devBotArtifactSelect');
+    if (!botSelect || !artSelect) return;
+    
+    const botId = botSelect.value;
+    const artId = artSelect.value;
+    
+    if (!botId || !GameState.players[botId]?.isBot) {
+        showNotification('Выберите бота!', 'warning');
+        return;
+    }
+    
+    const art = ARTIFACTS.find(a => a.id === artId);
+    if (!art) return;
+    
+    const bot = GameState.players[botId];
+    bot.artifact = { ...art };
+    
+    safeUpdate(GameState.roomRef.child('players').child(botId), {
+        artifact: bot.artifact
+    }, 'dev-give-bot-artifact');
+    
+    renderUI();
+    showNotification(`✅ Бот получил ${art.emoji} ${art.name}`, 'success');
+    devUpdateSelects();
+}
+
+// 3. Принудительное обвинение
+function devForceAccuse(target) {
+    if (GameState.gameState !== 'betting' && GameState.gameState !== 'lobby') {
+        showNotification('Игра должна быть в фазе ставок или лобби!', 'warning');
+        return;
+    }
+    
+    // Если в лобби - принудительно запускаем игру
+    if (GameState.gameState === 'lobby') {
+        const ac = Object.keys(GameState.players).filter(u => GameState.players[u] && GameState.players[u].alive && !GameState.players[u].isGhost && !GameState.players[u].isBot).length;
+        const bc = Object.keys(GameState.players).filter(u => GameState.players[u] && GameState.players[u].isBot).length;
+        if ((ac >= 1 && bc >= 1) || ac >= 2) {
+            startNewRound().then(() => {
+                setTimeout(() => devForceAccuse(target), 500);
+            });
+            return;
+        } else {
+            showNotification('Нужен 1 игрок + 1 бот или 2 игрока!', 'warning');
+            return;
+        }
+    }
+    
+    if (!GameState.lastBet) {
+        // Создаём фиктивную ставку
+        GameState.lastBet = {
+            player: GameState.myUid,
+            count: 1,
+            value: 1,
+            timestamp: Date.now()
+        };
+        GameState.players[GameState.myUid].lastBetInRound = GameState.lastBet;
+    }
+    
+    let accuserId, accusedId;
+    
+    if (target === 'bot') {
+        // Игрок обвиняет бота
+        const bots = Object.keys(GameState.players).filter(u => 
+            GameState.players[u]?.isBot && GameState.players[u].alive && !GameState.players[u].isGhost
+        );
+        if (!bots.length) { showNotification('Нет живых ботов!', 'warning'); return; }
+        accuserId = GameState.myUid;
+        accusedId = bots[0];
+    } else {
+        // Бот обвиняет игрока
+        const bots = Object.keys(GameState.players).filter(u => 
+            GameState.players[u]?.isBot && GameState.players[u].alive && !GameState.players[u].isGhost
+        );
+        if (!bots.length) { showNotification('Нет живых ботов!', 'warning'); return; }
+        accuserId = bots[0];
+        accusedId = GameState.myUid;
+    }
+    
+    // Устанавливаем последнюю ставку от обвинителя
+    GameState.lastBet = {
+        player: accuserId,
+        count: 1,
+        value: 1,
+        timestamp: Date.now()
+    };
+    if (GameState.players[accuserId]) {
+        GameState.players[accuserId].lastBetInRound = GameState.lastBet;
+    }
+    
+    // Вызываем обвинение
+    if (accuserId === GameState.myUid) {
+        GameState.lastAccuser = accuserId;
+        accuse();
+    } else {
+        accuseFromBot(accuserId);
+    }
+    
+    devUpdateSelects();
+}
+
+// 4. Управление жизнями
+function devModifyLives(delta) {
+    const targetSelect = document.getElementById('devTargetSelect');
+    if (!targetSelect) return;
+    const targetUid = targetSelect.value;
+    const uid = targetUid === 'me' ? GameState.myUid : targetUid;
+    const p = GameState.players[uid];
+    if (!p) { showNotification('Игрок не найден!', 'error'); return; }
+    
+    const newLives = Math.max(1, Math.min(10, (p.maxLives || 3) + delta));
+    p.maxLives = newLives;
+    
+    safeUpdate(GameState.roomRef.child('players').child(uid), {
+        maxLives: newLives
+    }, 'dev-modify-lives');
+    
+    renderUI();
+    showNotification(`${p.name}: ❤️ ${newLives}`, 'info');
+    devUpdateSelects();
+}
+
+function devModifyPoisons(delta) {
+    const targetSelect = document.getElementById('devTargetSelect');
+    if (!targetSelect) return;
+    const targetUid = targetSelect.value;
+    const uid = targetUid === 'me' ? GameState.myUid : targetUid;
+    const p = GameState.players[uid];
+    if (!p) { showNotification('Игрок не найден!', 'error'); return; }
+    
+    const newPoisons = Math.max(0, (p.poisons || 0) + delta);
+    p.poisons = newPoisons;
+    
+    safeUpdate(GameState.roomRef.child('players').child(uid), {
+        poisons: newPoisons
+    }, 'dev-modify-poisons');
+    
+    // Проверяем смерть
+    if (newPoisons >= (p.maxLives || 3)) {
+        setTimeout(() => checkDeath(), 100);
+    }
+    
+    renderUI();
+    showNotification(`${p.name}: ☠️ ${newPoisons}`, 'info');
+    devUpdateSelects();
+}
+
+function devKillPlayer() {
+    const targetSelect = document.getElementById('devTargetSelect');
+    if (!targetSelect) return;
+    const targetUid = targetSelect.value;
+    const uid = targetUid === 'me' ? GameState.myUid : targetUid;
+    const p = GameState.players[uid];
+    if (!p) { showNotification('Игрок не найден!', 'error'); return; }
+    
+    p.poisons = p.maxLives || 3;
+    
+    safeUpdate(GameState.roomRef.child('players').child(uid), {
+        poisons: p.poisons
+    }, 'dev-kill');
+    
+    setTimeout(() => checkDeath(), 100);
+    renderUI();
+    showNotification(`💀 ${p.name} убит!`, 'error');
+    devUpdateSelects();
+}
+
+// 5. Управление ходом
+function devForceNextTurn() {
+    if (GameState.gameState !== 'betting') {
+        showNotification('Игра не в фазе ставок!', 'warning');
+        return;
+    }
+    nextTurn();
+    devUpdateSelects();
+}
+
+function devResetRound() {
+    if (!GameState.roomRef) return;
+    startNewRound();
+    showNotification('🔄 Раунд сброшен!', 'success');
+    devUpdateSelects();
+}
+
+function devResetDice() {
+    const targetSelect = document.getElementById('devTargetSelect');
+    if (!targetSelect) return;
+    const targetUid = targetSelect.value;
+    const uid = targetUid === 'me' ? GameState.myUid : targetUid;
+    const p = GameState.players[uid];
+    if (!p) { showNotification('Игрок не найден!', 'error'); return; }
+    
+    const numDice = p.maxDice || 5;
+    const newDice = Array(numDice).fill(0).map(() => Math.floor(Math.random() * 6) + 1);
+    p.dice = newDice;
+    p.evilEyed = false;
+    p.frozen = false;
+    
+    safeUpdate(GameState.roomRef.child('players').child(uid), {
+        dice: newDice,
+        evilEyed: false,
+        frozen: false
+    }, 'dev-reset-dice');
+    
+    renderUI();
+    showNotification(`🎲 Кубики ${p.name} сброшены!`, 'success');
+    devUpdateSelects();
+}
+
+// 6. Бот применяет артефакт
+function devForceBotUseArtifact() {
+    const botSelect = document.getElementById('devBotSelect');
+    if (!botSelect) return;
+    const botId = botSelect.value;
+    if (!botId || !GameState.players[botId]?.isBot) {
+        showNotification('Выберите бота!', 'warning');
+        return;
+    }
+    
+    const bot = GameState.players[botId];
+    if (!bot.artifact || bot.artifact.type !== 'active') {
+        showNotification('У бота нет активного артефакта!', 'warning');
+        return;
+    }
+    
+    // Принудительно применяем артефакт
+    const result = botUseArtifact(botId);
+    if (result) {
+        showNotification(`🤖 ${bot.name} применил ${bot.artifact.emoji} ${bot.artifact.name}!`, 'success');
+    } else {
+        showNotification('❌ Не удалось применить артефакт', 'error');
+    }
+    devUpdateSelects();
+}
+
+// 7. Добавить статичного бота
+function devAddStaticBot() {
+    if (GameState.gameState !== 'lobby' && GameState.gameState !== 'ended') {
+        showNotification('Добавлять ботов можно только в лобби!', 'warning');
+        return;
+    }
+    
+    const cnt = Object.keys(GameState.players).filter(u => GameState.players[u]?.isBot).length;
+    if (cnt >= 5) {
+        showNotification('Максимум 5 ботов', 'warning');
+        return;
+    }
+    
+    const id = 'devbot_' + Date.now() + '_' + Math.random().toString(36).substr(2, 6);
+    const data = {
+        name: '🧪 ТестБот', uid: id, avatar: '🧪', color: '#ff8800',
+        wardrobe: { head: '🧪', tuxedoColor: '#444466', trimColor: '#ff8800' },
+        dice: [], poisons: 0, blood: 0,
+        alive: true, isGhost: false, artifact: null, usedSpecialThisRound: {}, lastBetInRound: null,
+        devilDealsUsed: 0, connected: true, lastSeenTurn: 0, maxLives: GameState.defaultLives,
+        isBot: true, botDifficulty: 3, joinedAt: Date.now(),
+        cursed: false, frozen: false, defenderActive: false, stunned: false, blind: false,
+        darkPact: false, darkPactShield: false, devilShield: false, evilEyed: false,
+        forcedBluff: false, cannotAccuse: false, sniperShotUsedThisRound: false, 
+        familiarCursed: false, usedAbilities: {}
+    };
+    
+    GameState.bots[id] = { difficulty: 3, knownDice: {} };
+    safeSet(GameState.roomRef.child('players').child(id), data, 'dev-add-bot');
+    addLogEntry('system', `🧪 Тестовый бот присоединился`);
+    showNotification('✅ Тестовый бот добавлен!', 'success');
+    devUpdateSelects();
+}
+
+// 8. Отладка
+function devShowDebugInfo() {
+    console.log('=== 🐛 DEBUG INFO ===');
+    console.log('GameState:', JSON.parse(JSON.stringify(GameState)));
+    console.log('Players:');
+    Object.keys(GameState.players).forEach(uid => {
+        const p = GameState.players[uid];
+        console.log(`  ${p.name} (${uid.slice(0, 8)}):`, {
+            alive: p.alive,
+            isGhost: p.isGhost,
+            dice: p.dice,
+            poisons: p.poisons,
+            blood: p.blood,
+            maxLives: p.maxLives,
+            artifact: p.artifact ? `${p.artifact.emoji} ${p.artifact.name}` : 'нет',
+            frozen: p.frozen || false,
+            cursed: p.cursed || false,
+            evilEyed: p.evilEyed || false,
+            isBot: p.isBot || false
+        });
+    });
+    console.log('Last bet:', GameState.lastBet);
+    console.log('Game state:', GameState.gameState);
+    console.log('Round:', GameState.roundNumber);
+    console.log('Current player:', GameState.currentPlayerUid, GameState.players[GameState.currentPlayerUid]?.name || 'не найден');
+    console.log('========================');
+    
+    showNotification('✅ Информация в консоли (F12)', 'success');
+}
+
+// ============================================================
 window.onload = () => {
     const params=new URLSearchParams(window.location.search);
     let room=params.get('room');
