@@ -842,20 +842,20 @@ function getCurrentPlayerUid() {
         return p?.alive && !p.isGhost && p.connected !== false;
     });
     if (!au.length) return null;
-    au.sort((a,b) => (GameState.players[a].joinedAt||0) - (GameState.players[b].joinedAt||0));
     
-    // Приоритет 1: используем currentPlayerUid из Firebase (он всегда актуальный)
+    // ⭐ Приоритет 1: используем GameState.currentPlayerUid
     if (GameState.currentPlayerUid && au.includes(GameState.currentPlayerUid)) {
         return GameState.currentPlayerUid;
     }
     
-    // Приоритет 2: fallback — вычисляем следующего после lastBet
+    // Приоритет 2: fallback — вычисляем по lastBet
+    au.sort((a, b) => (GameState.players[a].joinedAt||0) - (GameState.players[b].joinedAt||0));
+    
     if (GameState.lastBet && GameState.lastBet.player) {
         const idx = au.indexOf(GameState.lastBet.player);
         if (idx !== -1) return au[(idx + 1) % au.length];
     }
     
-    // Приоритет 3: первый игрок
     return au[0];
 }
 
@@ -989,22 +989,44 @@ function renderArtifactRow() {
 }
 
 function updateControls() {
+    // ⭐ ТОЧНАЯ ПРОВЕРКА: только если ход действительно мой
     const mt = isMyTurn();
     const m = GameState.players[GameState.myUid] || {};
+    
     const bp = document.getElementById('btnPlaceBet');
     const ba = document.getElementById('btnAccuse');
     const countUp = document.getElementById('btnBetCountUp');
     const countDown = document.getElementById('btnBetCountDown');
     const valueUp = document.getElementById('btnBetValueUp');
     const valueDown = document.getElementById('btnBetValueDown');
-    const canBet = mt && !GameState.isGhost && GameState.gameState === 'betting' && !GameState.isActionInProgress;
-    const canAccuse = mt && !GameState.isGhost && GameState.gameState === 'betting' && GameState.lastBet && GameState.lastBet.player !== GameState.myUid && !m.cannotAccuse && !GameState.isActionInProgress;
+    
+    // ⭐ ЖЁСТКАЯ ПРОВЕРКА: ставка доступна ТОЛЬКО если ход мой
+    const canBet = mt && 
+                   !GameState.isGhost && 
+                   GameState.gameState === 'betting' && 
+                   !GameState.isActionInProgress;
+    
+    // Обвинение доступно только если:
+    // 1. Ход мой
+    // 2. Есть ставка
+    // 3. Ставка НЕ моя
+    // 4. Я не заблокирован от обвинения
+    const canAccuse = mt && 
+                      !GameState.isGhost && 
+                      GameState.gameState === 'betting' && 
+                      GameState.lastBet && 
+                      GameState.lastBet.player !== GameState.myUid && 
+                      !m.cannotAccuse && 
+                      !GameState.isActionInProgress;
+    
     if (bp) bp.disabled = !canBet;
     if (ba) ba.disabled = !canAccuse;
     if (countUp) countUp.disabled = !canBet || GameState.betCount >= 50;
     if (countDown) countDown.disabled = !canBet || GameState.betCount <= 1;
     if (valueUp) valueUp.disabled = !canBet;
     if (valueDown) valueDown.disabled = !canBet;
+    
+    // Управление отображением панелей
     if (GameState.isGhost) {
         document.getElementById('diceRow').style.display = 'none';
         document.getElementById('controlRow').style.display = 'none';
@@ -1050,12 +1072,35 @@ function updateGhostButtons() {
 }
 
 function isMyTurn() {
+    // Проверка базовых условий
     if (GameState.isGhost || GameState.gameState !== 'betting') return false;
-    const au = Object.keys(GameState.players).filter(u => GameState.players[u]?.alive && !GameState.players[u]?.isGhost && GameState.players[u].connected !== false);
+    
+    // Получаем всех живых игроков
+    const au = Object.keys(GameState.players).filter(u => 
+        GameState.players[u]?.alive && 
+        !GameState.players[u]?.isGhost && 
+        GameState.players[u].connected !== false
+    );
     if (!au.length) return false;
-    au.sort((a,b) => (GameState.players[a].joinedAt||0)-(GameState.players[b].joinedAt||0));
-    if (!GameState.lastBet || !GameState.lastBet.player) return au[0] === GameState.myUid;
+    
+    // ⭐ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: используем GameState.currentPlayerUid
+    // Если currentPlayerUid установлен — это точный индикатор, чей ход
+    if (GameState.currentPlayerUid) {
+        return GameState.currentPlayerUid === GameState.myUid;
+    }
+    
+    // Fallback: если currentPlayerUid не установлен (старый код)
+    au.sort((a, b) => (GameState.players[a].joinedAt||0) - (GameState.players[b].joinedAt||0));
+    
+    // Если нет последней ставки — ход у первого игрока
+    if (!GameState.lastBet || !GameState.lastBet.player) {
+        return au[0] === GameState.myUid;
+    }
+    
+    // Если последняя ставка есть — следующий после того, кто ставил
     const idx = au.indexOf(GameState.lastBet.player);
+    if (idx === -1) return au[0] === GameState.myUid;
+    
     return au[(idx + 1) % au.length] === GameState.myUid;
 }
 
