@@ -2658,7 +2658,7 @@ function bindEventListeners() {
 }
 
 // ============================================================
-// 🧪 ПЕСОЧНИЦА (SANDBOX MODE) — ИСПРАВЛЕННАЯ ВЕРСИЯ
+// 🧪 ПЕСОЧНИЦА (SANDBOX MODE) — ИСПРАВЛЕННАЯ ВЕРСИЯ 2.0
 // ============================================================
 
 let sandboxPanelVisible = false;
@@ -2690,7 +2690,6 @@ function toggleSandboxMode() {
             if (bots.length === 0) {
                 sandboxAddStaticBot();
             }
-            // Исправлено: прямой вызов startNewRound вместо имитации клика
             setTimeout(() => {
                 if (GameState.gameState === 'lobby') {
                     startNewRound();
@@ -2733,15 +2732,18 @@ function sandboxUpdateSelects() {
     
     if (botSelect) {
         botSelect.innerHTML = '<option value="">Выберите бота</option>';
-        Object.keys(GameState.players).forEach(uid => {
+        const bots = Object.keys(GameState.players).filter(u => GameState.players[u]?.isBot && GameState.players[u].alive && !GameState.players[u].isGhost);
+        bots.forEach(uid => {
             const p = GameState.players[uid];
-            if (p?.isBot && p.alive && !p.isGhost) {
-                const opt = document.createElement('option');
-                opt.value = uid;
-                opt.textContent = `${p.name}`;
-                botSelect.appendChild(opt);
-            }
+            const opt = document.createElement('option');
+            opt.value = uid;
+            opt.textContent = `${p.name}`;
+            botSelect.appendChild(opt);
         });
+        // Если есть боты и ничего не выбрано, выбираем первого
+        if (bots.length > 0 && !botSelect.value) {
+            botSelect.value = bots[0];
+        }
     }
     
     if (targetSelect) {
@@ -2770,14 +2772,10 @@ function sandboxGiveArtifactToPlayer() {
     const m = GameState.players[GameState.myUid];
     if (!m) { showNotification('Игрок не найден!', 'error'); return; }
     
-    // Удаляем старый артефакт и его флаг использования
     if (m.artifact) {
         delete GameState.usedSpecialThisRound[m.artifact.id];
     }
-    
-    // Выдаём новый артефакт
     m.artifact = { ...art };
-    // Убеждаемся, что для нового артефакта нет флага использования
     delete GameState.usedSpecialThisRound[art.id];
     m.usedSpecialThisRound = GameState.usedSpecialThisRound;
     
@@ -2791,7 +2789,7 @@ function sandboxGiveArtifactToPlayer() {
     sandboxUpdateSelects();
 }
 
-// 2. Выдать артефакт боту (ИСПРАВЛЕНО)
+// 2. Выдать артефакт боту
 function sandboxGiveArtifactToBot() {
     const botSelect = document.getElementById('devBotSelect');
     const artSelect = document.getElementById('devBotArtifactSelect');
@@ -2813,9 +2811,7 @@ function sandboxGiveArtifactToBot() {
     const art = ARTIFACTS.find(a => a.id === artId);
     if (!art) return;
     
-    // ✅ ИСПРАВЛЕНО: сбрасываем глобальный флаг использования артефакта
     delete GameState.usedSpecialThisRound[artId];
-    
     bot.artifact = { ...art };
     
     safeUpdate(GameState.roomRef.child('players').child(botId), {
@@ -2827,21 +2823,21 @@ function sandboxGiveArtifactToBot() {
     sandboxUpdateSelects();
 }
 
-// 3. Принудительное обвинение (ИСПРАВЛЕНО)
-function sandboxForceAccuse(target) {
+// 3. Принудительное обвинение (исправлено)
+function sandboxForceAccuse(accuserType) {
+    // accuserType: 'player' — игрок обвиняет бота, 'bot' — бот обвиняет игрока
     if (GameState.gameState !== 'betting' && GameState.gameState !== 'lobby') {
         showNotification('Игра должна быть в фазе ставок или лобби!', 'warning');
         return;
     }
     
-    // Если в лобби — принудительно запускаем игру
+    // Если в лобби — запускаем игру
     if (GameState.gameState === 'lobby') {
         const ac = Object.keys(GameState.players).filter(u => GameState.players[u] && GameState.players[u].alive && !GameState.players[u].isGhost && !GameState.players[u].isBot).length;
         const bc = Object.keys(GameState.players).filter(u => GameState.players[u] && GameState.players[u].isBot).length;
         if ((ac >= 1 && bc >= 1) || ac >= 2) {
-            // ✅ ИСПРАВЛЕНО: дожидаемся завершения старта раунда
             startNewRound().then(() => {
-                setTimeout(() => sandboxForceAccuse(target), 500);
+                setTimeout(() => sandboxForceAccuse(accuserType), 500);
             });
             return;
         } else {
@@ -2850,39 +2846,25 @@ function sandboxForceAccuse(target) {
         }
     }
     
-    // Если нет ставки, создаём фиктивную от игрока
-    if (!GameState.lastBet) {
-        GameState.lastBet = {
-            player: GameState.myUid,
-            count: 1,
-            value: 1,
-            timestamp: Date.now()
-        };
-        GameState.players[GameState.myUid].lastBetInRound = GameState.lastBet;
-        safeUpdate(GameState.roomRef, { lastBet: GameState.lastBet }, 'sandbox-force-bet');
-    }
-    
+    // Определяем обвинителя и обвиняемого
     let accuserId, accusedId;
+    const bots = Object.keys(GameState.players).filter(u => 
+        GameState.players[u]?.isBot && GameState.players[u].alive && !GameState.players[u].isGhost
+    );
     
-    if (target === 'bot') {
+    if (accuserType === 'player') {
         // Игрок обвиняет бота
-        const bots = Object.keys(GameState.players).filter(u => 
-            GameState.players[u]?.isBot && GameState.players[u].alive && !GameState.players[u].isGhost
-        );
         if (!bots.length) { showNotification('Нет живых ботов!', 'warning'); return; }
         accuserId = GameState.myUid;
         accusedId = bots[0];
     } else {
         // Бот обвиняет игрока
-        const bots = Object.keys(GameState.players).filter(u => 
-            GameState.players[u]?.isBot && GameState.players[u].alive && !GameState.players[u].isGhost
-        );
         if (!bots.length) { showNotification('Нет живых ботов!', 'warning'); return; }
         accuserId = bots[0];
         accusedId = GameState.myUid;
     }
     
-    // Устанавливаем последнюю ставку от обвинителя (если она ещё не установлена)
+    // Убедимся, что есть ставка от обвинителя (если нет — создаём)
     if (!GameState.lastBet || GameState.lastBet.player !== accuserId) {
         GameState.lastBet = {
             player: accuserId,
@@ -2896,7 +2878,7 @@ function sandboxForceAccuse(target) {
         safeUpdate(GameState.roomRef, { lastBet: GameState.lastBet }, 'sandbox-force-bet');
     }
     
-    // Вызываем обвинение
+    // Теперь вызываем обвинение
     if (accuserId === GameState.myUid) {
         GameState.lastAccuser = accuserId;
         accuse();
@@ -2943,7 +2925,6 @@ function sandboxModifyPoisons(delta) {
         poisons: newPoisons
     }, 'sandbox-modify-poisons');
     
-    // Проверяем смерть
     if (newPoisons >= (p.maxLives || 3)) {
         setTimeout(() => checkDeath(), 100);
     }
@@ -3030,17 +3011,24 @@ function sandboxResetDice() {
     sandboxUpdateSelects();
 }
 
-// 6. Бот применяет артефакт
+// 6. Бот применяет артефакт (исправлено)
 function sandboxForceBotUseArtifact() {
     const botSelect = document.getElementById('devBotSelect');
     if (!botSelect) return;
-    const botId = botSelect.value;
-    if (!botId || !GameState.players[botId]?.isBot) {
-        showNotification('Выберите бота!', 'warning');
-        return;
+    let botId = botSelect.value;
+    // Если не выбран бот, но есть боты — выбираем первого
+    if (!botId) {
+        const bots = Object.keys(GameState.players).filter(u => GameState.players[u]?.isBot && GameState.players[u].alive && !GameState.players[u].isGhost);
+        if (bots.length === 0) {
+            showNotification('Нет живых ботов!', 'warning');
+            return;
+        }
+        botId = bots[0];
+        botSelect.value = botId;
     }
     
     const bot = GameState.players[botId];
+    if (!bot) { showNotification('Бот не найден!', 'error'); return; }
     if (!bot.artifact || bot.artifact.type !== 'active') {
         showNotification('У бота нет активного артефакта!', 'warning');
         return;
@@ -3140,7 +3128,7 @@ function sandboxClearAllEffects() {
     renderUI();
 }
 
-// 10. Установить кубики вручную
+// 10. Установить кубики вручную (исправлено — использует выбранную цель)
 function sandboxSetDice() {
     const targetSelect = document.getElementById('devTargetSelect');
     if (!targetSelect) return;
@@ -3158,6 +3146,27 @@ function sandboxSetDice() {
     renderUI();
     showNotification(`🎲 Кубики ${p.name} установлены!`, 'success');
     sandboxUpdateSelects();
+}
+
+// 11. Перезапустить игру (сброс в лобби)
+function sandboxResetGame() {
+    if (!confirm('⚠️ Перезапустить игру? Все прогресс будет потерян.')) return;
+    resetGame();
+    // После сброса, если песочница включена, можно снова добавить бота и запустить
+    setTimeout(() => {
+        if (sandboxPanelVisible && GameState.gameState === 'lobby') {
+            const bots = Object.keys(GameState.players).filter(u => GameState.players[u]?.isBot);
+            if (bots.length === 0) {
+                sandboxAddStaticBot();
+            }
+            setTimeout(() => {
+                if (GameState.gameState === 'lobby') {
+                    startNewRound();
+                }
+            }, 200);
+        }
+    }, 300);
+    showNotification('🔄 Игра перезапущена!', 'success');
 }
 
 // ============================================================
