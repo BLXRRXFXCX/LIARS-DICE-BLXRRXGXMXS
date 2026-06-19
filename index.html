@@ -1390,76 +1390,80 @@ body.offline { opacity: 0.7; }
 
 <script src="game.js"></script>
 
-    <!-- DEV PANEL (скрыт по умолчанию) -->
+   <!-- 🧪 ПЕСОЧНИЦА - ПАНЕЛЬ УПРАВЛЕНИЯ -->
 <div id="devPanel" style="display:none; position:fixed; bottom:10px; left:10px; right:10px; 
-    background:rgba(0,0,0,0.95); border:2px solid #ffd700; border-radius:10px; 
-    padding:12px; max-height:60vh; overflow-y:auto; z-index:9999;
-    box-shadow: 0 0 30px rgba(255,215,0,0.3);">
+    background:rgba(0,0,0,0.9); border:2px solid #ffd700; border-radius:10px; 
+    padding:8px; max-height:40vh; overflow-y:auto; z-index:9999;
+    box-shadow: 0 0 20px rgba(255,215,0,0.2); backdrop-filter:blur(4px);
+    font-size:0.75em;">
     
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-        <h3 style="color:#ffd700; margin:0; font-size:0.9em;">🧪 ТЕСТОВЫЙ РЕЖИМ</h3>
-        <button onclick="toggleSandboxMode()" style="background:#ff4444; border:none; color:#fff; padding:4px 12px; border-radius:4px; cursor:pointer; font-size:1.2em;">✕</button>
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+        <h3 style="color:#ffd700; margin:0; font-size:0.9em;">🧪 ПЕСОЧНИЦА</h3>
+        <button onclick="toggleSandboxMode()" style="background:#ff4444; border:none; color:#fff; padding:2px 10px; border-radius:4px; cursor:pointer; font-size:1em;">✕</button>
     </div>
     
-    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap:8px;">
+    <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap:6px;">
         
         <!-- Артефакты игроку -->
-        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
-            <div style="color:#ffd700; font-size:0.7em; margin-bottom:4px;">🎲 Артефакт СЕБЕ</div>
-            <select id="devArtifactSelect" style="width:100%; padding:4px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:0.7em;">
+        <div style="background:rgba(255,255,255,0.05); padding:6px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#ffd700; font-size:0.7em; margin-bottom:3px;">🎲 СЕБЕ</div>
+            <select id="devArtifactSelect" style="width:100%; padding:3px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:0.7em;">
             </select>
-            <button onclick="sandboxGiveArtifactToPlayer()" style="width:100%; margin-top:4px; background:#22aa22; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Выдать</button>
+            <button onclick="sandboxGiveArtifactToPlayer()" style="width:100%; margin-top:3px; background:#22aa22; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">Выдать</button>
         </div>
         
         <!-- Артефакты боту -->
-        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
-            <div style="color:#ffd700; font-size:0.7em; margin-bottom:4px;">🤖 Артефакт БОТУ</div>
-            <select id="devBotSelect" style="width:100%; padding:4px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:0.7em;">
+        <div style="background:rgba(255,255,255,0.05); padding:6px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#ffd700; font-size:0.7em; margin-bottom:3px;">🤖 БОТУ</div>
+            <select id="devBotSelect" style="width:100%; padding:3px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:0.7em;">
                 <option value="">Выберите бота</option>
             </select>
-            <select id="devBotArtifactSelect" style="width:100%; margin-top:4px; padding:4px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:0.7em;">
+            <select id="devBotArtifactSelect" style="width:100%; margin-top:3px; padding:3px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:0.7em;">
             </select>
-            <button onclick="sandboxGiveArtifactToBot()" style="width:100%; margin-top:4px; background:#22aa22; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Выдать</button>
+            <button onclick="sandboxGiveArtifactToBot()" style="width:100%; margin-top:3px; background:#22aa22; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">Выдать</button>
         </div>
         
         <!-- Управление обвинением -->
-        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
-            <div style="color:#ffd700; font-size:0.7em; margin-bottom:4px;">⚡ Принудительное обвинение</div>
-            <button onclick="sandboxForceAccuse('bot')" style="width:100%; margin-top:4px; background:#cc2222; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Обвинить бота</button>
-            <button onclick="sandboxForceAccuse('player')" style="width:100%; margin-top:4px; background:#cc2222; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Обвинить игрока</button>
+        <div style="background:rgba(255,255,255,0.05); padding:6px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#ffd700; font-size:0.7em; margin-bottom:3px;">⚡ Обвинение</div>
+            <button onclick="sandboxForceAccuse('bot')" style="width:100%; margin-top:3px; background:#cc2222; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">Обвинить бота</button>
+            <button onclick="sandboxForceAccuse('player')" style="width:100%; margin-top:3px; background:#cc2222; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">Обвинить игрока</button>
         </div>
         
-        <!-- Управление здоровьем и ядами -->
-        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
-            <div style="color:#ffd700; font-size:0.7em; margin-bottom:4px;">❤️ Здоровье и яды</div>
-            <select id="devTargetSelect" style="width:100%; padding:4px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:0.7em;">
+        <!-- Управление здоровьем -->
+        <div style="background:rgba(255,255,255,0.05); padding:6px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#ffd700; font-size:0.7em; margin-bottom:3px;">❤️ Здоровье</div>
+            <select id="devTargetSelect" style="width:100%; padding:3px; background:#333; color:#fff; border:1px solid #555; border-radius:4px; font-size:0.7em;">
                 <option value="me">👤 Себе</option>
             </select>
-            <div style="display:flex; gap:4px; margin-top:4px;">
-                <button onclick="sandboxModifyLives(-1)" style="flex:1; background:#444; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">❤️−</button>
-                <button onclick="sandboxModifyLives(1)" style="flex:1; background:#444; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">❤️+</button>
-                <button onclick="sandboxKillPlayer()" style="flex:1; background:#cc2222; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">💀</button>
+            <div style="display:flex; gap:3px; margin-top:3px;">
+                <button onclick="sandboxModifyLives(-1)" style="flex:1; background:#444; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">❤️−</button>
+                <button onclick="sandboxModifyLives(1)" style="flex:1; background:#444; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">❤️+</button>
+                <button onclick="sandboxKillPlayer()" style="flex:1; background:#cc2222; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">💀</button>
             </div>
-            <div style="display:flex; gap:4px; margin-top:4px;">
-                <button onclick="sandboxModifyPoisons(-1)" style="flex:1; background:#444; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">☠️−</button>
-                <button onclick="sandboxModifyPoisons(1)" style="flex:1; background:#444; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">☠️+</button>
+            <div style="display:flex; gap:3px; margin-top:3px;">
+                <button onclick="sandboxModifyPoisons(-1)" style="flex:1; background:#444; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">☠️−</button>
+                <button onclick="sandboxModifyPoisons(1)" style="flex:1; background:#444; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">☠️+</button>
             </div>
         </div>
         
         <!-- Управление ходом -->
-        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
-            <div style="color:#ffd700; font-size:0.7em; margin-bottom:4px;">⏭️ Управление ходом</div>
-            <button onclick="sandboxForceNextTurn()" style="width:100%; margin-top:4px; background:#4444aa; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Следующий ход</button>
-            <button onclick="sandboxResetRound()" style="width:100%; margin-top:4px; background:#aa44aa; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Сброс раунда</button>
-            <button onclick="sandboxResetDice()" style="width:100%; margin-top:4px; background:#44aaaa; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Сброс кубиков</button>
+        <div style="background:rgba(255,255,255,0.05); padding:6px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#ffd700; font-size:0.7em; margin-bottom:3px;">⏭️ Ход</div>
+            <button onclick="sandboxForceNextTurn()" style="width:100%; margin-top:3px; background:#4444aa; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">След. ход</button>
+            <button onclick="sandboxForceMyTurn()" style="width:100%; margin-top:3px; background:#44aa44; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">Ход мне</button>
+            <button onclick="sandboxResetRound()" style="width:100%; margin-top:3px; background:#aa44aa; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">Сброс раунда</button>
+            <button onclick="sandboxResetDice()" style="width:100%; margin-top:3px; background:#44aaaa; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">Сброс кубиков</button>
         </div>
         
         <!-- Отладка -->
-        <div style="background:rgba(255,255,255,0.05); padding:8px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
-            <div style="color:#ffd700; font-size:0.7em; margin-bottom:4px;">🐛 Отладка</div>
-            <button onclick="sandboxShowDebugInfo()" style="width:100%; margin-top:4px; background:#444; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Показать состояние</button>
-            <button onclick="sandboxForceBotUseArtifact()" style="width:100%; margin-top:4px; background:#aa4444; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">Бот → применить артефакт</button>
-            <button onclick="sandboxAddStaticBot()" style="width:100%; margin-top:4px; background:#44aa44; border:none; color:#fff; padding:4px; border-radius:4px; cursor:pointer; font-size:0.7em;">➕ Статичный бот</button>
+        <div style="background:rgba(255,255,255,0.05); padding:6px; border-radius:5px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#ffd700; font-size:0.7em; margin-bottom:3px;">🐛 Отладка</div>
+            <button onclick="sandboxShowDebugInfo()" style="width:100%; margin-top:3px; background:#444; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">Состояние</button>
+            <button onclick="sandboxForceBotUseArtifact()" style="width:100%; margin-top:3px; background:#aa4444; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">Бот → артефакт</button>
+            <button onclick="sandboxAddStaticBot()" style="width:100%; margin-top:3px; background:#44aa44; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">➕ ТестБот</button>
+            <button onclick="sandboxClearAllEffects()" style="width:100%; margin-top:3px; background:#ff8800; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">Сброс эффектов</button>
+            <button onclick="sandboxSetDice()" style="width:100%; margin-top:3px; background:#8888ff; border:none; color:#fff; padding:3px; border-radius:4px; cursor:pointer; font-size:0.7em;">Установить кубики</button>
         </div>
         
     </div>
