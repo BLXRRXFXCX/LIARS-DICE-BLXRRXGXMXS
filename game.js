@@ -2658,7 +2658,7 @@ function bindEventListeners() {
 }
 
 // ============================================================
-// 🧪 ПЕСОЧНИЦА (SANDBOX MODE) — ПОЛНЫЙ БЛОК ФУНКЦИЙ
+// 🧪 ПЕСОЧНИЦА (SANDBOX MODE) — ИСПРАВЛЕННАЯ ВЕРСИЯ
 // ============================================================
 
 let sandboxPanelVisible = false;
@@ -2684,15 +2684,18 @@ function toggleSandboxMode() {
     }
     
     if (sandboxPanelVisible) {
-        // Если игра в лобби — запускаем раунд
+        // Если игра в лобби — добавляем бота (если нет) и запускаем раунд
         if (GameState.gameState === 'lobby') {
             const bots = Object.keys(GameState.players).filter(u => GameState.players[u]?.isBot);
             if (bots.length === 0) {
                 sandboxAddStaticBot();
             }
-            // Имитируем клик по кнопке "ИГРАТЬ"
-            const startBtn = document.getElementById('btnStartGame');
-            if (startBtn) startBtn.click();
+            // Исправлено: прямой вызов startNewRound вместо имитации клика
+            setTimeout(() => {
+                if (GameState.gameState === 'lobby') {
+                    startNewRound();
+                }
+            }, 100);
         }
         sandboxUpdateSelects();
         showNotification('🧪 ПЕСОЧНИЦА ВКЛЮЧЕНА!', 'success', 2000);
@@ -2788,7 +2791,7 @@ function sandboxGiveArtifactToPlayer() {
     sandboxUpdateSelects();
 }
 
-// 2. Выдать артефакт боту
+// 2. Выдать артефакт боту (ИСПРАВЛЕНО)
 function sandboxGiveArtifactToBot() {
     const botSelect = document.getElementById('devBotSelect');
     const artSelect = document.getElementById('devBotArtifactSelect');
@@ -2810,9 +2813,10 @@ function sandboxGiveArtifactToBot() {
     const art = ARTIFACTS.find(a => a.id === artId);
     if (!art) return;
     
+    // ✅ ИСПРАВЛЕНО: сбрасываем глобальный флаг использования артефакта
+    delete GameState.usedSpecialThisRound[artId];
+    
     bot.artifact = { ...art };
-    // Сбрасываем флаг использования для бота (он не хранится отдельно, но мы можем сбросить в usedSpecialThisRound, если нужно)
-    // У бота нет своего usedSpecialThisRound, поэтому просто выдаём артефакт
     
     safeUpdate(GameState.roomRef.child('players').child(botId), {
         artifact: bot.artifact
@@ -2823,7 +2827,7 @@ function sandboxGiveArtifactToBot() {
     sandboxUpdateSelects();
 }
 
-// 3. Принудительное обвинение
+// 3. Принудительное обвинение (ИСПРАВЛЕНО)
 function sandboxForceAccuse(target) {
     if (GameState.gameState !== 'betting' && GameState.gameState !== 'lobby') {
         showNotification('Игра должна быть в фазе ставок или лобби!', 'warning');
@@ -2835,6 +2839,7 @@ function sandboxForceAccuse(target) {
         const ac = Object.keys(GameState.players).filter(u => GameState.players[u] && GameState.players[u].alive && !GameState.players[u].isGhost && !GameState.players[u].isBot).length;
         const bc = Object.keys(GameState.players).filter(u => GameState.players[u] && GameState.players[u].isBot).length;
         if ((ac >= 1 && bc >= 1) || ac >= 2) {
+            // ✅ ИСПРАВЛЕНО: дожидаемся завершения старта раунда
             startNewRound().then(() => {
                 setTimeout(() => sandboxForceAccuse(target), 500);
             });
@@ -2983,12 +2988,10 @@ function sandboxForceMyTurn() {
         showNotification('Игра не в фазе ставок!', 'warning');
         return;
     }
-    // Находим всех живых не-призраков
     const alive = Object.keys(GameState.players).filter(u => 
         GameState.players[u]?.alive && !GameState.players[u]?.isGhost
     );
     if (!alive.length) return;
-    // Устанавливаем текущего игрока = я
     GameState.currentPlayerUid = GameState.myUid;
     safeUpdate(GameState.roomRef, { currentPlayerUid: GameState.myUid }, 'sandbox-force-turn');
     renderUI();
@@ -3043,7 +3046,6 @@ function sandboxForceBotUseArtifact() {
         return;
     }
     
-    // Принудительно применяем артефакт
     const result = botUseArtifact(botId);
     if (result) {
         showNotification(`🤖 ${bot.name} применил ${bot.artifact.emoji} ${bot.artifact.name}!`, 'success');
@@ -3150,9 +3152,8 @@ function sandboxSetDice() {
     if (!input) return;
     const values = input.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n >= 1 && n <= 6);
     if (values.length === 0) { showNotification('Некорректный ввод!', 'error'); return; }
-    // Дополняем до 5 кубиков случайными, если меньше
     while (values.length < 5) values.push(Math.floor(Math.random() * 6) + 1);
-    p.dice = values.slice(0, 5); // не больше 5
+    p.dice = values.slice(0, 5);
     safeUpdate(GameState.roomRef.child('players').child(targetUid), { dice: p.dice }, 'sandbox-set-dice');
     renderUI();
     showNotification(`🎲 Кубики ${p.name} установлены!`, 'success');
