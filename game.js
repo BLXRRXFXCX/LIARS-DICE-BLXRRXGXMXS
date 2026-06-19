@@ -1339,7 +1339,7 @@ function resolveAccusation(accusedUid) {
         resultClass: resultClass,
         effects: effectsHtml
     };
-       addLogEntry('accuse', `Результат: ${resultText}`);
+           addLogEntry('accuse', `Результат: ${resultText}`);
 
     // Показываем результат через 2 секунды
     setTimeout(() => {
@@ -1365,14 +1365,15 @@ function resolveAccusation(accusedUid) {
                 effects: ''
             };
             
-            // ⭐ СНАЧАЛА ПРОВЕРЯЕМ СМЕРТЬ
+            // ⭐ ПРОВЕРЯЕМ СМЕРТЬ
             const ended = checkDeath();
             
-            // ⭐ ЕСЛИ НЕ БЫЛО СМЕРТИ — ЗАПУСКАЕМ НОВЫЙ РАУНД
+            // ⭐ ЕСЛИ НЕ БЫЛО СМЕРТИ (или не началась сделка) — ЗАПУСКАЕМ НОВЫЙ РАУНД
             if (!ended && GameState.gameState !== 'ended' && GameState.gameState !== 'devil_deal') {
+                log('✅ Запускаем новый раунд');
                 setTimeout(startNewRound, 500);
             } else {
-                log('⏳ Сделка или конец игры — новый раунд отложен');
+                log('⏳ Сделка или конец игры — новый раунд отложен. gameState:', GameState.gameState);
             }
         }, 3000);
 
@@ -1437,45 +1438,59 @@ function checkDeath() {
     let dealUid = null;
     let hasDeath = false;
     
-    Object.keys(GameState.players).forEach(uid => {
+    // Проходим по всем игрокам
+    const players = Object.keys(GameState.players);
+    for (let i = 0; i < players.length; i++) {
+        const uid = players[i];
         const p = GameState.players[uid];
-        if (!p || p.isGhost || !p.alive) return;
+        if (!p || p.isGhost || !p.alive) continue;
+        
         const ml = p.maxLives || 3;
         if (p.poisons >= ml) {
             hasDeath = true;
+            
+            // Проверяем, сколько сделок уже было
             if (p.devilDealsUsed >= 2) {
                 turnToGhost(uid);
-            } else {
-                if (p.isBot) {
-                    const diff = GameState.bots[uid]?.difficulty ?? 2;
-                    const surviveChance = [0.2, 0.5, 0.7, 0.9][diff];
-                    if (Math.random() < surviveChance) {
-                        const updates = {
-                            poisons: 0, blood: 0, alive: true, isGhost: false,
-                            artifact: null, dice: Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),
-                            devilDealsUsed: (p.devilDealsUsed||0) + 1
-                        };
-                        safeUpdate(GameState.roomRef.child('players').child(uid), updates, 'bot-deal-win');
-                        addLogEntry('system', `${p.name} ВЫИГРАЛ сделку с Дьяволом!`);
-                        playSound('devilWin');
-                        playSound('resurrection');
-                    } else {
-                        turnToGhost(uid);
-                    }
+                continue;
+            }
+            
+            // Если это бот
+            if (p.isBot) {
+                const diff = GameState.bots[uid]?.difficulty ?? 2;
+                const surviveChance = [0.2, 0.5, 0.7, 0.9][diff];
+                if (Math.random() < surviveChance) {
+                    const updates = {
+                        poisons: 0, blood: 0, alive: true, isGhost: false,
+                        artifact: null, dice: Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1),
+                        devilDealsUsed: (p.devilDealsUsed||0) + 1
+                    };
+                    safeUpdate(GameState.roomRef.child('players').child(uid), updates, 'bot-deal-win');
+                    addLogEntry('system', `${p.name} ВЫИГРАЛ сделку с Дьяволом!`);
+                    playSound('devilWin');
+                    playSound('resurrection');
                 } else {
-                    // ИГРОК — нужна сделка
-                    if (uid === GameState.myUid) {
-                        needDeal = true;
-                        dealUid = uid;
-                    } else {
-                        addLogEntry('death', `${p.name} отправляется на Сделку с Дьяволом...`);
-                    }
+                    turnToGhost(uid);
                 }
+                continue;
+            }
+            
+            // ⭐ ЭТО ИГРОК — нужна сделка
+            if (uid === GameState.myUid) {
+                // Это Я — показываем модалку
+                needDeal = true;
+                dealUid = uid;
+            } else {
+                // Это другой игрок — просто логируем
+                addLogEntry('death', `${p.name} отправляется на Сделку с Дьяволом...`);
+                // Для других игроков просто превращаем в призрака (без сделки)
+                // т.к. сделка только для текущего игрока
+                turnToGhost(uid);
             }
         }
-    });
+    }
     
-    // Если нужна сделка — приостанавливаем игру
+    // ⭐ Если нужна сделка для меня — показываем модалку
     if (needDeal && dealUid) {
         GameState.gameState = 'devil_deal';
         GameState.isActionInProgress = true;
@@ -1484,7 +1499,7 @@ function checkDeath() {
         return true;
     }
     
-    // Проверка победителя
+    // Проверка победителя (только если не было сделки)
     const humans = Object.values(GameState.players).filter(p => p?.alive && !p.isGhost);
     if (humans.length === 1 && GameState.gameState !== 'ended') {
         GameState.gameState = 'ended';
@@ -1525,7 +1540,12 @@ function turnToGhost(uid) {
 
 
 function startDevilDeal(uid) {
-    if (uid !== GameState.myUid) return;
+    if (uid !== GameState.myUid) {
+        log('⚠️ startDevilDeal вызван не для меня, игнорируем');
+        return;
+    }
+    
+    log('🔥 startDevilDeal: показываем сделку для', uid);
     
     GameState.gameState = 'devil_deal';
     GameState.isActionInProgress = true;
@@ -1582,6 +1602,7 @@ function startDevilDeal(uid) {
     const refuse = document.getElementById('btnRefuseDeal');
     if (refuse) {
         refuse.onclick = () => {
+            log('❌ Отказ от сделки');
             turnToGhost(uid);
             addLogEntry('death', `${GameState.myName} отказался от сделки!`);
             playSound('devilLose');
@@ -1601,6 +1622,11 @@ function startDevilDeal(uid) {
     }
     
     const modal = document.getElementById('devilModal');
+    if (!modal) {
+        logError('❌ devilModal не найден в DOM!');
+        return;
+    }
+    
     const closeBtn = modal?.querySelector('.close-btn');
     if (closeBtn) closeBtn.style.display = 'none';
     
@@ -1611,7 +1637,10 @@ function startDevilDeal(uid) {
         fi.style.animation = 'fireRise 30s linear forwards'; 
     }
     
-    if (modal) modal.style.display = 'block';
+    // ⭐ ПРИНУДИТЕЛЬНО ПОКАЗЫВАЕМ МОДАЛКУ
+    modal.style.display = 'block';
+    log('✅ Модалка сделки показана');
+    
     playSound('devil');
     addLogEntry('death', `${GameState.myName} заключает сделку...`);
 }
@@ -1619,6 +1648,8 @@ function startDevilDeal(uid) {
 
 
 function resolveDevilDeal(updateData) {
+    log('✅ resolveDevilDeal: применяем данные', updateData);
+    
     document.getElementById('devilModal').style.display = 'none';
     
     safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), updateData, 'deal-resolve');
@@ -1634,7 +1665,10 @@ function resolveDevilDeal(updateData) {
     setTimeout(() => {
         const ended = checkDeath();
         if (!ended && GameState.gameState !== 'ended') {
+            log('✅ После сделки — запускаем новый раунд');
             setTimeout(startNewRound, 500);
+        } else {
+            log('⏳ После сделки — смерть или конец игры');
         }
     }, 300);
 }
@@ -2205,7 +2239,7 @@ function accuseFromBot(botId) {
             resultClass: resultClass
         };
         updates['lastAccuser'] = botId;
-               safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
+                      safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
 
         // Через 3 секунды закрываем панель
         setTimeout(() => {
@@ -2227,14 +2261,15 @@ function accuseFromBot(botId) {
                 effects: ''
             };
             
-            // ⭐ СНАЧАЛА ПРОВЕРЯЕМ СМЕРТЬ
+            // ⭐ ПРОВЕРЯЕМ СМЕРТЬ
             const ended = checkDeath();
             
-            // ⭐ ЕСЛИ НЕ БЫЛО СМЕРТИ — ЗАПУСКАЕМ НОВЫЙ РАУНД
+            // ⭐ ЕСЛИ НЕ БЫЛО СМЕРТИ (или не началась сделка) — ЗАПУСКАЕМ НОВЫЙ РАУНД
             if (!ended && GameState.gameState !== 'ended' && GameState.gameState !== 'devil_deal') {
+                log('✅ Запускаем новый раунд (бот)');
                 setTimeout(startNewRound, 500);
             } else {
-                log('⏳ Сделка или конец игры — новый раунд отложен');
+                log('⏳ Сделка или конец игры — новый раунд отложен (бот). gameState:', GameState.gameState);
             }
         }, 3000);
 
