@@ -2658,62 +2658,56 @@ function bindEventListeners() {
 }
 
 // ============================================================
-// 🧪 ПЕСОЧНИЦА (SANDBOX MODE)
+// 🧪 ПЕСОЧНИЦА (SANDBOX MODE) — ПОЛНЫЙ БЛОК ФУНКЦИЙ
 // ============================================================
 
 let sandboxPanelVisible = false;
 
+// Основной переключатель панели
 function toggleSandboxMode() {
-    console.log('🔄 toggleSandboxMode вызвана');
-    
-    const panel = document.getElementById('devPanel');
-    console.log('🔍 Панель найдена?', panel);
-    
-    if (!panel) {
-        console.error('❌ Панель devPanel не найдена в DOM!');
-        showNotification('❌ Панель не найдена! Проверьте HTML', 'error');
-        return;
-    }
-    
     sandboxPanelVisible = !sandboxPanelVisible;
-    console.log('🔄 Новое состояние:', sandboxPanelVisible);
+    const panel = document.getElementById('devPanel');
+    const banner = document.getElementById('sandboxBanner');
+    
+    if (!panel) return;
     
     panel.style.display = sandboxPanelVisible ? 'block' : 'none';
-    console.log('🔄 Панель отображена:', panel.style.display);
+    if (banner) banner.style.display = sandboxPanelVisible ? 'block' : 'none';
     
-    // Баннер
-    const banner = document.getElementById('sandboxBanner');
-    if (banner) {
-        banner.style.display = sandboxPanelVisible ? 'block' : 'none';
-        console.log('🔄 Баннер отображён:', banner.style.display);
-    }
+    GameState.sandboxMode = sandboxPanelVisible;
     
-    // Обновляем кнопку в меню
     const menuBtn = document.getElementById('menuSandbox');
     if (menuBtn) {
         menuBtn.textContent = sandboxPanelVisible ? '🧪 Песочница: ВКЛ' : '🧪 Песочница (тестовый режим)';
         menuBtn.style.background = sandboxPanelVisible ? 'linear-gradient(180deg, #4a6a1a, #2a4a0a)' : '';
         menuBtn.style.borderColor = sandboxPanelVisible ? '#8acc44' : '';
-        console.log('🔄 Кнопка обновлена');
     }
     
-    // Обновляем списки
     if (sandboxPanelVisible) {
-        console.log('🔄 Обновляем списки...');
+        // Если игра в лобби — запускаем раунд
+        if (GameState.gameState === 'lobby') {
+            const bots = Object.keys(GameState.players).filter(u => GameState.players[u]?.isBot);
+            if (bots.length === 0) {
+                sandboxAddStaticBot();
+            }
+            // Имитируем клик по кнопке "ИГРАТЬ"
+            const startBtn = document.getElementById('btnStartGame');
+            if (startBtn) startBtn.click();
+        }
         sandboxUpdateSelects();
         showNotification('🧪 ПЕСОЧНИЦА ВКЛЮЧЕНА!', 'success', 2000);
     } else {
         showNotification('🧪 Песочница выключена', 'info');
     }
-    
-    console.log('✅ toggleSandboxMode завершена');
 }
 
+// Обновление списков в панели
 function sandboxUpdateSelects() {
-    console.log('🔄 Обновление списков песочницы...');
-    
-    // Обновляем список артефактов для игрока
     const artSelect = document.getElementById('devArtifactSelect');
+    const botArtSelect = document.getElementById('devBotArtifactSelect');
+    const botSelect = document.getElementById('devBotSelect');
+    const targetSelect = document.getElementById('devTargetSelect');
+    
     if (artSelect) {
         artSelect.innerHTML = '';
         ARTIFACTS.forEach(a => {
@@ -2722,13 +2716,8 @@ function sandboxUpdateSelects() {
             opt.textContent = `${a.emoji} ${a.name}`;
             artSelect.appendChild(opt);
         });
-        console.log(`✅ Заполнено ${ARTIFACTS.length} артефактов`);
-    } else {
-        console.warn('⚠️ devArtifactSelect не найден');
     }
     
-    // Обновляем список артефактов для бота
-    const botArtSelect = document.getElementById('devBotArtifactSelect');
     if (botArtSelect) {
         botArtSelect.innerHTML = '';
         ARTIFACTS.forEach(a => {
@@ -2739,32 +2728,25 @@ function sandboxUpdateSelects() {
         });
     }
     
-    // Обновляем список ботов
-    const botSelect = document.getElementById('devBotSelect');
     if (botSelect) {
         botSelect.innerHTML = '<option value="">Выберите бота</option>';
         Object.keys(GameState.players).forEach(uid => {
             const p = GameState.players[uid];
-            if (p?.isBot && p.alive) {
+            if (p?.isBot && p.alive && !p.isGhost) {
                 const opt = document.createElement('option');
                 opt.value = uid;
                 opt.textContent = `${p.name}`;
                 botSelect.appendChild(opt);
             }
         });
-        console.log(`✅ Найдено ${botSelect.options.length - 1} ботов`);
-    } else {
-        console.warn('⚠️ devBotSelect не найден');
     }
     
-    // Обновляем список целей
-    const targetSelect = document.getElementById('devTargetSelect');
     if (targetSelect) {
         targetSelect.innerHTML = '<option value="me">👤 Себе</option>';
         Object.keys(GameState.players).forEach(uid => {
             if (uid === GameState.myUid) return;
             const p = GameState.players[uid];
-            if (p?.alive) {
+            if (p?.alive && !p.isGhost) {
                 const opt = document.createElement('option');
                 opt.value = uid;
                 opt.textContent = `${p.isBot ? '🤖' : '👤'} ${p.name}`;
@@ -2785,13 +2767,15 @@ function sandboxGiveArtifactToPlayer() {
     const m = GameState.players[GameState.myUid];
     if (!m) { showNotification('Игрок не найден!', 'error'); return; }
     
-    // Удаляем старый артефакт
+    // Удаляем старый артефакт и его флаг использования
     if (m.artifact) {
         delete GameState.usedSpecialThisRound[m.artifact.id];
     }
     
-    // Выдаём новый
+    // Выдаём новый артефакт
     m.artifact = { ...art };
+    // Убеждаемся, что для нового артефакта нет флага использования
+    delete GameState.usedSpecialThisRound[art.id];
     m.usedSpecialThisRound = GameState.usedSpecialThisRound;
     
     safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {
@@ -2817,12 +2801,18 @@ function sandboxGiveArtifactToBot() {
         showNotification('Выберите бота!', 'warning');
         return;
     }
+    const bot = GameState.players[botId];
+    if (!bot.alive || bot.isGhost) {
+        showNotification('Бот мёртв или призрак!', 'warning');
+        return;
+    }
     
     const art = ARTIFACTS.find(a => a.id === artId);
     if (!art) return;
     
-    const bot = GameState.players[botId];
     bot.artifact = { ...art };
+    // Сбрасываем флаг использования для бота (он не хранится отдельно, но мы можем сбросить в usedSpecialThisRound, если нужно)
+    // У бота нет своего usedSpecialThisRound, поэтому просто выдаём артефакт
     
     safeUpdate(GameState.roomRef.child('players').child(botId), {
         artifact: bot.artifact
@@ -2840,7 +2830,7 @@ function sandboxForceAccuse(target) {
         return;
     }
     
-    // Если в лобби - принудительно запускаем игру
+    // Если в лобби — принудительно запускаем игру
     if (GameState.gameState === 'lobby') {
         const ac = Object.keys(GameState.players).filter(u => GameState.players[u] && GameState.players[u].alive && !GameState.players[u].isGhost && !GameState.players[u].isBot).length;
         const bc = Object.keys(GameState.players).filter(u => GameState.players[u] && GameState.players[u].isBot).length;
@@ -2855,8 +2845,8 @@ function sandboxForceAccuse(target) {
         }
     }
     
+    // Если нет ставки, создаём фиктивную от игрока
     if (!GameState.lastBet) {
-        // Создаём фиктивную ставку
         GameState.lastBet = {
             player: GameState.myUid,
             count: 1,
@@ -2864,6 +2854,7 @@ function sandboxForceAccuse(target) {
             timestamp: Date.now()
         };
         GameState.players[GameState.myUid].lastBetInRound = GameState.lastBet;
+        safeUpdate(GameState.roomRef, { lastBet: GameState.lastBet }, 'sandbox-force-bet');
     }
     
     let accuserId, accusedId;
@@ -2886,15 +2877,18 @@ function sandboxForceAccuse(target) {
         accusedId = GameState.myUid;
     }
     
-    // Устанавливаем последнюю ставку от обвинителя
-    GameState.lastBet = {
-        player: accuserId,
-        count: 1,
-        value: 1,
-        timestamp: Date.now()
-    };
-    if (GameState.players[accuserId]) {
-        GameState.players[accuserId].lastBetInRound = GameState.lastBet;
+    // Устанавливаем последнюю ставку от обвинителя (если она ещё не установлена)
+    if (!GameState.lastBet || GameState.lastBet.player !== accuserId) {
+        GameState.lastBet = {
+            player: accuserId,
+            count: 1,
+            value: 1,
+            timestamp: Date.now()
+        };
+        if (GameState.players[accuserId]) {
+            GameState.players[accuserId].lastBetInRound = GameState.lastBet;
+        }
+        safeUpdate(GameState.roomRef, { lastBet: GameState.lastBet }, 'sandbox-force-bet');
     }
     
     // Вызываем обвинение
@@ -2982,6 +2976,23 @@ function sandboxForceNextTurn() {
     }
     nextTurn();
     sandboxUpdateSelects();
+}
+
+function sandboxForceMyTurn() {
+    if (GameState.gameState !== 'betting') {
+        showNotification('Игра не в фазе ставок!', 'warning');
+        return;
+    }
+    // Находим всех живых не-призраков
+    const alive = Object.keys(GameState.players).filter(u => 
+        GameState.players[u]?.alive && !GameState.players[u]?.isGhost
+    );
+    if (!alive.length) return;
+    // Устанавливаем текущего игрока = я
+    GameState.currentPlayerUid = GameState.myUid;
+    safeUpdate(GameState.roomRef, { currentPlayerUid: GameState.myUid }, 'sandbox-force-turn');
+    renderUI();
+    showNotification('⏭️ Ход передан вам!', 'success');
 }
 
 function sandboxResetRound() {
@@ -3102,8 +3113,50 @@ function sandboxShowDebugInfo() {
     console.log('Round:', GameState.roundNumber);
     console.log('Current player:', GameState.currentPlayerUid, GameState.players[GameState.currentPlayerUid]?.name || 'не найден');
     console.log('========================');
-    
     showNotification('✅ Информация в консоли (F12)', 'success');
+}
+
+// 9. Сброс всех эффектов
+function sandboxClearAllEffects() {
+    const updates = {};
+    Object.keys(GameState.players).forEach(uid => {
+        updates[`players/${uid}/frozen`] = false;
+        updates[`players/${uid}/cursed`] = false;
+        updates[`players/${uid}/evilEyed`] = false;
+        updates[`players/${uid}/stunned`] = false;
+        updates[`players/${uid}/blind`] = false;
+        updates[`players/${uid}/forcedBluff`] = false;
+        updates[`players/${uid}/familiarCursed`] = false;
+        updates[`players/${uid}/darkPact`] = false;
+        updates[`players/${uid}/darkPactShield`] = false;
+        updates[`players/${uid}/devilShield`] = false;
+        updates[`players/${uid}/cannotAccuse`] = false;
+        updates[`players/${uid}/defenderActive`] = false;
+    });
+    safeUpdate(GameState.roomRef, updates, 'sandbox-clear-effects');
+    showNotification('✅ Все эффекты сброшены!', 'success');
+    renderUI();
+}
+
+// 10. Установить кубики вручную
+function sandboxSetDice() {
+    const targetSelect = document.getElementById('devTargetSelect');
+    if (!targetSelect) return;
+    const targetUid = targetSelect.value === 'me' ? GameState.myUid : targetSelect.value;
+    const p = GameState.players[targetUid];
+    if (!p) { showNotification('Игрок не найден!', 'error'); return; }
+    
+    const input = prompt(`Введите значения кубиков через запятую (1-6), например: 3,4,5,6,1\nСейчас у ${p.name}: ${p.dice.join(', ')}`);
+    if (!input) return;
+    const values = input.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n) && n >= 1 && n <= 6);
+    if (values.length === 0) { showNotification('Некорректный ввод!', 'error'); return; }
+    // Дополняем до 5 кубиков случайными, если меньше
+    while (values.length < 5) values.push(Math.floor(Math.random() * 6) + 1);
+    p.dice = values.slice(0, 5); // не больше 5
+    safeUpdate(GameState.roomRef.child('players').child(targetUid), { dice: p.dice }, 'sandbox-set-dice');
+    renderUI();
+    showNotification(`🎲 Кубики ${p.name} установлены!`, 'success');
+    sandboxUpdateSelects();
 }
 
 // ============================================================
