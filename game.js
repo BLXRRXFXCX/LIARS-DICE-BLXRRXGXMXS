@@ -989,7 +989,6 @@ function renderArtifactRow() {
 }
 
 function updateControls() {
-    // ⭐ ТОЧНАЯ ПРОВЕРКА: только если ход действительно мой
     const mt = isMyTurn();
     const m = GameState.players[GameState.myUid] || {};
     
@@ -1000,17 +999,22 @@ function updateControls() {
     const valueUp = document.getElementById('btnBetValueUp');
     const valueDown = document.getElementById('btnBetValueDown');
     
-    // ⭐ ЖЁСТКАЯ ПРОВЕРКА: ставка доступна ТОЛЬКО если ход мой
+    // ⭐ БЛОКИРОВКА ВО ВРЕМЯ СДЕЛКИ
+    if (GameState.gameState === 'devil_deal') {
+        if (bp) bp.disabled = true;
+        if (ba) ba.disabled = true;
+        if (countUp) countUp.disabled = true;
+        if (countDown) countDown.disabled = true;
+        if (valueUp) valueUp.disabled = true;
+        if (valueDown) valueDown.disabled = true;
+        return;
+    }
+    
     const canBet = mt && 
                    !GameState.isGhost && 
                    GameState.gameState === 'betting' && 
                    !GameState.isActionInProgress;
     
-    // Обвинение доступно только если:
-    // 1. Ход мой
-    // 2. Есть ставка
-    // 3. Ставка НЕ моя
-    // 4. Я не заблокирован от обвинения
     const canAccuse = mt && 
                       !GameState.isGhost && 
                       GameState.gameState === 'betting' && 
@@ -1026,7 +1030,6 @@ function updateControls() {
     if (valueUp) valueUp.disabled = !canBet;
     if (valueDown) valueDown.disabled = !canBet;
     
-    // Управление отображением панелей
     if (GameState.isGhost) {
         document.getElementById('diceRow').style.display = 'none';
         document.getElementById('controlRow').style.display = 'none';
@@ -1336,13 +1339,13 @@ function resolveAccusation(accusedUid) {
         resultClass: resultClass,
         effects: effectsHtml
     };
-    addLogEntry('accuse', `Результат: ${resultText}`);
+       addLogEntry('accuse', `Результат: ${resultText}`);
 
-    // ⏱️ 3 секунды на показ результата, затем закрываем
+    // Показываем результат через 2 секунды
     setTimeout(() => {
         if (r) { r.textContent = resultText; r.className = resultClass; }
 
-        // ⏱️ Ещё 3 секунды на чтение результата, затем переход
+        // Через 3 секунды закрываем панель
         setTimeout(() => {
             document.getElementById('accusationPanel').style.display = 'none';
             GameState.gameState = 'betting';
@@ -1354,7 +1357,6 @@ function resolveAccusation(accusedUid) {
                 lastAccuser: null
             }, 'resolve-end');
             
-            // Очищаем данные проверки
             GameState.lastAccusationData = {
                 phrase: '',
                 diceSummary: '',
@@ -1363,13 +1365,18 @@ function resolveAccusation(accusedUid) {
                 effects: ''
             };
             
-            checkDeath();
+            // ⭐ СНАЧАЛА ПРОВЕРЯЕМ СМЕРТЬ
+            const ended = checkDeath();
             
-            // ⏱️ Небольшая задержка перед новым раундом
-            setTimeout(() => startNewRound(), 500);
+            // ⭐ ЕСЛИ НЕ БЫЛО СМЕРТИ — ЗАПУСКАЕМ НОВЫЙ РАУНД
+            if (!ended && GameState.gameState !== 'ended' && GameState.gameState !== 'devil_deal') {
+                setTimeout(startNewRound, 500);
+            } else {
+                log('⏳ Сделка или конец игры — новый раунд отложен');
+            }
         }, 3000);
 
-    }, 5000);
+    }, 100);
 }
 
 
@@ -1424,12 +1431,18 @@ function applyBlood(uid, amt) {
 }
 
 function checkDeath() {
-    if (GameState.gameState === 'ended') return;
+    if (GameState.gameState === 'ended') return true;
+    
+    let needDeal = false;
+    let dealUid = null;
+    let hasDeath = false;
+    
     Object.keys(GameState.players).forEach(uid => {
         const p = GameState.players[uid];
         if (!p || p.isGhost || !p.alive) return;
         const ml = p.maxLives || 3;
         if (p.poisons >= ml) {
+            hasDeath = true;
             if (p.devilDealsUsed >= 2) {
                 turnToGhost(uid);
             } else {
@@ -1450,12 +1463,28 @@ function checkDeath() {
                         turnToGhost(uid);
                     }
                 } else {
-                    if (uid === GameState.myUid) startDevilDeal(uid);
-                    else addLogEntry('death', `${p.name} отправляется на Сделку с Дьяволом...`);
+                    // ИГРОК — нужна сделка
+                    if (uid === GameState.myUid) {
+                        needDeal = true;
+                        dealUid = uid;
+                    } else {
+                        addLogEntry('death', `${p.name} отправляется на Сделку с Дьяволом...`);
+                    }
                 }
             }
         }
     });
+    
+    // Если нужна сделка — приостанавливаем игру
+    if (needDeal && dealUid) {
+        GameState.gameState = 'devil_deal';
+        GameState.isActionInProgress = true;
+        safeUpdate(GameState.roomRef, { state: 'devil_deal' }, 'deal-block');
+        startDevilDeal(dealUid);
+        return true;
+    }
+    
+    // Проверка победителя
     const humans = Object.values(GameState.players).filter(p => p?.alive && !p.isGhost);
     if (humans.length === 1 && GameState.gameState !== 'ended') {
         GameState.gameState = 'ended';
@@ -1463,11 +1492,15 @@ function checkDeath() {
         addLogEntry('system', `${humans[0].name} победил!`);
         playSound('win');
         showConfetti();
+        return true;
     } else if (humans.length === 0 && GameState.gameState !== 'ended') {
         GameState.gameState = 'ended';
         safeUpdate(GameState.roomRef, { state: 'ended' }, 'draw');
         addLogEntry('system', 'Ничья — все мертвы или призраки!');
+        return true;
     }
+    
+    return hasDeath;
 }
 
 function turnToGhost(uid) {
@@ -1479,27 +1512,65 @@ function turnToGhost(uid) {
     safeUpdate(GameState.roomRef.child('players').child(uid), updates, 'turnToGhost');
     addLogEntry('death', `${GameState.players[uid].name} стал призраком!`);
     playSound('ghost');
+    
+    // ⭐ Проверяем месть ДО обновления UI
     checkVengeance(uid);
     renderUI();
+    
     if (uid === GameState.myUid) {
         document.getElementById('ghostAbilitiesPanel').style.display = 'flex';
         updateGhostButtons();
     }
 }
 
+
 function startDevilDeal(uid) {
     if (uid !== GameState.myUid) return;
+    
     GameState.gameState = 'devil_deal';
+    GameState.isActionInProgress = true;
     safeUpdate(GameState.roomRef, { state: 'devil_deal' }, 'deal-start');
+    
     const dealsUsed = GameState.devilDealsUsed || 0;
     const options = [
-        { id: 'lose_dice', title: '🎲 Потерять 2 кубика навсегда', desc: 'Воскреснуть с 3 кубиками вместо 5', apply: () => ({ poisons:0, blood:0, alive:true, isGhost:false, artifact:null, dice:Array(3).fill(0).map(()=>Math.floor(Math.random()*6)+1), maxDice:3, devilDealsUsed:dealsUsed+1 }) },
-        { id: 'lose_artifacts', title: '🚫 Потерять все артефакты', desc: 'Больше не получать артефакты до конца игры', apply: () => ({ poisons:0, blood:0, alive:true, isGhost:false, artifact:null, dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1), noArtifactsForever:true, devilDealsUsed:dealsUsed+1 }) },
-        { id: 'lose_maxlife', title: '💔 Потерять 1 макс. жизнь', desc: `Воскреснуть с ${Math.max(1, (GameState.defaultLives||3)-1)} макс. жизнями`, apply: () => ({ poisons:0, blood:0, alive:true, isGhost:false, artifact:null, dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1), maxLives:Math.max(1,(GameState.defaultLives||3)-1), devilDealsUsed:dealsUsed+1 }) }
+        { 
+            id: 'lose_dice', 
+            title: '🎲 Потерять 2 кубика навсегда', 
+            desc: 'Воскреснуть с 3 кубиками вместо 5', 
+            apply: () => ({ 
+                poisons:0, blood:0, alive:true, isGhost:false, 
+                artifact:null, dice:Array(3).fill(0).map(()=>Math.floor(Math.random()*6)+1), 
+                maxDice:3, devilDealsUsed:dealsUsed+1 
+            }) 
+        },
+        { 
+            id: 'lose_artifacts', 
+            title: '🚫 Потерять все артефакты', 
+            desc: 'Больше не получать артефакты до конца игры', 
+            apply: () => ({ 
+                poisons:0, blood:0, alive:true, isGhost:false, 
+                artifact:null, dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1), 
+                noArtifactsForever:true, devilDealsUsed:dealsUsed+1 
+            }) 
+        },
+        { 
+            id: 'lose_maxlife', 
+            title: '💔 Потерять 1 макс. жизнь', 
+            desc: `Воскреснуть с ${Math.max(1, (GameState.defaultLives||3)-1)} макс. жизнями`, 
+            apply: () => ({ 
+                poisons:0, blood:0, alive:true, isGhost:false, 
+                artifact:null, dice:Array(5).fill(0).map(()=>Math.floor(Math.random()*6)+1), 
+                maxLives:Math.max(1,(GameState.defaultLives||3)-1), 
+                devilDealsUsed:dealsUsed+1 
+            }) 
+        }
     ];
+    
     const div = document.getElementById('devilOptions');
     if (div) {
-        div.innerHTML = options.map(o => `<button class="devil-opt" data-id="${o.id}"><strong>${o.title}</strong><br>${o.desc}</button>`).join('');
+        div.innerHTML = options.map(o => 
+            `<button class="devil-opt" data-id="${o.id}"><strong>${o.title}</strong><br>${o.desc}</button>`
+        ).join('');
         div.querySelectorAll('.devil-opt').forEach(btn => {
             btn.onclick = () => {
                 const opt = options.find(o => o.id === btn.dataset.id);
@@ -1507,35 +1578,65 @@ function startDevilDeal(uid) {
             };
         });
     }
+    
     const refuse = document.getElementById('btnRefuseDeal');
-    if (refuse) refuse.onclick = () => {
-        turnToGhost(uid);
-        addLogEntry('death', `${GameState.myName} отказался от сделки!`);
-        playSound('devilLose');
-        GameState.gameState = 'betting';
-        safeUpdate(GameState.roomRef, { state: 'betting' }, 'deal-refuse');
-        document.getElementById('devilModal').style.display = 'none';
-        setTimeout(startNewRound, 2500);
-    };
+    if (refuse) {
+        refuse.onclick = () => {
+            turnToGhost(uid);
+            addLogEntry('death', `${GameState.myName} отказался от сделки!`);
+            playSound('devilLose');
+            
+            GameState.gameState = 'betting';
+            GameState.isActionInProgress = false;
+            safeUpdate(GameState.roomRef, { state: 'betting' }, 'deal-refuse');
+            document.getElementById('devilModal').style.display = 'none';
+            
+            setTimeout(() => {
+                const ended = checkDeath();
+                if (!ended && GameState.gameState !== 'ended') {
+                    setTimeout(startNewRound, 500);
+                }
+            }, 300);
+        };
+    }
+    
     const modal = document.getElementById('devilModal');
     const closeBtn = modal?.querySelector('.close-btn');
     if (closeBtn) closeBtn.style.display = 'none';
+    
     const fi = document.getElementById('devilFire');
-    if (fi) { fi.style.animation='none'; fi.offsetHeight; fi.style.animation='fireRise 30s linear forwards'; }
+    if (fi) { 
+        fi.style.animation = 'none'; 
+        fi.offsetHeight; 
+        fi.style.animation = 'fireRise 30s linear forwards'; 
+    }
+    
     if (modal) modal.style.display = 'block';
     playSound('devil');
     addLogEntry('death', `${GameState.myName} заключает сделку...`);
 }
 
+
+
 function resolveDevilDeal(updateData) {
     document.getElementById('devilModal').style.display = 'none';
+    
     safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), updateData, 'deal-resolve');
     renderUI();
+    
     addLogEntry('system', `${GameState.myName} ВЫИГРАЛ сделку!`);
     playSound('devilWin');
+    
     GameState.gameState = 'betting';
+    GameState.isActionInProgress = false;
     safeUpdate(GameState.roomRef, { state: 'betting' }, 'deal-end');
-    setTimeout(startNewRound, 2500);
+    
+    setTimeout(() => {
+        const ended = checkDeath();
+        if (!ended && GameState.gameState !== 'ended') {
+            setTimeout(startNewRound, 500);
+        }
+    }, 300);
 }
 
 function checkVengeance(uid) {
@@ -1556,6 +1657,12 @@ function checkVengeance(uid) {
 }
 
 async function startNewRound() {
+    // ⭐ ЗАЩИТА: не запускать во время сделки или конца игры
+    if (GameState.gameState === 'devil_deal' || GameState.gameState === 'ended') {
+        log('⏳ startNewRound отложен: gameState =', GameState.gameState);
+        return;
+    }
+    
     const snap = await GameState.roomRef.child('settings').once('value');
     const s = snap.val();
     if (s) {
@@ -1624,17 +1731,14 @@ async function startNewRound() {
     if (au.length) {
         au.sort((a,b) => (GameState.players[a].joinedAt||0) - (GameState.players[b].joinedAt||0));
         
-        // ✅ КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ: если есть lastAccuser — ход ему
         if (GameState.lastAccuser && au.includes(GameState.lastAccuser)) {
             updates.currentPlayerUid = GameState.lastAccuser;
-            updates['lastAccuser'] = null; // очищаем после использования
+            updates['lastAccuser'] = null;
             GameState.lastAccuser = null;
         } else if (lastBetCopy && lastBetCopy.player && au.includes(lastBetCopy.player)) {
-            // Если есть последняя ставка — ход следующему после того, кто ставил
             const idx = au.indexOf(lastBetCopy.player);
             updates.currentPlayerUid = au[(idx + 1) % au.length];
         } else {
-            // Иначе первый в списке
             updates.currentPlayerUid = au[0];
         }
         GameState.currentPlayerUid = updates.currentPlayerUid;
@@ -2101,9 +2205,9 @@ function accuseFromBot(botId) {
             resultClass: resultClass
         };
         updates['lastAccuser'] = botId;
-        safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
+               safeUpdate(GameState.roomRef, updates, 'bot-acc-result');
 
-        // ⏱️ 3 секунды на показ результата, затем закрываем
+        // Через 3 секунды закрываем панель
         setTimeout(() => {
             document.getElementById('accusationPanel').style.display = 'none';
             GameState.gameState = 'betting';
@@ -2115,7 +2219,6 @@ function accuseFromBot(botId) {
                 lastAccuser: null
             }, 'bot-acc-end');
             
-            // Очищаем данные проверки
             GameState.lastAccusationData = {
                 phrase: '',
                 diceSummary: '',
@@ -2124,8 +2227,15 @@ function accuseFromBot(botId) {
                 effects: ''
             };
             
-            checkDeath();
-            setTimeout(() => startNewRound(), 500);
+            // ⭐ СНАЧАЛА ПРОВЕРЯЕМ СМЕРТЬ
+            const ended = checkDeath();
+            
+            // ⭐ ЕСЛИ НЕ БЫЛО СМЕРТИ — ЗАПУСКАЕМ НОВЫЙ РАУНД
+            if (!ended && GameState.gameState !== 'ended' && GameState.gameState !== 'devil_deal') {
+                setTimeout(startNewRound, 500);
+            } else {
+                log('⏳ Сделка или конец игры — новый раунд отложен');
+            }
         }, 3000);
 
     }, 5000);
