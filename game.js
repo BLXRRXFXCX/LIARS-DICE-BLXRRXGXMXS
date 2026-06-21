@@ -2813,7 +2813,6 @@ case 'duel': {
         const p2Dice = [...p2.dice].slice(0, 5);
         const totalRounds = Math.min(Math.max(p1Dice.length, p2Dice.length), 5);
 
-        // Создаём состояние дуэли для синхронизации
         const duelData = {
             active: true,
             initiator: GameState.myUid,
@@ -2833,22 +2832,19 @@ case 'duel': {
                 maxLives: p2.maxLives || 3,
                 poisons: p2.poisons || 0
             },
-            currentRound: -1,        // -1 = ещё не началось
+            currentRound: -1,
             totalRounds: totalRounds,
             p1Damage: 0,
             p2Damage: 0,
             finished: false,
-            result: null,            // 'p1win', 'p2win', 'draw'
+            result: null,
             timestamp: Date.now()
         };
 
-        // Сохраняем в Firebase — это запустит дуэль у всех игроков
+        console.log('⚔️ Отправляем duelData:', duelData);
         safeSet(GameState.roomRef.child('duelState'), duelData, 'duel-start');
-        
-        // Логируем для всех
+
         addLogEntry('artifact', `⚔️ ДУЭЛЬ: ${p1.name} vs ${p2.name}!`);
-        
-        // Показываем уведомление только инициатору
         showNotification(`⚔️ ДУЭЛЬ НАЧАЛАСЬ! ${p1.name} против ${p2.name}!`, 'info', 3000);
 
         markArtifactUsed(id);
@@ -3322,39 +3318,49 @@ function startSyncedDuel(data) {
         console.log('⏳ Дуэль уже идёт, пропускаем повторный запуск');
         return;
     }
-    
+
+    if (!data || !data.player1 || !data.player2) {
+        console.error('❌ Некорректные данные дуэли:', data);
+        return;
+    }
+
     lockGameDuringDuel();
-    
+
     const p1 = data.player1;
     const p2 = data.player2;
 
+    // Заполняем данные игроков
     document.getElementById('duelP1Avatar').textContent = p1.avatar || '🎲';
-    document.getElementById('duelP1Name').textContent = p1.name;
-    document.getElementById('duelP1Lives').textContent = `❤️ ${p1.maxLives - p1.poisons}/${p1.maxLives}`;
+    document.getElementById('duelP1Name').textContent = p1.name || 'Игрок 1';
+    document.getElementById('duelP1Lives').textContent = `❤️ ${(p1.maxLives || 3) - (p1.poisons || 0)}/${p1.maxLives || 3}`;
 
     document.getElementById('duelP2Avatar').textContent = p2.avatar || '🎲';
-    document.getElementById('duelP2Name').textContent = p2.name;
-    document.getElementById('duelP2Lives').textContent = `❤️ ${p2.maxLives - p2.poisons}/${p2.maxLives}`;
+    document.getElementById('duelP2Name').textContent = p2.name || 'Игрок 2';
+    document.getElementById('duelP2Lives').textContent = `❤️ ${(p2.maxLives || 3) - (p2.poisons || 0)}/${p2.maxLives || 3}`;
 
+    // Очищаем контейнеры
     const p1Container = document.getElementById('duelP1DiceContainer');
     const p2Container = document.getElementById('duelP2DiceContainer');
     p1Container.innerHTML = '';
     p2Container.innerHTML = '';
 
+    // Сбрасываем счётчики
     document.getElementById('duelP1Damage').textContent = '0';
     document.getElementById('duelP2Damage').textContent = '0';
     document.getElementById('duelP1Damage').style.color = '#ffd700';
     document.getElementById('duelP2Damage').style.color = '#ffd700';
-    
+
     const resultDiv = document.getElementById('duelResult');
     resultDiv.style.display = 'none';
     resultDiv.textContent = '';
     resultDiv.className = '';
 
+    // Показываем модалку
     const modal = document.getElementById('modalDuel');
     if (modal) modal.style.display = 'block';
 
-    const totalRounds = data.totalRounds;
+    // Создаём ячейки для кубиков
+    const totalRounds = data.totalRounds || 0;
     for (let i = 0; i < totalRounds; i++) {
         const cell1 = document.createElement('div');
         cell1.className = 'duel-dice-cell';
@@ -3369,6 +3375,7 @@ function startSyncedDuel(data) {
         p2Container.appendChild(cell2);
     }
 
+    // Если дуэль уже началась (currentRound >= 0), восстанавливаем состояние
     if (data.currentRound >= 0) {
         for (let i = 0; i <= data.currentRound; i++) {
             const cell1 = document.getElementById(`duelP1Cell${i}`);
@@ -3384,15 +3391,16 @@ function startSyncedDuel(data) {
                 cell2.style.borderColor = 'rgba(255,255,255,0.3)';
             }
         }
-        document.getElementById('duelP1Damage').textContent = Math.floor(data.p1Damage);
-        document.getElementById('duelP2Damage').textContent = Math.floor(data.p2Damage);
-        
+        document.getElementById('duelP1Damage').textContent = Math.floor(data.p1Damage || 0);
+        document.getElementById('duelP2Damage').textContent = Math.floor(data.p2Damage || 0);
+
         if (data.finished && data.result) {
             handleDuelResult(data);
             return;
         }
     }
 
+    // Запускаем анимацию
     scheduleNextDuelRound(data);
 }
 
