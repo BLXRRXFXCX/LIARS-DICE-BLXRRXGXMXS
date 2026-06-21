@@ -1063,6 +1063,58 @@ body.offline { opacity: 0.7; }
     0%, 100% { opacity: 1; }
     50% { opacity: 0.6; }
 }
+
+    /* ДУЭЛЬ — анимации */
+#modalDuel .modal-content {
+    border-color: #ff4400;
+    box-shadow: 0 0 50px rgba(255,68,0,0.3);
+}
+
+.duel-dice-cell {
+    transition: all 0.15s ease;
+}
+
+@keyframes duelPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.1); box-shadow: 0 0 20px rgba(255,215,0,0.3); }
+}
+
+.duel-dice-cell.active {
+    animation: duelPulse 0.3s ease 3;
+}
+
+@keyframes duelHit {
+    0% { transform: scale(1); }
+    30% { transform: scale(1.4); }
+    60% { transform: scale(0.9); }
+    100% { transform: scale(1); }
+}
+
+.duel-dice-cell.hit {
+    animation: duelHit 0.4s ease;
+}
+
+.duel-dice-cell.damage {
+    border-color: #ff4444 !important;
+    box-shadow: 0 0 20px rgba(255,68,68,0.4);
+}
+
+.duel-dice-cell.win {
+    border-color: #00ff44 !important;
+    box-shadow: 0 0 20px rgba(68,255,68,0.4);
+}
+
+.duel-dice-cell.draw {
+    border-color: #ffaa00 !important;
+    box-shadow: 0 0 20px rgba(255,170,0,0.4);
+}
+
+/* Счётчик урона */
+#duelP1Damage, #duelP2Damage {
+    font-weight: bold;
+    font-size: 1.4em;
+    transition: color 0.3s;
+}
     
 </style>
 </head>
