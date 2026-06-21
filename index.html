@@ -1467,6 +1467,57 @@ body.offline { opacity: 0.7; }
         
     </div>
 </div>
-    
+    <!-- ДУЭЛЬ - МОДАЛЬНОЕ ОКНО -->
+<div id="modalDuel" class="modal" style="display:none; z-index:10002;">
+    <div class="modal-content" style="max-width:600px; background:linear-gradient(135deg, #1a0a0a, #2d1a1a, #1a0a0a); border-color:#ff4400; max-height:90vh;">
+        <div style="position:absolute; top:0; left:0; right:0; bottom:0; 
+            background:radial-gradient(ellipse at center, rgba(255,68,0,0.1), transparent 70%);
+            pointer-events:none; z-index:0;"></div>
+        <div style="position:relative; z-index:1;">
+            <h2 style="color:#ff4400; text-align:center; font-size:1em; margin-bottom:10px; text-shadow:0 0 20px rgba(255,68,0,0.5);">
+                ⚔️ ДУЭЛЬ ⚔️
+            </h2>
+            
+            <!-- Игрок 1 (сверху) -->
+            <div id="duelPlayer1" style="display:flex; align-items:center; gap:10px; padding:8px; background:rgba(255,255,255,0.05); border-radius:8px; margin-bottom:5px;">
+                <div style="display:flex; align-items:center; gap:8px; min-width:120px;">
+                    <div style="font-size:2em; width:40px; text-align:center;" id="duelP1Avatar">🎲</div>
+                    <div>
+                        <div style="font-size:0.8em; color:#ffd700;" id="duelP1Name">Игрок 1</div>
+                        <div style="font-size:0.6em; color:#aaa;" id="duelP1Lives">❤️ 3</div>
+                    </div>
+                </div>
+                <div id="duelP1DiceContainer" style="display:flex; gap:4px; flex:1; justify-content:center; min-height:50px; align-items:center;">
+                    <!-- Кубики будут появляться здесь -->
+                </div>
+                <div style="min-width:40px; text-align:center; font-size:1.2em; color:#ffd700;" id="duelP1Damage">0</div>
+            </div>
+            
+            <!-- VS Баннер -->
+            <div style="text-align:center; padding:5px 0; font-size:1.5em; color:#ff4400; text-shadow:0 0 30px rgba(255,68,0,0.8);">
+                ⚡ VS ⚡
+            </div>
+            
+            <!-- Игрок 2 (снизу) -->
+            <div id="duelPlayer2" style="display:flex; align-items:center; gap:10px; padding:8px; background:rgba(255,255,255,0.05); border-radius:8px; margin-top:5px;">
+                <div style="display:flex; align-items:center; gap:8px; min-width:120px;">
+                    <div style="font-size:2em; width:40px; text-align:center;" id="duelP2Avatar">🎲</div>
+                    <div>
+                        <div style="font-size:0.8em; color:#ffd700;" id="duelP2Name">Игрок 2</div>
+                        <div style="font-size:0.6em; color:#aaa;" id="duelP2Lives">❤️ 3</div>
+                    </div>
+                </div>
+                <div id="duelP2DiceContainer" style="display:flex; gap:4px; flex:1; justify-content:center; min-height:50px; align-items:center;">
+                    <!-- Кубики будут появляться здесь -->
+                </div>
+                <div style="min-width:40px; text-align:center; font-size:1.2em; color:#ffd700;" id="duelP2Damage">0</div>
+            </div>
+            
+            <!-- Результат дуэли -->
+            <div id="duelResult" style="text-align:center; margin-top:12px; padding:10px; font-size:0.9em; border-radius:8px; min-height:40px; display:none;">
+            </div>
+        </div>
+    </div>
+</div>
 </body>
 </html>
