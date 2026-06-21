@@ -3110,12 +3110,12 @@ case 'russianRoulette': {
         lockGameDuringDuel();
         
         // ⭐ ПАТРОН ВСЕГДА ЕСТЬ в одном из 6 слотов
-        const bulletPosition = Math.floor(Math.random() * 6); // 0-5
+        const bulletPosition = Math.floor(Math.random() * 6);
         const bullets = [];
         for (let i = 0; i < 6; i++) {
             bullets.push(i === bulletPosition);
         }
-        console.log(`🔫 Патрон в слоте ${bulletPosition + 1}`); // для отладки
+        console.log(`🔫 Патрон в слоте ${bulletPosition + 1}`);
         
         // ⭐ Первым стреляет СОПЕРНИК (игрок 2)
         const firstPlayer = 'p2';
@@ -3206,7 +3206,7 @@ case 'russianRoulette': {
             if (roundEl) roundEl.textContent = (data.round || 0) + 1;
         }
         
-        // Обработчик выстрела
+        // Обработчик выстрела для ИГРОКА (человека)
         if (fireBtn) {
             fireBtn.onclick = () => {
                 if (fireBtn.disabled) return;
@@ -3226,7 +3226,6 @@ case 'russianRoulette': {
                         const updates = {};
                         
                         if (result.finished) {
-                            // ⭐ ПАТРОН ВЫПАЛ — ИГРА ЗАВЕРШЕНА
                             updates['finished'] = true;
                             updates['resultText'] = `💥 ${currentData.currentPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} получает 1 яд!`;
                             updates['resultColor'] = '#ff4444';
@@ -3241,15 +3240,11 @@ case 'russianRoulette': {
                             }, 2000);
                             
                         } else {
-                            // ⭐ ВЫЖИЛ — ПЕРЕХОД ХОДА
                             const nextPlayer = currentData.currentPlayer === 'p1' ? 'p2' : 'p1';
                             const nextRound = (currentData.round || 0) + 1;
                             const nextBulletIndex = (currentData.bulletIndex || 0) + 1;
                             
-                            // ⭐ Проверяем, не кончились ли патроны (но патрон всегда есть, так что это запасной вариант)
                             if (nextBulletIndex >= 6) {
-                                // ⭐ На всякий случай — если патрон вдруг не выпал (но такого быть не должно)
-                                // Принудительно ставим патрон в последний слот
                                 updates['bullets'] = [false, false, false, false, false, true];
                                 updates['bulletIndex'] = 5;
                                 updates['currentPlayer'] = nextPlayer;
@@ -3304,10 +3299,12 @@ case 'russianRoulette': {
             }
         });
         
-        // ⭐ БОТ СТРЕЛЯЕТ АВТОМАТИЧЕСКИ
+        // ============================================================
+        // ⭐ БОТ СТРЕЛЯЕТ АВТОМАТИЧЕСКИ (без нажатия кнопки)
+        // ============================================================
         if (p.isBot) {
-            // Первый выстрел — соперник (бот) через 1.5 секунды
-            setTimeout(() => {
+            // Функция для выполнения выстрела ботом
+            function botShoot() {
                 GameState.roomRef.child('rouletteState').once('value', (snap) => {
                     const data = snap.val();
                     if (!data || data.finished) return;
@@ -3317,14 +3314,75 @@ case 'russianRoulette': {
                                      (!isP1Turn && data.p2Uid === p.uid);
                     if (!isBotTurn) return;
                     
-                    const fireBtn = document.getElementById('rouletteFireBtn');
-                    if (fireBtn && !fireBtn.disabled) {
-                        fireBtn.click();
-                    }
+                    // Выполняем выстрел напрямую (без нажатия кнопки)
+                    GameState.roomRef.child('rouletteState').once('value', (snap2) => {
+                        const currentData = snap2.val();
+                        if (!currentData || currentData.finished) return;
+                        
+                        // Блокируем кнопку на всякий случай
+                        const fireBtn = document.getElementById('rouletteFireBtn');
+                        if (fireBtn) fireBtn.disabled = true;
+                        
+                        // Анимируем выстрел
+                        animateRouletteShot(currentData, (result) => {
+                            const updates = {};
+                            
+                            if (result.finished) {
+                                updates['finished'] = true;
+                                updates['resultText'] = `💥 ${currentData.currentPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} получает 1 яд!`;
+                                updates['resultColor'] = '#ff4444';
+                                updates['shotFired'] = true;
+                                
+                                safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-finish');
+                                
+                                setTimeout(() => {
+                                    unlockGameAfterDuel();
+                                    renderUI();
+                                    markArtifactUsed(id);
+                                }, 2000);
+                            } else {
+                                const nextPlayer = currentData.currentPlayer === 'p1' ? 'p2' : 'p1';
+                                const nextRound = (currentData.round || 0) + 1;
+                                const nextBulletIndex = (currentData.bulletIndex || 0) + 1;
+                                
+                                if (nextBulletIndex >= 6) {
+                                    updates['bullets'] = [false, false, false, false, false, true];
+                                    updates['bulletIndex'] = 5;
+                                    updates['currentPlayer'] = nextPlayer;
+                                    updates['round'] = nextRound;
+                                    updates['shotFired'] = true;
+                                    updates['resultText'] = `💥 ${nextPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} получает 1 яд!`;
+                                    updates['resultColor'] = '#ff4444';
+                                    
+                                    safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-force');
+                                    
+                                    setTimeout(() => {
+                                        unlockGameAfterDuel();
+                                        renderUI();
+                                        markArtifactUsed(id);
+                                    }, 2000);
+                                } else {
+                                    updates['currentPlayer'] = nextPlayer;
+                                    updates['round'] = nextRound;
+                                    updates['bulletIndex'] = nextBulletIndex;
+                                    updates['shotFired'] = true;
+                                    updates['resultText'] = `🍀 ${currentData.currentPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} выжил!`;
+                                    updates['resultColor'] = '#44ff44';
+                                    
+                                    safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-next');
+                                }
+                            }
+                        });
+                    });
                 });
+            }
+            
+            // Первый выстрел — через 1.5 секунды
+            setTimeout(() => {
+                botShoot();
             }, 1500);
             
-            // Автоматические выстрелы бота
+            // Автоматические выстрелы бота (без нажатия кнопки)
             const botInterval = setInterval(() => {
                 GameState.roomRef.child('rouletteState').once('value', (snap) => {
                     const data = snap.val();
@@ -3338,10 +3396,7 @@ case 'russianRoulette': {
                                      (!isP1Turn && data.p2Uid === p.uid);
                     if (!isBotTurn) return;
                     
-                    const fireBtn = document.getElementById('rouletteFireBtn');
-                    if (fireBtn && !fireBtn.disabled) {
-                        fireBtn.click();
-                    }
+                    botShoot();
                 });
             }, 2500);
             
