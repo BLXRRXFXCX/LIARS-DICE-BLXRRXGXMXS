@@ -2760,13 +2760,31 @@ case 'wheelOfFortune': {
                 });
             }
         }},
-        { name: 'Ничего не произошло!', action: () => {} }
+        { name: 'Ничего не произошло', action: () => {} }
     ];
-    const chosen = effects[Math.floor(Math.random() * effects.length)];
-    chosen.action();
-    showNotification(`🎡 КОЛЕСО ФОРТУНЫ: ${chosen.name}!`, 'info');
-    addLogEntry('artifact', `${m.name} запустил Колесо Фортуны: ${chosen.name}`);
-    markArtifactUsed(id);
+    
+    const chosenIndex = Math.floor(Math.random() * effects.length);
+    const chosen = effects[chosenIndex];
+    
+    // ⭐ ПОКАЗЫВАЕМ ВИЗУАЛЬНОЕ ШОУ
+    lockGameDuringDuel(); // блокируем игру на время шоу
+    
+    showWheelOfFortune(effects, chosenIndex).then(() => {
+        // Применяем эффект
+        chosen.action();
+        showNotification(`🎡 КОЛЕСО ФОРТУНЫ: ${chosen.name}!`, 'info', 3000);
+        addLogEntry('artifact', `${m.name} запустил Колесо Фортуны: ${chosen.name}`);
+        
+        // Закрываем модалку
+        const modal = document.getElementById('modalWheel');
+        if (modal) modal.style.display = 'none';
+        
+        // Разблокируем игру
+        unlockGameAfterDuel();
+        
+        renderUI();
+        markArtifactUsed(id);
+    });
     break;
 }
 
@@ -2931,42 +2949,202 @@ case 'auction': {
 }
 
 case 'russianRoulette': {
-    const targets = Object.keys(GameState.players).filter(u => u !== GameState.myUid && GameState.players[u]?.alive && !GameState.players[u]?.isGhost);
-    if (!targets.length) { GameState.pendingArtifact = null; return showNotification('Нет целей!', 'warning'); }
+    const targets = Object.keys(GameState.players).filter(u => 
+        u !== GameState.myUid && 
+        GameState.players[u]?.alive && 
+        !GameState.players[u]?.isGhost
+    );
+    if (!targets.length) { 
+        GameState.pendingArtifact = null; 
+        return showNotification('Нет целей!', 'warning'); 
+    }
     showTargetModal(targets, t => {
         const p = GameState.players[t];
-        let round = 0;
-        let myTurn = true;
-        let finished = false;
-        const rollRoulette = () => {
-            if (finished) return;
-            const roll = Math.floor(Math.random() * 6) + 1;
-            const isHit = roll <= 3;
-            const target = myTurn ? GameState.myUid : t;
-            const name = myTurn ? m.name : p.name;
-            if (isHit) {
-                applyPoison(target, 1, 'Русская рулетка');
-                showNotification(`💥 ${name} получает яд!`, 'error');
-                addLogEntry('artifact', `Русская рулетка: ${name} проиграл!`);
-                finished = true;
-                renderUI();
-                return;
-            } else {
-                showNotification(`🍀 ${name} везёт! Бросаем дальше...`, 'info');
-                addLogEntry('artifact', `Русская рулетка: ${name} выжил`);
-                myTurn = !myTurn;
-                round++;
-                if (round >= 10) {
-                    showNotification('☮️ Ничья! Никто не получает яд.', 'info');
-                    finished = true;
-                    return;
-                }
-                setTimeout(rollRoulette, 800);
-            }
+        
+        // Блокируем игру
+        lockGameDuringDuel();
+        
+        // Показываем модалку
+        const modal = document.getElementById('modalRoulette');
+        if (modal) modal.style.display = 'block';
+        
+        // Заполняем данные
+        document.getElementById('rouletteP1Emoji').textContent = m.wardrobe?.head || m.avatar || '🎲';
+        document.getElementById('rouletteP1Name').textContent = m.name;
+        document.getElementById('rouletteP2Emoji').textContent = p.wardrobe?.head || p.avatar || '🎲';
+        document.getElementById('rouletteP2Name').textContent = p.name;
+        
+        // Состояние рулетки
+        const state = {
+            currentPlayer: 'p1', // 'p1' или 'p2'
+            round: 0,
+            maxRounds: 10,
+            finished: false,
+            p1Uid: GameState.myUid,
+            p2Uid: t,
+            p1Name: m.name,
+            p2Name: p.name
         };
-        showNotification(`🔫 РУССКАЯ РУЛЕТКА: ${m.name} против ${p.name}!`, 'info');
-        setTimeout(rollRoulette, 1000);
-        markArtifactUsed(id);
+        
+        // Сброс пуль
+        for (let i = 1; i <= 6; i++) {
+            const el = document.getElementById(`bullet${i}`);
+            if (el) {
+                el.className = '';
+                el.style.background = '#444';
+            }
+        }
+        
+        // Кнопка выстрела
+        const fireBtn = document.getElementById('rouletteFireBtn');
+        const resultDiv = document.getElementById('rouletteResult');
+        const gunBody = document.getElementById('gunBody');
+        const trigger = document.getElementById('trigger');
+        const smokeContainer = document.getElementById('smokeContainer');
+        
+        let bulletIndex = 0;
+        const bullets = [];
+        // Случайно размещаем 1 патрон из 6
+        const bulletPosition = Math.floor(Math.random() * 6);
+        for (let i = 0; i < 6; i++) {
+            bullets.push(i === bulletPosition);
+        }
+        
+        // Обновляем индикаторы пуль
+        function updateBullets() {
+            for (let i = 0; i < 6; i++) {
+                const el = document.getElementById(`bullet${i+1}`);
+                if (!el) continue;
+                if (i < bulletIndex) {
+                    el.className = 'bullet-fired';
+                    el.style.background = '#333';
+                } else if (i === bulletIndex && bullets[i]) {
+                    el.className = 'bullet-loaded';
+                    el.style.background = '#ff4444';
+                } else if (i === bulletIndex && !bullets[i]) {
+                    el.className = '';
+                    el.style.background = '#444';
+                } else {
+                    el.className = '';
+                    el.style.background = '#444';
+                }
+            }
+        }
+        
+        // Функция выстрела
+        function fireShot() {
+            if (state.finished) return;
+            
+            const isP1 = state.currentPlayer === 'p1';
+            const currentName = isP1 ? state.p1Name : state.p2Name;
+            const currentUid = isP1 ? state.p1Uid : state.p2Uid;
+            
+            // Анимация выстрела
+            fireBtn.disabled = true;
+            if (gunBody) gunBody.classList.add('fire');
+            if (trigger) trigger.classList.add('pulled');
+            if (smokeContainer) smokeContainer.style.opacity = '1';
+            
+            // Звук выстрела
+            playSound('accuse');
+            
+            // Визуальная вспышка
+            document.body.classList.add('screen-flash');
+            setTimeout(() => {
+                document.body.classList.remove('screen-flash');
+            }, 500);
+            
+            // Проверяем, есть ли патрон
+            const isHit = bullets[bulletIndex];
+            
+            setTimeout(() => {
+                // Убираем анимацию
+                if (gunBody) gunBody.classList.remove('fire');
+                if (trigger) trigger.classList.remove('pulled');
+                if (smokeContainer) smokeContainer.style.opacity = '0';
+                
+                if (isHit) {
+                    // ПАДЕНИЕ!
+                    state.finished = true;
+                    const bulletEl = document.getElementById(`bullet${bulletIndex+1}`);
+                    if (bulletEl) {
+                        bulletEl.className = 'bullet-loaded';
+                        bulletEl.style.background = '#ff0000';
+                    }
+                    
+                    applyPoison(currentUid, 1, 'Русская рулетка');
+                    resultDiv.textContent = `💥 ${currentName} получает 1 яд!`;
+                    resultDiv.style.display = 'block';
+                    resultDiv.style.color = '#ff4444';
+                    
+                    addLogEntry('artifact', `Русская рулетка: ${currentName} проиграл!`);
+                    showNotification(`💥 ${currentName} получает яд!`, 'error');
+                    
+                    // Закрываем через 2 секунды
+                    setTimeout(() => {
+                        modal.style.display = 'none';
+                        unlockGameAfterDuel();
+                        renderUI();
+                        markArtifactUsed(id);
+                    }, 2500);
+                    
+                } else {
+                    // ВЫЖИЛ!
+                    const bulletEl = document.getElementById(`bullet${bulletIndex+1}`);
+                    if (bulletEl) {
+                        bulletEl.className = 'bullet-fired';
+                        bulletEl.style.background = '#333';
+                    }
+                    
+                    resultDiv.textContent = `🍀 ${currentName} выжил!`;
+                    resultDiv.style.display = 'block';
+                    resultDiv.style.color = '#44ff44';
+                    
+                    bulletIndex++;
+                    state.round++;
+                    state.currentPlayer = isP1 ? 'p2' : 'p1';
+                    
+                    addLogEntry('artifact', `Русская рулетка: ${currentName} выжил`);
+                    
+                    // Проверяем, не закончились ли патроны
+                    if (bulletIndex >= 6 || state.round >= state.maxRounds) {
+                        state.finished = true;
+                        resultDiv.textContent = `☮️ Все патроны кончились! Ничья!`;
+                        resultDiv.style.color = '#ffaa00';
+                        setTimeout(() => {
+                            modal.style.display = 'none';
+                            unlockGameAfterDuel();
+                            renderUI();
+                            markArtifactUsed(id);
+                        }, 2500);
+                    } else {
+                        // Следующий ход
+                        updateBullets();
+                        fireBtn.disabled = false;
+                        setTimeout(() => {
+                            resultDiv.style.display = 'none';
+                        }, 1000);
+                    }
+                }
+            }, 800);
+        }
+        
+        // Назначаем обработчик
+        fireBtn.onclick = fireShot;
+        
+        // Обновляем пули
+        updateBullets();
+        resultDiv.style.display = 'none';
+        fireBtn.disabled = false;
+        
+        // Если игрок — бот, автоматически стреляем через 1.5 секунды
+        if (p.isBot) {
+            setTimeout(() => {
+                if (!state.finished && modal.style.display === 'block') {
+                    fireShot();
+                }
+            }, 1500);
+        }
     });
     break;
 }
@@ -4238,6 +4416,144 @@ function bindEventListeners() {
     document.getElementById('menuBotDifficulty')?.addEventListener('click', e=>{e.stopPropagation();setBotDifficulty((GameState.botDifficulty+1)%4);});
     document.getElementById('menuSandbox')?.addEventListener('click', toggleSandboxMode);
     window.addEventListener('beforeunload', clearAllTimers);
+}
+
+// ============================================================
+// 🎡 КОЛЕСО ФОРТУНЫ — ВИЗУАЛЬНОЕ ШОУ
+// ============================================================
+
+function showWheelOfFortune(effects, chosenIndex) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById('modalWheel');
+        const canvas = document.getElementById('wheelCanvas');
+        const ctx = canvas.getContext('2d');
+        const resultDiv = document.getElementById('wheelResult');
+        
+        if (!modal || !canvas) {
+            resolve();
+            return;
+        }
+        
+        // Эффекты и их цвета
+        const wheelEffects = [
+            { name: '🔄 Переброс кубиков', color: '#4a90d9' },
+            { name: '☠️ Все +1 яд', color: '#d94a4a' },
+            { name: '🩸 Все +1 кровь', color: '#d94a8a' },
+            { name: '🎲 Теряют 1 кубик', color: '#d9a84a' },
+            { name: '🔄 Обмен кубиками', color: '#4ad9a8' },
+            { name: '💫 Ничего не произошло', color: '#888888' }
+        ];
+        
+        const segments = wheelEffects.length;
+        const arcSize = (2 * Math.PI) / segments;
+        const radius = 130;
+        const centerX = 140;
+        const centerY = 140;
+        
+        // Рисуем колесо
+        function drawWheel(rotation) {
+            ctx.clearRect(0, 0, 280, 280);
+            
+            for (let i = 0; i < segments; i++) {
+                const startAngle = rotation + i * arcSize;
+                const endAngle = startAngle + arcSize;
+                
+                ctx.beginPath();
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+                ctx.closePath();
+                
+                ctx.fillStyle = wheelEffects[i].color;
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                
+                // Текст
+                ctx.save();
+                ctx.translate(centerX, centerY);
+                ctx.rotate(startAngle + arcSize / 2);
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillStyle = '#fff';
+                ctx.font = 'bold 12px "Press Start 2P", cursive';
+                ctx.shadowColor = 'rgba(0,0,0,0.8)';
+                ctx.shadowBlur = 4;
+                const text = wheelEffects[i].name.length > 8 ? wheelEffects[i].name.slice(0, 6)+'..' : wheelEffects[i].name;
+                ctx.fillText(text, radius * 0.65, 0);
+                ctx.restore();
+            }
+            
+            // Центральный круг
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 20, 0, 2 * Math.PI);
+            ctx.fillStyle = '#ffd700';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+            
+            ctx.fillStyle = '#000';
+            ctx.font = 'bold 16px "Press Start 2P", cursive';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('?', centerX, centerY);
+        }
+        
+        // Показываем модалку
+        modal.style.display = 'block';
+        resultDiv.style.display = 'none';
+        resultDiv.className = '';
+        
+        // Начальная отрисовка
+        drawWheel(0);
+        
+        // Анимация вращения
+        const container = document.getElementById('wheelContainer');
+        container.classList.remove('spinning');
+        
+        // Форсируем рефлоу
+        void container.offsetWidth;
+        
+        // Случайный угол остановки (от 3 до 6 полных оборотов + финальный сектор)
+        const extraSpins = 3 + Math.random() * 3;
+        const targetAngle = extraSpins * 2 * Math.PI + (chosenIndex / segments) * 2 * Math.PI;
+        
+        // Анимация вращения (через CSS или JS)
+        let currentAngle = 0;
+        const duration = 3000;
+        const startTime = Date.now();
+        
+        function animateWheel() {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Easing: кубический замедление
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const angle = eased * targetAngle;
+            drawWheel(angle);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animateWheel);
+            } else {
+                // Колесо остановилось
+                const chosen = wheelEffects[chosenIndex];
+                resultDiv.textContent = `🎯 ${chosen.name}`;
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'effect';
+                resultDiv.style.borderColor = chosen.color;
+                resultDiv.style.boxShadow = `0 0 30px ${chosen.color}40`;
+                
+                // Играем звук
+                playSound('artifact');
+                
+                setTimeout(() => {
+                    resolve();
+                }, 2000);
+            }
+        }
+        
+        animateWheel();
+    });
 }
 
 // ============================================================
