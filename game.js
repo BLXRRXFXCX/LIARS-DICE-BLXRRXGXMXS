@@ -1086,6 +1086,13 @@ function updateControls() {
     const valueUp = document.getElementById('btnBetValueUp');
     const valueDown = document.getElementById('btnBetValueDown');
     
+    // ⭐ БЛОКИРОВКА БУРГЕРА ВО ВРЕМЯ ДУЭЛИ
+    const hm = document.getElementById('hamburgerBtn');
+    if (hm) {
+        hm.style.pointerEvents = GameState._duelLocked ? 'none' : 'auto';
+        hm.style.opacity = GameState._duelLocked ? '0.5' : '1';
+    }
+    
     // ⭐ БЛОКИРОВКА ВО ВРЕМЯ ДУЭЛИ
     if (GameState._duelLocked || GameState.gameState === 'duel') {
         if (bp) bp.disabled = true;
@@ -1141,6 +1148,7 @@ function updateControls() {
         document.getElementById('actionButtons').style.display = 'grid';
     }
 }
+
 
 function updateBetDisplays() {
     const cd = document.getElementById('betCountDisplay');
@@ -3308,12 +3316,17 @@ function getNextPlayerUid() {
 let duelAnimationTimer = null;
 
 function startSyncedDuel(data) {
-     // 🔒 БЛОКИРУЕМ ИГРУ
+    // Если дуэль уже идёт — не запускаем повторно
+    if (GameState._duelLocked && GameState.duelSynced) {
+        console.log('⏳ Дуэль уже идёт, пропускаем повторный запуск');
+        return;
+    }
+    
     lockGameDuringDuel();
+    
     const p1 = data.player1;
     const p2 = data.player2;
 
-    // Заполняем данные игроков
     document.getElementById('duelP1Avatar').textContent = p1.avatar || '🎲';
     document.getElementById('duelP1Name').textContent = p1.name;
     document.getElementById('duelP1Lives').textContent = `❤️ ${p1.maxLives - p1.poisons}/${p1.maxLives}`;
@@ -3322,13 +3335,11 @@ function startSyncedDuel(data) {
     document.getElementById('duelP2Name').textContent = p2.name;
     document.getElementById('duelP2Lives').textContent = `❤️ ${p2.maxLives - p2.poisons}/${p2.maxLives}`;
 
-    // Очищаем контейнеры
     const p1Container = document.getElementById('duelP1DiceContainer');
     const p2Container = document.getElementById('duelP2DiceContainer');
     p1Container.innerHTML = '';
     p2Container.innerHTML = '';
 
-    // Сбрасываем счётчики
     document.getElementById('duelP1Damage').textContent = '0';
     document.getElementById('duelP2Damage').textContent = '0';
     document.getElementById('duelP1Damage').style.color = '#ffd700';
@@ -3339,11 +3350,9 @@ function startSyncedDuel(data) {
     resultDiv.textContent = '';
     resultDiv.className = '';
 
-    // Показываем модалку
     const modal = document.getElementById('modalDuel');
     if (modal) modal.style.display = 'block';
 
-    // Создаём ячейки для кубиков (максимум 5)
     const totalRounds = data.totalRounds;
     for (let i = 0; i < totalRounds; i++) {
         const cell1 = document.createElement('div');
@@ -3359,7 +3368,6 @@ function startSyncedDuel(data) {
         p2Container.appendChild(cell2);
     }
 
-    // Если дуэль уже началась (currentRound >= 0), восстанавливаем состояние
     if (data.currentRound >= 0) {
         for (let i = 0; i <= data.currentRound; i++) {
             const cell1 = document.getElementById(`duelP1Cell${i}`);
@@ -3384,14 +3392,18 @@ function startSyncedDuel(data) {
         }
     }
 
-    // Запускаем анимацию следующего раунда
     scheduleNextDuelRound(data);
 }
 
+    
 function scheduleNextDuelRound(data) {
     if (duelAnimationTimer) {
         clearTimeout(duelAnimationTimer);
         duelAnimationTimer = null;
+    }
+
+    if (data.finished || GameState.duelState?.finished) {
+        return;
     }
 
     const nextRound = data.currentRound + 1;
@@ -3534,6 +3546,12 @@ function animateDuelRound(roundIndex) {
 }
 
 function finishSyncedDuel(p1Damage, p2Damage) {
+    // Очищаем таймер
+    if (duelAnimationTimer) {
+        clearTimeout(duelAnimationTimer);
+        duelAnimationTimer = null;
+    }
+    
     const p1Total = Math.floor(p1Damage);
     const p2Total = Math.floor(p2Damage);
 
@@ -3601,7 +3619,6 @@ function finishSyncedDuel(p1Damage, p2Damage) {
     setTimeout(() => {
         const modal = document.getElementById('modalDuel');
         if (modal) modal.style.display = 'none';
-         // 🔓 РАЗБЛОКИРУЕМ ИГРУ
         unlockGameAfterDuel();
         GameState.roomRef.child('duelState').remove();
         GameState.duelSynced = false;
@@ -3611,7 +3628,6 @@ function finishSyncedDuel(p1Damage, p2Damage) {
 }
 
 function handleDuelResult(data) {
-    // Если дуэль уже завершена и модалка открыта — показываем результат
     if (data.finished && data.result) {
         const resultDiv = document.getElementById('duelResult');
         if (resultDiv && resultDiv.style.display !== 'block') {
@@ -3641,14 +3657,14 @@ function handleDuelResult(data) {
             resultDiv.textContent = resultText;
             resultDiv.className = `accusation-result ${resultClass}`;
             resultDiv.style.display = 'block';
-            
-            // ⭐ Разблокируем игру через 3 секунды после показа результата
-            setTimeout(() => {
-                if (GameState._duelLocked) {
-                    unlockGameAfterDuel();
-                }
-            }, 3000);
         }
+        
+        // ⭐ РАЗБЛОКИРУЕМ В ЛЮБОМ СЛУЧАЕ
+        setTimeout(() => {
+            if (GameState._duelLocked) {
+                unlockGameAfterDuel();
+            }
+        }, 3000);
     }
 }
 
