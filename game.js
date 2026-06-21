@@ -827,17 +827,20 @@ if (typeof sandboxPanelVisible !== 'undefined' && sandboxPanelVisible) {
             if (GameState.gameLog.length > 100) GameState.gameLog.shift();
         }
     });
-        // ============================================================
+      // ============================================================
     // ⚔️ СЛУШАТЕЛЬ ДУЭЛИ (синхронизация для всех игроков)
     // ============================================================
     GameState.roomRef.child('duelState').on('value', (snapshot) => {
         const data = snapshot.val();
         if (!data) {
-            // Если дуэль удалена — закрываем модалку
+            // Если дуэль удалена — закрываем модалку и разблокируем
             const modal = document.getElementById('modalDuel');
             if (modal) modal.style.display = 'none';
             GameState.duelSynced = false;
             GameState.duelState = null;
+            if (GameState._duelLocked) {
+                unlockGameAfterDuel();
+            }
             return;
         }
 
@@ -849,6 +852,9 @@ if (typeof sandboxPanelVisible !== 'undefined' && sandboxPanelVisible) {
                     modal.style.display = 'none';
                     GameState.duelSynced = false;
                     GameState.duelState = null;
+                    if (GameState._duelLocked) {
+                        unlockGameAfterDuel();
+                    }
                 }, 1000);
             }
             return;
@@ -856,6 +862,9 @@ if (typeof sandboxPanelVisible !== 'undefined' && sandboxPanelVisible) {
 
         // Если дуэль активна, но мы ещё не синхронизировались — запускаем
         if (!GameState.duelSynced) {
+            // 🔒 БЛОКИРУЕМ ИГРУ
+            lockGameDuringDuel();
+            
             GameState.duelSynced = true;
             GameState.duelState = data;
             
@@ -1076,6 +1085,17 @@ function updateControls() {
     const countDown = document.getElementById('btnBetCountDown');
     const valueUp = document.getElementById('btnBetValueUp');
     const valueDown = document.getElementById('btnBetValueDown');
+    
+    // ⭐ БЛОКИРОВКА ВО ВРЕМЯ ДУЭЛИ
+    if (GameState._duelLocked || GameState.gameState === 'duel') {
+        if (bp) bp.disabled = true;
+        if (ba) ba.disabled = true;
+        if (countUp) countUp.disabled = true;
+        if (countDown) countDown.disabled = true;
+        if (valueUp) valueUp.disabled = true;
+        if (valueDown) valueDown.disabled = true;
+        return;
+    }
     
     // ⭐ БЛОКИРОВКА ВО ВРЕМЯ СДЕЛКИ
     if (GameState.gameState === 'devil_deal') {
@@ -3288,6 +3308,8 @@ function getNextPlayerUid() {
 let duelAnimationTimer = null;
 
 function startSyncedDuel(data) {
+     // 🔒 БЛОКИРУЕМ ИГРУ
+    lockGameDuringDuel();
     const p1 = data.player1;
     const p2 = data.player2;
 
@@ -3579,6 +3601,8 @@ function finishSyncedDuel(p1Damage, p2Damage) {
     setTimeout(() => {
         const modal = document.getElementById('modalDuel');
         if (modal) modal.style.display = 'none';
+         // 🔓 РАЗБЛОКИРУЕМ ИГРУ
+        unlockGameAfterDuel();
         GameState.roomRef.child('duelState').remove();
         GameState.duelSynced = false;
         GameState.duelState = null;
@@ -3593,8 +3617,6 @@ function handleDuelResult(data) {
         if (resultDiv && resultDiv.style.display !== 'block') {
             const p1 = data.player1;
             const p2 = data.player2;
-            const p1Total = Math.floor(data.p1Damage);
-            const p2Total = Math.floor(data.p2Damage);
             
             let resultText = '';
             let resultClass = '';
@@ -3602,17 +3624,30 @@ function handleDuelResult(data) {
             if (data.result === 'p1win') {
                 resultText = `🏆 ${p1.name} ПОБЕЖДАЕТ!`;
                 resultClass = 'effect-green';
+                document.getElementById('duelP1Damage').style.color = '#00ff44';
+                document.getElementById('duelP2Damage').style.color = '#ff4444';
             } else if (data.result === 'p2win') {
                 resultText = `🏆 ${p2.name} ПОБЕЖДАЕТ!`;
                 resultClass = 'effect-red';
+                document.getElementById('duelP1Damage').style.color = '#ff4444';
+                document.getElementById('duelP2Damage').style.color = '#00ff44';
             } else {
                 resultText = `⚖️ НИЧЬЯ!`;
                 resultClass = 'effect-yellow';
+                document.getElementById('duelP1Damage').style.color = '#ffaa00';
+                document.getElementById('duelP2Damage').style.color = '#ffaa00';
             }
             
             resultDiv.textContent = resultText;
             resultDiv.className = `accusation-result ${resultClass}`;
             resultDiv.style.display = 'block';
+            
+            // ⭐ Разблокируем игру через 3 секунды после показа результата
+            setTimeout(() => {
+                if (GameState._duelLocked) {
+                    unlockGameAfterDuel();
+                }
+            }, 3000);
         }
     }
 }
@@ -3982,7 +4017,7 @@ function resolveVote(tu) {
 }
 
 function bindEventListeners() {
-    const hm=document.getElementById('hamburgerBtn'), dd=document.getElementById('dropdownMenu');
+    const hm = document.getElementById('hamburgerBtn'), dd = document.getElementById('dropdownMenu');
     if(hm) hm.onclick=()=>{if(dd)dd.style.display=dd.style.display==='block'?'none':'block';if(audioContext&&audioContext.state==='suspended')audioContext.resume();};
     document.addEventListener('click', e=>{if(hm&&dd&&!hm.contains(e.target)&&!dd.contains(e.target)&&dd.style.display==='block')dd.style.display='none';});
     document.getElementById('menuRules')?.addEventListener('click', ()=>{document.getElementById('modalRules').style.display='block';if(dd)dd.style.display='none';});
@@ -4054,19 +4089,43 @@ function bindEventListeners() {
     document.getElementById('ghReaper')?.addEventListener('click', ()=>useGhostAbility('soulReaper'));
     document.getElementById('voteYes')?.addEventListener('click', ()=>castVote('yes'));
     document.getElementById('voteNo')?.addEventListener('click', ()=>castVote('no'));
-    document.querySelectorAll('.close-btn').forEach(b=>b.addEventListener('click', function(){
-        const m=this.closest('.modal');
-        if(m && m.id === 'devilModal') return;
-        if(m)m.style.display='none';
-        if(m?.id==='modalNominal'&&dynamicNominalInterval){clearInterval(dynamicNominalInterval);dynamicNominalInterval=null;}
+    
+    // ⭐ ОБРАБОТЧИКИ ДЛЯ МОДАЛОК С ЗАЩИТОЙ ОТ ЗАКРЫТИЯ ДУЭЛИ
+    document.querySelectorAll('.close-btn').forEach(b => b.addEventListener('click', function(){
+        const m = this.closest('.modal');
+        if (!m) return;
+        
+        // ⭐ ЗАПРЕЩАЕМ ЗАКРЫТИЕ МОДАЛКИ ДУЭЛИ
+        if (m.id === 'modalDuel') {
+            showNotification('❌ Нельзя закрыть дуэль!', 'warning', 1000);
+            return;
+        }
+        
+        if (m.id === 'devilModal') return;
+        if (m) m.style.display = 'none';
+        if (m?.id === 'modalNominal' && dynamicNominalInterval) {
+            clearInterval(dynamicNominalInterval);
+            dynamicNominalInterval = null;
+        }
     }));
-    window.addEventListener('click', e=>{
-        if(e.target.classList.contains('modal')){
-            if(e.target.id === 'devilModal') return;
-            e.target.style.display='none';
-            if(e.target.id==='modalNominal'&&dynamicNominalInterval){clearInterval(dynamicNominalInterval);dynamicNominalInterval=null;}
+    
+    // ⭐ ОБРАБОТЧИК КЛИКА ПО МОДАЛКАМ С ЗАЩИТОЙ ОТ ЗАКРЫТИЯ ДУЭЛИ
+    window.addEventListener('click', e => {
+        if (e.target.classList.contains('modal')) {
+            // ⭐ ЗАПРЕЩАЕМ ЗАКРЫТИЕ МОДАЛКИ ДУЭЛИ
+            if (e.target.id === 'modalDuel') {
+                showNotification('❌ Нельзя закрыть дуэль!', 'warning', 1000);
+                return;
+            }
+            if (e.target.id === 'devilModal') return;
+            e.target.style.display = 'none';
+            if (e.target.id === 'modalNominal' && dynamicNominalInterval) {
+                clearInterval(dynamicNominalInterval);
+                dynamicNominalInterval = null;
+            }
         }
     });
+    
     document.getElementById('accusationCloseBtn')?.addEventListener('click', ()=>{
         document.getElementById('accusationPanel').style.display='none';
     });
@@ -4593,6 +4652,113 @@ function sandboxResetGame() {
     }, 300);
     showNotification('🔄 Игра перезапущена!', 'success');
 }
+
+    // ============================================================
+// 🔒 БЛОКИРОВКА ИГРЫ ВО ВРЕМЯ ДУЭЛИ
+// ============================================================
+
+function lockGameDuringDuel() {
+    // Блокируем все игровые действия
+    GameState.isActionInProgress = true;
+    GameState._duelLocked = true;
+    
+    // Блокируем кнопки
+    const btns = [
+        'btnPlaceBet', 'btnAccuse', 
+        'btnBetCountUp', 'btnBetCountDown',
+        'btnBetValueUp', 'btnBetValueDown',
+        'quickEmojiBtn', 'tauntBtn',
+        'btnLog', 'btnCheck'
+    ];
+    btns.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = true;
+    });
+    
+    // Блокируем артефакты (через класс)
+    const artifactIcon = document.getElementById('artifactIcon');
+    if (artifactIcon) {
+        artifactIcon.style.pointerEvents = 'none';
+        artifactIcon.style.opacity = '0.5';
+    }
+    
+    // Блокируем дропдаун меню (кроме кнопки открытия)
+    const dd = document.getElementById('dropdownMenu');
+    if (dd) {
+        dd.style.pointerEvents = 'none';
+        dd.style.opacity = '0.5';
+    }
+    
+    // Блокируем хамбургер
+    const hm = document.getElementById('hamburgerBtn');
+    if (hm) hm.style.pointerEvents = 'none';
+    
+    // Добавляем визуальный индикатор блокировки
+    let lockOverlay = document.getElementById('duelLockOverlay');
+    if (!lockOverlay) {
+        lockOverlay = document.createElement('div');
+        lockOverlay.id = 'duelLockOverlay';
+        lockOverlay.style.cssText = `
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.3);
+            z-index: 10001;
+            pointer-events: none;
+            display: none;
+        `;
+        document.body.appendChild(lockOverlay);
+    }
+    lockOverlay.style.display = 'block';
+    
+    console.log('🔒 Игра заблокирована во время дуэли');
+}
+
+function unlockGameAfterDuel() {
+    GameState.isActionInProgress = false;
+    GameState._duelLocked = false;
+    
+    // Разблокируем кнопки
+    const btns = [
+        'btnPlaceBet', 'btnAccuse', 
+        'btnBetCountUp', 'btnBetCountDown',
+        'btnBetValueUp', 'btnBetValueDown',
+        'quickEmojiBtn', 'tauntBtn',
+        'btnLog', 'btnCheck'
+    ];
+    btns.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.disabled = false;
+    });
+    
+    // Разблокируем артефакты
+    const artifactIcon = document.getElementById('artifactIcon');
+    if (artifactIcon) {
+        artifactIcon.style.pointerEvents = 'auto';
+        artifactIcon.style.opacity = '1';
+    }
+    
+    // Разблокируем дропдаун
+    const dd = document.getElementById('dropdownMenu');
+    if (dd) {
+        dd.style.pointerEvents = 'auto';
+        dd.style.opacity = '1';
+    }
+    
+    // Разблокируем хамбургер
+    const hm = document.getElementById('hamburgerBtn');
+    if (hm) hm.style.pointerEvents = 'auto';
+    
+    // Убираем оверлей
+    const lockOverlay = document.getElementById('duelLockOverlay');
+    if (lockOverlay) lockOverlay.style.display = 'none';
+    
+    // Обновляем контролы
+    updateControls();
+    
+    console.log('🔓 Игра разблокирована после дуэли');
+}
+
+    
 
 // ============================================================
 window.onload = () => {
