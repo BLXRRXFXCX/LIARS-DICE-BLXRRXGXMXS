@@ -1124,6 +1124,25 @@ body.offline { opacity: 0.7; }
 #modalDuel {
     pointer-events: auto;
 }
+
+    /* КОЛЕСО ФОРТУНЫ */
+#wheelCanvas {
+    transition: none !important;
+}
+
+@keyframes wheelSpin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+#wheelContainer.spinning canvas {
+    animation: wheelSpin 3s cubic-bezier(0.17, 0.67, 0.12, 0.99) forwards;
+}
+
+#wheelResult.effect {
+    border-color: #ffd700 !important;
+    box-shadow: 0 0 30px rgba(255,215,0,0.3);
+}
     
 </style>
 </head>
@@ -1584,6 +1603,25 @@ body.offline { opacity: 0.7; }
             
             <!-- РЕЗУЛЬТАТ -->
             <div id="duelResult" style="text-align:center; margin-top:6px; padding:8px; font-size:0.75em; border-radius:8px; min-height:32px; width:100%; display:none;">
+            </div>
+        </div>
+    </div>
+</div>
+    <!-- КОЛЕСО ФОРТУНЫ - МОДАЛЬНОЕ ОКНО -->
+<div id="modalWheel" class="modal" style="display:none; z-index:10003;">
+    <div class="modal-content" style="max-width:500px; background:linear-gradient(180deg, #1a0a0a, #2d1a1a, #1a0a0a); border-color:#ffd700; max-height:95vh; padding:20px;">
+        <div style="position:relative; z-index:1; text-align:center;">
+            <h2 style="color:#ffd700; margin-bottom:15px; text-shadow:0 0 30px rgba(255,215,0,0.5);">🎡 КОЛЕСО ФОРТУНЫ</h2>
+            
+            <!-- Колесо -->
+            <div id="wheelContainer" style="position:relative; width:280px; height:280px; margin:0 auto 20px;">
+                <canvas id="wheelCanvas" width="280" height="280" style="width:280px; height:280px; border-radius:50%; box-shadow:0 0 40px rgba(255,215,0,0.3);"></canvas>
+                <!-- Стрелка -->
+                <div style="position:absolute; top:-10px; left:50%; transform:translateX(-50%); font-size:2em; color:#ff4444; text-shadow:0 0 20px rgba(255,68,68,0.8);">▼</div>
+            </div>
+            
+            <!-- Результат -->
+            <div id="wheelResult" style="padding:12px; background:rgba(255,255,255,0.05); border-radius:8px; font-size:0.8em; min-height:40px; display:none; border:1px solid rgba(255,215,0,0.2);">
             </div>
         </div>
     </div>
