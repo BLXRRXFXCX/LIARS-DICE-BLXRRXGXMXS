@@ -1350,9 +1350,9 @@ function accuse() {
     playSound('accuse');
     
     GameState.lastAccusationData = {
-        phrase: ph?.textContent || '',
-        diceSummary: sum?.innerHTML || '',
-        resultText: '⏳ Проверка...',
+        phrase: '',
+        diceSummary: '',
+        resultText: '',
         resultClass: '',
         effects: ''
     };
@@ -1369,7 +1369,13 @@ function accuse() {
 
 
 function resolveAccusation(accusedUid) {
-    const tv = GameState.lastBet.value;
+     // ⭐ Если была использована Мираж, используем реальную ставку
+    let betToCheck = GameState.lastBet;
+    if (GameState._mirageBet && GameState._mirageBet.player === GameState.myUid) {
+        betToCheck = GameState._mirageBet;
+        GameState._mirageBet = null; // очищаем
+    }
+   const tv = betToCheck.value;
     const accused = GameState.players[accusedUid];
     let totalWithoutWild = 0;
     Object.values(GameState.players).forEach(p => {
@@ -1864,21 +1870,24 @@ async function startNewRound() {
     if (alive.length < 1) return;
     
     // ⭐ ТЁМНОЕ ПРОРОЧЕСТВО — ПРОВЕРЯЕМ ДО ОБНОВЛЕНИЯ КУБИКОВ
-    // Проверяем пророчества у всех игроков
     const prophecyUpdates = {};
     Object.keys(GameState.players).forEach(uid => {
         const p = GameState.players[uid];
         if (!p?.alive || p.isGhost) return;
-        
-        // Проверяем, есть ли у игрока активное пророчество
         if (p.prophecy && p.prophecy.round === GameState.roundNumber + 1) {
-            // Пророчество должно сработать в этом раунде (который сейчас начинается)
-            // Но мы ещё не обновили roundNumber, поэтому проверяем
             const prop = p.prophecy;
-            // Сохраняем для обработки после обновления кубиков
             if (!prophecyUpdates[uid]) {
                 prophecyUpdates[uid] = prop;
             }
+        }
+    });
+    
+    // ⭐ НОЧНОЙ КОШМАР — применяется в этом раунде
+    const nightmarePlayers = {};
+    Object.keys(GameState.players).forEach(uid => {
+        const p = GameState.players[uid];
+        if (p?.nightmareNextRound && p.nightmareRound === GameState.roundNumber + 1) {
+            nightmarePlayers[uid] = true;
         }
     });
     
@@ -1911,7 +1920,6 @@ async function startNewRound() {
             updates[`players/${uid}/frozen`] = false;
             updates[`players/${uid}/defenderActive`] = (artData?.id === 'defender');
             updates[`players/${uid}/stunned`] = false;
-            updates[`players/${uid}/blind`] = false;
             updates[`players/${uid}/darkPact`] = (artData?.id === 'darkPact');
             updates[`players/${uid}/darkPactShield`] = false;
             updates[`players/${uid}/devilShield`] = false;
@@ -1922,37 +1930,50 @@ async function startNewRound() {
             updates[`players/${uid}/blood`] = p.blood || 0;
             updates[`players/${uid}/poisons`] = p.poisons;
             updates[`players/${uid}/maxLives`] = p.maxLives || GameState.defaultLives;
+            
+            // ⭐ БАНКРОТ: сбрасываем блокировку артефактов в новом раунде
+            updates[`players/${uid}/noArtifactsForever`] = p.noArtifactsForever || false;
+            updates[`players/${uid}/noArtifactsThisRound`] = false;
+            
+            // ⭐ НОЧНОЙ КОШМАР: применяем эффект в этом раунде
+            if (nightmarePlayers[uid]) {
+                updates[`players/${uid}/blind`] = true;
+                updates[`players/${uid}/nightmareNextRound`] = false;
+                updates[`players/${uid}/nightmareRound`] = null;
+                addLogEntry('system', `🌙 ${p.name} не видит свои кубики в этом раунде!`);
+            } else {
+                updates[`players/${uid}/blind`] = false;
+            }
+            
             if (p.maxDice) updates[`players/${uid}/maxDice`] = p.maxDice;
             if (p.noArtifactsForever) updates[`players/${uid}/noArtifactsForever`] = true;
         }
     });
     
-    // ⭐ ПРИМЕНЯЕМ ТЁМНОЕ ПРОРОЧЕСТВО ПОСЛЕ ОБНОВЛЕНИЯ КУБИКОВ
+    // ⭐ ТЁМНОЕ ПРОРОЧЕСТВО — применяем ПОСЛЕ обновления кубиков
     Object.keys(prophecyUpdates).forEach(uid => {
         const prop = prophecyUpdates[uid];
         const p = GameState.players[uid];
+        // ⭐ ПРОВЕРЯЕМ, ЧТО ИГРОК ЖИВ
         if (p && p.alive && !p.isGhost) {
-            // Проверяем, есть ли загаданный номинал в новых кубиках
             const newDice = updates[`players/${uid}/dice`] || p.dice;
             const has = newDice.some(d => d === prop.nom);
             
             if (has) {
-                // Пророчество сбылось — +2 крови
                 const currentBlood = p.blood || 0;
                 updates[`players/${uid}/blood`] = currentBlood + 2;
                 addLogEntry('system', `🔮 Тёмное пророчество ${p.name}: сбылось! +2 крови (${getDieEmoji(prop.nom)})`);
                 showNotification(`🔮 ${p.name}: Пророчество сбылось! +2 крови!`, 'success', 2000);
             } else {
-                // Пророчество не сбылось — +1 яд
                 const currentPoisons = p.poisons || 0;
                 updates[`players/${uid}/poisons`] = currentPoisons + 1;
                 addLogEntry('system', `🔮 Тёмное пророчество ${p.name}: не сбылось! +1 яд`);
                 showNotification(`🔮 ${p.name}: Пророчество не сбылось! +1 яд`, 'error', 2000);
             }
-            
-            // Очищаем пророчество
             updates[`players/${uid}/prophecy`] = null;
-            GameState._prophecy = null;
+        } else {
+            // ⭐ Если игрок умер — просто очищаем пророчество
+            updates[`players/${uid}/prophecy`] = null;
         }
     });
     
@@ -2750,8 +2771,15 @@ case 'wheelOfFortune': {
 }
 
 case 'masquerade': {
-    const targets = Object.keys(GameState.players).filter(u => u !== GameState.myUid && GameState.players[u]?.alive && !GameState.players[u]?.isGhost);
-    if (!targets.length) { GameState.pendingArtifact = null; return showNotification('Нет целей!', 'warning'); }
+    const targets = Object.keys(GameState.players).filter(u => 
+        u !== GameState.myUid && 
+        GameState.players[u]?.alive && 
+        !GameState.players[u]?.isGhost
+    );
+    if (!targets.length) { 
+        GameState.pendingArtifact = null; 
+        return showNotification('Нет целей!', 'warning'); 
+    }
     showTargetModal(targets, t => {
         const p = GameState.players[t];
         const myData = {
@@ -2775,7 +2803,7 @@ case 'masquerade': {
         p.poisons = myData.poisons;
         p.blood = myData.blood;
         p.maxLives = myData.maxLives;
-        // Сохраняем в Firebase
+        
         const updates = {};
         updates[`players/${GameState.myUid}/dice`] = m.dice;
         updates[`players/${GameState.myUid}/poisons`] = m.poisons;
@@ -2786,13 +2814,16 @@ case 'masquerade': {
         updates[`players/${t}/blood`] = p.blood;
         updates[`players/${t}/maxLives`] = p.maxLives;
         safeUpdate(GameState.roomRef, updates, 'masquerade');
-        addLogEntry('artifact', `${m.name} обменялся с ${p.name} через Маскарад`);
+        
+        // ⭐ УВЕДОМЛЕНИЕ ТОЛЬКО ДЛЯ ИНИЦИАТОРА (без уведомления цели)
+        showNotification(`🎭 МАСКАРАД: Вы обменялись с ${p.name}! Проверьте свои кубики и жизни!`, 'success', 3000);
+        addLogEntry('artifact', `🎭 МАСКАРАД: ${m.name} использовал артефакт на ${p.name}`);
         renderUI();
         markArtifactUsed(id);
     });
     break;
 }
-
+            
 case 'duel': {
     const targets = Object.keys(GameState.players).filter(u =>
         u !== GameState.myUid &&
@@ -3020,36 +3051,53 @@ case 'paradox': {
 }
 
 case 'nightmare': {
-    const targets = Object.keys(GameState.players).filter(u => u !== GameState.myUid && GameState.players[u]?.alive && !GameState.players[u]?.isGhost);
-    if (!targets.length) { GameState.pendingArtifact = null; return showNotification('Нет целей!', 'warning'); }
+    const targets = Object.keys(GameState.players).filter(u => 
+        u !== GameState.myUid && 
+        GameState.players[u]?.alive && 
+        !GameState.players[u]?.isGhost
+    );
+    if (!targets.length) { 
+        GameState.pendingArtifact = null; 
+        return showNotification('Нет целей!', 'warning'); 
+    }
     showTargetModal(targets, t => {
-        safeUpdate(GameState.roomRef.child('players').child(t), { blind: true }, 'nightmare');
-        addLogEntry('artifact', `${m.name} наслал кошмар на ${GameState.players[t].name}`);
-        showNotification(`🌙 ${GameState.players[t].name} не видит свои кубики в следующем раунде!`, 'info');
+        // ⭐ Сохраняем эффект для СЛЕДУЮЩЕГО раунда
+        safeUpdate(GameState.roomRef.child('players').child(t), { 
+            nightmareNextRound: true,
+            nightmareRound: GameState.roundNumber + 1 
+        }, 'nightmare');
+        addLogEntry('artifact', `${m.name} наслал кошмар на ${GameState.players[t].name} (в следующем раунде)`);
+        showNotification(`🌙 ${GameState.players[t].name} не увидит свои кубики в следующем раунде!`, 'info');
         markArtifactUsed(id);
     });
     break;
 }
 
 case 'bankrupt': {
-    const targets = Object.keys(GameState.players).filter(u => u !== GameState.myUid && GameState.players[u]?.alive && !GameState.players[u]?.isGhost);
-    if (!targets.length) { GameState.pendingArtifact = null; return showNotification('Нет целей!', 'warning'); }
+    const targets = Object.keys(GameState.players).filter(u => 
+        u !== GameState.myUid && 
+        GameState.players[u]?.alive && 
+        !GameState.players[u]?.isGhost
+    );
+    if (!targets.length) { 
+        GameState.pendingArtifact = null; 
+        return showNotification('Нет целей!', 'warning'); 
+    }
     showTargetModal(targets, t => {
         const p = GameState.players[t];
         // Забираем артефакт
         if (p.artifact) {
             const art = p.artifact;
             p.artifact = null;
-            // Если артефакт был активным и использован, сбрасываем флаг
             if (art.type === 'active' && GameState.usedSpecialThisRound[art.id]) {
                 delete GameState.usedSpecialThisRound[art.id];
             }
             safeUpdate(GameState.roomRef.child('players').child(t), { artifact: null }, 'bankrupt-art');
         }
-        // Блокируем получение новых артефактов в этом раунде
-        safeUpdate(GameState.roomRef.child('players').child(t), { noArtifactsForever: true }, 'bankrupt-block');
-        addLogEntry('artifact', `${m.name} обанкротил ${p.name}`);
-        showNotification(`💸 ${p.name} потерял все артефакты!`, 'error');
+        // ⭐ БЛОКИРУЕМ ПОЛУЧЕНИЕ АРТЕФАКТОВ ТОЛЬКО В ЭТОМ РАУНДЕ
+        safeUpdate(GameState.roomRef.child('players').child(t), { noArtifactsThisRound: true }, 'bankrupt-block');
+        addLogEntry('artifact', `${m.name} обанкротил ${p.name} на этот раунд`);
+        showNotification(`💸 ${p.name} потерял артефакт в этом раунде!`, 'error');
         renderUI();
         markArtifactUsed(id);
     });
@@ -3071,9 +3119,18 @@ case 'alchemist': {
                 showNotification('Номиналы должны отличаться!', 'warning');
                 return;
             }
+            // Проверяем, есть ли кубики для преобразования
+            const hasFrom = m.dice.some(d => d === fromNom);
+            if (!hasFrom) {
+                showNotification(`У вас нет кубиков ${getDieEmoji(fromNom)}!`, 'warning');
+                return;
+            }
             const nd = m.dice.map(d => d === fromNom ? toNom : d);
-            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), { dice: nd }, 'alchemist');
-            addLogEntry('artifact', `${m.name} превратил ${getDieEmoji(fromNom)} → ${getDieEmoji(toNom)}`);
+            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), { 
+                dice: nd, 
+                evilEyed: false 
+            }, 'alchemist');
+            addLogEntry('artifact', `${m.name} использовал превращение: ${getDieEmoji(fromNom)} → ${getDieEmoji(toNom)}`);
             showNotification(`🧪 Все ${getDieEmoji(fromNom)} стали ${getDieEmoji(toNom)}!`, 'success');
             renderUI();
             markArtifactUsed(id);
@@ -3085,24 +3142,35 @@ case 'alchemist': {
 // guardian — пассивный, обрабатывается в applyPoison (см. ниже)
 
 case 'mirage': {
-    // Создаём ложную ставку
-    const fakeCount = Math.floor(Math.random() * 10) + 1;
-    const fakeValue = Math.floor(Math.random() * 6) + 1;
-    const realCount = GameState.betCount;
-    const realValue = GameState.betValue;
-    // Показываем всем ложную ставку
-    const fakeBet = { player: GameState.myUid, count: fakeCount, value: fakeValue, timestamp: Date.now(), isMirage: true };
-    const realBet = { player: GameState.myUid, count: realCount, value: realValue, timestamp: Date.now(), isMirage: false };
-    // Сохраняем реальную ставку в скрытом поле
+    // Сначала делаем ставку как обычно
+    const c = GameState.betCount;
+    const v = GameState.betValue;
+    if (v < 1 || v > 6) return showNotification('Номинал 1-6!', 'warning');
+    if (GameState.lastBet && (c < GameState.lastBet.count || (c === GameState.lastBet.count && v <= GameState.lastBet.value))) {
+        return showNotification('Ставка должна быть выше!', 'warning');
+    }
+    
+    // Реальная ставка (только для вас)
+    const realBet = { player: GameState.myUid, count: c, value: v, timestamp: Date.now() };
+    
+    // Фальшивая ставка (видят все) — случайный сдвиг номинала
+    let fakeValue = v + (Math.random() < 0.5 ? 1 : -1);
+    if (fakeValue > 6) fakeValue = 1;
+    if (fakeValue < 1) fakeValue = 6;
+    const fakeBet = { player: GameState.myUid, count: c, value: fakeValue, timestamp: Date.now(), isMirage: true };
+    
+    // Сохраняем реальную ставку скрыто
     GameState._mirageBet = realBet;
-    GameState.lastBet = fakeBet;
+    GameState.lastBet = fakeBet; // Показываем всем фальшивую
+    
     const updates = {};
     updates['lastBet'] = fakeBet;
     updates[`players/${GameState.myUid}/lastBetInRound`] = fakeBet;
     safeUpdate(GameState.roomRef, updates, 'mirage');
-    addLogEntry('artifact', `${m.name} создал Мираж!`);
-    showNotification('🪞 МИРАЖ АКТИВЕН! Ваша ставка скрыта.', 'info');
-    // При обвинении будет использована реальная ставка
+    
+    addLogEntry('artifact', `${m.name} создал Мираж! Реальная ставка: ${c}×${getDieEmoji(v)}, видимая: ${c}×${getDieEmoji(fakeValue)}`);
+    showNotification(`🪞 МИРАЖ! Все видят ${c}×${getDieEmoji(fakeValue)}, но у вас ${c}×${getDieEmoji(v)}`, 'info', 3000);
+    
     markArtifactUsed(id);
     break;
 }
