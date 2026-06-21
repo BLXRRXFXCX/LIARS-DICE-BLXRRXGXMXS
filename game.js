@@ -3192,42 +3192,40 @@ function getNextPlayerUid() {
 }
 
 // ============================================================
-// ⚔️ ДУЭЛЬ — ВИЗУАЛЬНАЯ ЛОГИКА
+// ⚔️ ДУЭЛЬ — ВИЗУАЛЬНАЯ ЛОГИКА (ИСПРАВЛЕННАЯ)
 // ============================================================
 
 function startDuelVisual(p1, p2, p1Dice, p2Dice, targetUid) {
     const modal = document.getElementById('modalDuel');
-    if (!modal) { 
+    if (!modal) {
         logError('❌ modalDuel не найден!');
-        // Fallback: обычная дуэль
         return;
     }
-    
+
     // Заполняем данные игроков
     document.getElementById('duelP1Avatar').textContent = p1.wardrobe?.head || p1.avatar || '🎲';
     document.getElementById('duelP1Name').textContent = p1.name;
     document.getElementById('duelP1Lives').textContent = `❤️ ${p1.maxLives - p1.poisons} / ${p1.maxLives}`;
-    
+
     document.getElementById('duelP2Avatar').textContent = p2.wardrobe?.head || p2.avatar || '🎲';
     document.getElementById('duelP2Name').textContent = p2.name;
     document.getElementById('duelP2Lives').textContent = `❤️ ${p2.maxLives - p2.poisons} / ${p2.maxLives}`;
-    
+
     // Очищаем контейнеры
     const p1Container = document.getElementById('duelP1DiceContainer');
     const p2Container = document.getElementById('duelP2DiceContainer');
     p1Container.innerHTML = '';
     p2Container.innerHTML = '';
-    
-    // Сбрасываем счётчики урона
+
+    // Сбрасываем счётчики
     document.getElementById('duelP1Damage').textContent = '0';
     document.getElementById('duelP2Damage').textContent = '0';
     document.getElementById('duelResult').style.display = 'none';
     document.getElementById('duelResult').textContent = '';
     document.getElementById('duelResult').className = '';
-    
-    // Показываем модалку
+
     modal.style.display = 'block';
-    
+
     // Создаём ячейки для кубиков (максимум 5)
     const maxDice = Math.max(p1Dice.length, p2Dice.length);
     for (let i = 0; i < Math.min(maxDice, 5); i++) {
@@ -3236,67 +3234,64 @@ function startDuelVisual(p1, p2, p1Dice, p2Dice, targetUid) {
         cell1.style.cssText = 'width:44px; height:44px; background:rgba(255,255,255,0.08); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:2.2em; border:1px solid rgba(255,255,255,0.1); transition:all 0.3s;';
         cell1.id = `duelP1Cell${i}`;
         p1Container.appendChild(cell1);
-        
+
         const cell2 = document.createElement('div');
         cell2.className = 'duel-dice-cell';
         cell2.style.cssText = 'width:44px; height:44px; background:rgba(255,255,255,0.08); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:2.2em; border:1px solid rgba(255,255,255,0.1); transition:all 0.3s;';
         cell2.id = `duelP2Cell${i}`;
         p2Container.appendChild(cell2);
     }
-    
-    // Переменные для анимации
+
     let p1Damage = 0;
     let p2Damage = 0;
-    let currentIndex = 0;
     const totalRounds = Math.min(Math.max(p1Dice.length, p2Dice.length), 5);
-    
-    // Функция анимации одного раунда дуэли
+
+    // Функция анимации одного раунда
     function animateRound(index) {
         if (index >= totalRounds) {
-            // Дуэль завершена — показываем результат
             finishDuel(p1, p2, p1Damage, p2Damage, targetUid);
             return;
         }
-        
+
         const p1Val = index < p1Dice.length ? p1Dice[index] : null;
         const p2Val = index < p2Dice.length ? p2Dice[index] : null;
-        
+
         const cell1 = document.getElementById(`duelP1Cell${index}`);
         const cell2 = document.getElementById(`duelP2Cell${index}`);
-        
-        // Анимация "хаотичной смены" (3 секунды)
+
         let counter = 0;
-        const maxSteps = 12; // ~4 раза в секунду * 3 секунды
-        const intervalTime = 250; // 4 раза в секунду
-        
-        // Сначала показываем, что ячейки активировались
+        const maxSteps = 12;
+        const intervalTime = 250;
+
         if (cell1) cell1.style.borderColor = 'rgba(255,215,0,0.6)';
         if (cell2) cell2.style.borderColor = 'rgba(255,215,0,0.6)';
-        
+
         const interval = setInterval(() => {
             counter++;
-            
-            // Показываем случайное значение
+
             if (cell1) {
                 const randomVal = Math.floor(Math.random() * 6) + 1;
                 cell1.textContent = getDieEmoji(randomVal);
                 cell1.style.transform = 'scale(1.1)';
-                setTimeout(() => { if (cell1) cell1.style.transform = 'scale(1)'; }, 50);
+                setTimeout(() => {
+                    if (cell1) cell1.style.transform = 'scale(1)';
+                }, 50);
             }
             if (cell2) {
                 const randomVal = Math.floor(Math.random() * 6) + 1;
                 cell2.textContent = getDieEmoji(randomVal);
                 cell2.style.transform = 'scale(1.1)';
-                setTimeout(() => { if (cell2) cell2.style.transform = 'scale(1)'; }, 50);
+                setTimeout(() => {
+                    if (cell2) cell2.style.transform = 'scale(1)';
+                }, 50);
             }
-            
+
             if (counter >= maxSteps) {
                 clearInterval(interval);
-                
-                // Устанавливаем финальные значения
+
                 let p1Final = p1Val;
                 let p2Final = p2Val;
-                
+
                 if (cell1) {
                     if (p1Final !== null) {
                         cell1.textContent = getDieEmoji(p1Final);
@@ -3317,13 +3312,11 @@ function startDuelVisual(p1, p2, p1Dice, p2Dice, targetUid) {
                         cell2.style.color = '#ff4444';
                     }
                 }
-                
-                // Подсчитываем урон за этот раунд
+
                 let p1RoundDamage = 0;
                 let p2RoundDamage = 0;
-                
+
                 if (p1Final !== null && p2Final !== null) {
-                    // Сравниваем кубики
                     if (p1Final > p2Final) {
                         p1RoundDamage = 1;
                         if (cell1) cell1.style.borderColor = '#00ff44';
@@ -3333,51 +3326,100 @@ function startDuelVisual(p1, p2, p1Dice, p2Dice, targetUid) {
                         if (cell1) cell1.style.borderColor = '#ff4444';
                         if (cell2) cell2.style.borderColor = '#00ff44';
                     } else {
-                        // Ничья — оба получают по 0.5 урона (округляем в конце)
                         p1RoundDamage = 0.5;
                         p2RoundDamage = 0.5;
                         if (cell1) cell1.style.borderColor = '#ffaa00';
                         if (cell2) cell2.style.borderColor = '#ffaa00';
                     }
                 } else if (p1Final !== null && p2Final === null) {
-                    // У игрока 2 нет кубика — игрок 1 наносит урон
                     p1RoundDamage = 1;
                     if (cell1) cell1.style.borderColor = '#00ff44';
                     if (cell2) cell2.style.borderColor = '#ff4444';
                 } else if (p1Final === null && p2Final !== null) {
-                    // У игрока 1 нет кубика — игрок 2 наносит урон
                     p2RoundDamage = 1;
                     if (cell1) cell1.style.borderColor = '#ff4444';
                     if (cell2) cell2.style.borderColor = '#00ff44';
                 }
-                
+
                 p1Damage += p1RoundDamage;
                 p2Damage += p2RoundDamage;
-                
-                // Обновляем счётчики
+
                 document.getElementById('duelP1Damage').textContent = Math.floor(p1Damage);
                 document.getElementById('duelP2Damage').textContent = Math.floor(p2Damage);
-                
-                // Анимация "удара"
+
                 if (cell1 && p1RoundDamage > 0) {
                     cell1.style.transform = 'scale(1.3)';
-                    setTimeout(() => { if (cell1) cell1.style.transform = 'scale(1)'; }, 200);
+                    setTimeout(() => {
+                        if (cell1) cell1.style.transform = 'scale(1)';
+                    }, 200);
                 }
                 if (cell2 && p2RoundDamage > 0) {
                     cell2.style.transform = 'scale(1.3)';
-                    setTimeout(() => { if (cell2) cell2.style.transform = 'scale(1)'; }, 200);
+                    setTimeout(() => {
+                        if (cell2) cell2.style.transform = 'scale(1)';
+                    }, 200);
                 }
-                
-                // Переход к следующему раунду через 0.8 секунды
+
                 setTimeout(() => {
                     animateRound(index + 1);
                 }, 800);
             }
         }, intervalTime);
     }
-    
+
     // Начинаем анимацию
     animateRound(0);
+
+    // Функция завершения дуэли
+    function finishDuel(p1, p2, p1Damage, p2Damage, targetUid) {
+        const resultDiv = document.getElementById('duelResult');
+        resultDiv.style.display = 'block';
+
+        const p1Total = Math.floor(p1Damage);
+        const p2Total = Math.floor(p2Damage);
+
+        let resultText = '';
+        let resultClass = '';
+
+        if (p1Total > p2Total) {
+            const damageToP2 = Math.max(1, p1Total - p2Total);
+            applyPoison(targetUid, damageToP2, 'Дуэль (поражение)');
+            resultText = `🏆 ${p1.name} ПОБЕЖДАЕТ! ${p2.name} получает ${damageToP2} урона!`;
+            resultClass = 'effect-green';
+            document.getElementById('duelP1Damage').style.color = '#00ff44';
+            document.getElementById('duelP2Damage').style.color = '#ff4444';
+        } else if (p2Total > p1Total) {
+            const damageToP1 = Math.max(1, p2Total - p1Total);
+            applyPoison(GameState.myUid, damageToP1, 'Дуэль (поражение)');
+            resultText = `🏆 ${p2.name} ПОБЕЖДАЕТ! ${p1.name} получает ${damageToP1} урона!`;
+            resultClass = 'effect-red';
+            document.getElementById('duelP1Damage').style.color = '#ff4444';
+            document.getElementById('duelP2Damage').style.color = '#00ff44';
+        } else {
+            const damage = Math.max(1, Math.floor((p1Total + p2Total) / 2) || 1);
+            applyPoison(GameState.myUid, damage, 'Дуэль (ничья)');
+            applyPoison(targetUid, damage, 'Дуэль (ничья)');
+            resultText = `⚖️ НИЧЬЯ! Оба игрока получают ${damage} урона!`;
+            resultClass = 'effect-yellow';
+            document.getElementById('duelP1Damage').style.color = '#ffaa00';
+            document.getElementById('duelP2Damage').style.color = '#ffaa00';
+        }
+
+        resultDiv.textContent = resultText;
+        resultDiv.className = `accusation-result ${resultClass}`;
+        resultDiv.style.display = 'block';
+
+        renderUI();
+
+        setTimeout(() => {
+            modal.style.display = 'none';
+            checkDeath();
+            if (GameState.gameState !== 'ended' && GameState.gameState !== 'devil_deal') {
+                // Ничего не делаем
+            }
+        }, 3000);
+    }
+}
     
     // Функция завершения дуэли
     function finishDuel(p1, p2, p1Damage, p2Damage, targetUid) {
