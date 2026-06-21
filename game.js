@@ -13,6 +13,8 @@ function getDieEmoji(v) {
 
 const GameState = {
     roomRef: null,
+     duelState: null,      
+    duelSynced: false,
     sandboxMode: false,
     myUid: '', myName: '', myAvatar: '🙂', myColor: '#ffffff',
     currentRoomId: '', isHost: false,
@@ -823,6 +825,57 @@ if (typeof sandboxPanelVisible !== 'undefined' && sandboxPanelVisible) {
         if (!exists) {
             GameState.gameLog.push(entry);
             if (GameState.gameLog.length > 100) GameState.gameLog.shift();
+        }
+    });
+        // ============================================================
+    // ⚔️ СЛУШАТЕЛЬ ДУЭЛИ (синхронизация для всех игроков)
+    // ============================================================
+    GameState.roomRef.child('duelState').on('value', (snapshot) => {
+        const data = snapshot.val();
+        if (!data) {
+            // Если дуэль удалена — закрываем модалку
+            const modal = document.getElementById('modalDuel');
+            if (modal) modal.style.display = 'none';
+            GameState.duelSynced = false;
+            GameState.duelState = null;
+            return;
+        }
+
+        // Если дуэль не активна или завершена — скрываем
+        if (!data.active || data.finished) {
+            const modal = document.getElementById('modalDuel');
+            if (modal && GameState.duelSynced) {
+                setTimeout(() => {
+                    modal.style.display = 'none';
+                    GameState.duelSynced = false;
+                    GameState.duelState = null;
+                }, 1000);
+            }
+            return;
+        }
+
+        // Если дуэль активна, но мы ещё не синхронизировались — запускаем
+        if (!GameState.duelSynced) {
+            GameState.duelSynced = true;
+            GameState.duelState = data;
+            
+            // Показываем модалку у всех игроков
+            const modal = document.getElementById('modalDuel');
+            if (modal) modal.style.display = 'block';
+            
+            // Запускаем синхронизированную дуэль
+            startSyncedDuel(data);
+        } else {
+            // Обновляем состояние дуэли (урон, раунды)
+            GameState.duelState = data;
+            
+            // Обновляем UI в реальном времени
+            updateDuelUI(data);
+            
+            // Если дуэль завершена — обрабатываем результат
+            if (data.finished && data.result) {
+                handleDuelResult(data);
+            }
         }
     });
 }
@@ -2713,27 +2766,64 @@ case 'masquerade': {
 }
 
 case 'duel': {
-    const targets = Object.keys(GameState.players).filter(u => 
-        u !== GameState.myUid && 
-        GameState.players[u]?.alive && 
+    const targets = Object.keys(GameState.players).filter(u =>
+        u !== GameState.myUid &&
+        GameState.players[u]?.alive &&
         !GameState.players[u]?.isGhost &&
         GameState.players[u].dice.length > 0
     );
-    if (!targets.length) { 
-        GameState.pendingArtifact = null; 
-        return showNotification('Нет целей с кубиками!', 'warning'); 
+    if (!targets.length) {
+        GameState.pendingArtifact = null;
+        return showNotification('Нет целей с кубиками!', 'warning');
     }
-    
+
     showTargetModal(targets, t => {
         const p1 = m;
         const p2 = GameState.players[t];
-        
-        // Сохраняем копии кубиков для дуэли (максимум 5, чтобы не перегружать)
+
         const p1Dice = [...p1.dice].slice(0, 5);
         const p2Dice = [...p2.dice].slice(0, 5);
+        const totalRounds = Math.min(Math.max(p1Dice.length, p2Dice.length), 5);
+
+        // Создаём состояние дуэли для синхронизации
+        const duelData = {
+            active: true,
+            initiator: GameState.myUid,
+            player1: {
+                uid: p1.uid,
+                name: p1.name,
+                avatar: p1.wardrobe?.head || p1.avatar || '🎲',
+                dice: p1Dice,
+                maxLives: p1.maxLives || 3,
+                poisons: p1.poisons || 0
+            },
+            player2: {
+                uid: p2.uid,
+                name: p2.name,
+                avatar: p2.wardrobe?.head || p2.avatar || '🎲',
+                dice: p2Dice,
+                maxLives: p2.maxLives || 3,
+                poisons: p2.poisons || 0
+            },
+            currentRound: -1,        // -1 = ещё не началось
+            totalRounds: totalRounds,
+            p1Damage: 0,
+            p2Damage: 0,
+            finished: false,
+            result: null,            // 'p1win', 'p2win', 'draw'
+            timestamp: Date.now()
+        };
+
+        // Сохраняем в Firebase — это запустит дуэль у всех игроков
+        safeSet(GameState.roomRef.child('duelState'), duelData, 'duel-start');
         
-        // Запускаем визуальную дуэль
-        startDuelVisual(p1, p2, p1Dice, p2Dice, t);
+        // Логируем для всех
+        addLogEntry('artifact', `⚔️ ДУЭЛЬ: ${p1.name} vs ${p2.name}!`);
+        
+        // Показываем уведомление только инициатору
+        showNotification(`⚔️ ДУЭЛЬ НАЧАЛАСЬ! ${p1.name} против ${p2.name}!`, 'info', 3000);
+
+        markArtifactUsed(id);
     });
     break;
 }
@@ -3192,24 +3282,23 @@ function getNextPlayerUid() {
 }
 
 // ============================================================
-// ⚔️ ДУЭЛЬ — ВИЗУАЛЬНАЯ ЛОГИКА (ИСПРАВЛЕННАЯ)
+// ⚔️ СИНХРОНИЗИРОВАННАЯ ДУЭЛЬ (ВЕРТИКАЛЬНАЯ)
 // ============================================================
 
-function startDuelVisual(p1, p2, p1Dice, p2Dice, targetUid) {
-    const modal = document.getElementById('modalDuel');
-    if (!modal) {
-        logError('❌ modalDuel не найден!');
-        return;
-    }
+let duelAnimationTimer = null;
+
+function startSyncedDuel(data) {
+    const p1 = data.player1;
+    const p2 = data.player2;
 
     // Заполняем данные игроков
-    document.getElementById('duelP1Avatar').textContent = p1.wardrobe?.head || p1.avatar || '🎲';
+    document.getElementById('duelP1Avatar').textContent = p1.avatar || '🎲';
     document.getElementById('duelP1Name').textContent = p1.name;
-    document.getElementById('duelP1Lives').textContent = `❤️ ${p1.maxLives - p1.poisons} / ${p1.maxLives}`;
+    document.getElementById('duelP1Lives').textContent = `❤️ ${p1.maxLives - p1.poisons}/${p1.maxLives}`;
 
-    document.getElementById('duelP2Avatar').textContent = p2.wardrobe?.head || p2.avatar || '🎲';
+    document.getElementById('duelP2Avatar').textContent = p2.avatar || '🎲';
     document.getElementById('duelP2Name').textContent = p2.name;
-    document.getElementById('duelP2Lives').textContent = `❤️ ${p2.maxLives - p2.poisons} / ${p2.maxLives}`;
+    document.getElementById('duelP2Lives').textContent = `❤️ ${p2.maxLives - p2.poisons}/${p2.maxLives}`;
 
     // Очищаем контейнеры
     const p1Container = document.getElementById('duelP1DiceContainer');
@@ -3220,266 +3309,351 @@ function startDuelVisual(p1, p2, p1Dice, p2Dice, targetUid) {
     // Сбрасываем счётчики
     document.getElementById('duelP1Damage').textContent = '0';
     document.getElementById('duelP2Damage').textContent = '0';
-    document.getElementById('duelResult').style.display = 'none';
-    document.getElementById('duelResult').textContent = '';
-    document.getElementById('duelResult').className = '';
+    document.getElementById('duelP1Damage').style.color = '#ffd700';
+    document.getElementById('duelP2Damage').style.color = '#ffd700';
+    
+    const resultDiv = document.getElementById('duelResult');
+    resultDiv.style.display = 'none';
+    resultDiv.textContent = '';
+    resultDiv.className = '';
 
-    modal.style.display = 'block';
+    // Показываем модалку
+    const modal = document.getElementById('modalDuel');
+    if (modal) modal.style.display = 'block';
 
     // Создаём ячейки для кубиков (максимум 5)
-    const maxDice = Math.max(p1Dice.length, p2Dice.length);
-    for (let i = 0; i < Math.min(maxDice, 5); i++) {
+    const totalRounds = data.totalRounds;
+    for (let i = 0; i < totalRounds; i++) {
         const cell1 = document.createElement('div');
         cell1.className = 'duel-dice-cell';
-        cell1.style.cssText = 'width:44px; height:44px; background:rgba(255,255,255,0.08); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:2.2em; border:1px solid rgba(255,255,255,0.1); transition:all 0.3s;';
+        cell1.style.cssText = 'width:40px; height:40px; background:rgba(255,255,255,0.08); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:1.8em; border:1px solid rgba(255,255,255,0.1); transition:all 0.3s; flex-shrink:0;';
         cell1.id = `duelP1Cell${i}`;
         p1Container.appendChild(cell1);
 
         const cell2 = document.createElement('div');
         cell2.className = 'duel-dice-cell';
-        cell2.style.cssText = 'width:44px; height:44px; background:rgba(255,255,255,0.08); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:2.2em; border:1px solid rgba(255,255,255,0.1); transition:all 0.3s;';
+        cell2.style.cssText = 'width:40px; height:40px; background:rgba(255,255,255,0.08); border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:1.8em; border:1px solid rgba(255,255,255,0.1); transition:all 0.3s; flex-shrink:0;';
         cell2.id = `duelP2Cell${i}`;
         p2Container.appendChild(cell2);
     }
 
-    let p1Damage = 0;
-    let p2Damage = 0;
-    const totalRounds = Math.min(Math.max(p1Dice.length, p2Dice.length), 5);
-
-    // Функция анимации одного раунда
-    function animateRound(index) {
-        if (index >= totalRounds) {
-            finishDuel(p1, p2, p1Damage, p2Damage, targetUid);
-            return;
-        }
-
-        const p1Val = index < p1Dice.length ? p1Dice[index] : null;
-        const p2Val = index < p2Dice.length ? p2Dice[index] : null;
-
-        const cell1 = document.getElementById(`duelP1Cell${index}`);
-        const cell2 = document.getElementById(`duelP2Cell${index}`);
-
-        let counter = 0;
-        const maxSteps = 12;
-        const intervalTime = 250;
-
-        if (cell1) cell1.style.borderColor = 'rgba(255,215,0,0.6)';
-        if (cell2) cell2.style.borderColor = 'rgba(255,215,0,0.6)';
-
-        const interval = setInterval(() => {
-            counter++;
-
+    // Если дуэль уже началась (currentRound >= 0), восстанавливаем состояние
+    if (data.currentRound >= 0) {
+        for (let i = 0; i <= data.currentRound; i++) {
+            const cell1 = document.getElementById(`duelP1Cell${i}`);
+            const cell2 = document.getElementById(`duelP2Cell${i}`);
             if (cell1) {
-                const randomVal = Math.floor(Math.random() * 6) + 1;
-                cell1.textContent = getDieEmoji(randomVal);
-                cell1.style.transform = 'scale(1.1)';
-                setTimeout(() => {
-                    if (cell1) cell1.style.transform = 'scale(1)';
-                }, 50);
+                const val = i < p1.dice.length ? p1.dice[i] : null;
+                cell1.textContent = val !== null ? getDieEmoji(val) : '✕';
+                cell1.style.borderColor = 'rgba(255,255,255,0.3)';
             }
             if (cell2) {
-                const randomVal = Math.floor(Math.random() * 6) + 1;
-                cell2.textContent = getDieEmoji(randomVal);
-                cell2.style.transform = 'scale(1.1)';
-                setTimeout(() => {
-                    if (cell2) cell2.style.transform = 'scale(1)';
-                }, 50);
+                const val = i < p2.dice.length ? p2.dice[i] : null;
+                cell2.textContent = val !== null ? getDieEmoji(val) : '✕';
+                cell2.style.borderColor = 'rgba(255,255,255,0.3)';
+            }
+        }
+        document.getElementById('duelP1Damage').textContent = Math.floor(data.p1Damage);
+        document.getElementById('duelP2Damage').textContent = Math.floor(data.p2Damage);
+        
+        if (data.finished && data.result) {
+            handleDuelResult(data);
+            return;
+        }
+    }
+
+    // Запускаем анимацию следующего раунда
+    scheduleNextDuelRound(data);
+}
+
+function scheduleNextDuelRound(data) {
+    if (duelAnimationTimer) {
+        clearTimeout(duelAnimationTimer);
+        duelAnimationTimer = null;
+    }
+
+    const nextRound = data.currentRound + 1;
+    if (nextRound >= data.totalRounds || data.finished) {
+        return;
+    }
+
+    duelAnimationTimer = setTimeout(() => {
+        const currentData = GameState.duelState;
+        if (!currentData || currentData.finished || currentData.currentRound >= nextRound) {
+            return;
+        }
+        animateDuelRound(nextRound);
+    }, 2500);
+}
+
+function animateDuelRound(roundIndex) {
+    const data = GameState.duelState;
+    if (!data) return;
+
+    const p1 = data.player1;
+    const p2 = data.player2;
+    const p1Val = roundIndex < p1.dice.length ? p1.dice[roundIndex] : null;
+    const p2Val = roundIndex < p2.dice.length ? p2.dice[roundIndex] : null;
+
+    const cell1 = document.getElementById(`duelP1Cell${roundIndex}`);
+    const cell2 = document.getElementById(`duelP2Cell${roundIndex}`);
+
+    if (!cell1 || !cell2) return;
+
+    cell1.style.borderColor = 'rgba(255,215,0,0.6)';
+    cell2.style.borderColor = 'rgba(255,215,0,0.6)';
+
+    let counter = 0;
+    const maxSteps = 10;
+    const intervalTime = 250;
+
+    const interval = setInterval(() => {
+        counter++;
+
+        if (cell1 && p1Val !== null) {
+            const randomVal = Math.floor(Math.random() * 6) + 1;
+            cell1.textContent = getDieEmoji(randomVal);
+            cell1.style.transform = 'scale(1.1)';
+            setTimeout(() => { if (cell1) cell1.style.transform = 'scale(1)'; }, 50);
+        }
+        if (cell2 && p2Val !== null) {
+            const randomVal = Math.floor(Math.random() * 6) + 1;
+            cell2.textContent = getDieEmoji(randomVal);
+            cell2.style.transform = 'scale(1.1)';
+            setTimeout(() => { if (cell2) cell2.style.transform = 'scale(1)'; }, 50);
+        }
+
+        if (counter >= maxSteps) {
+            clearInterval(interval);
+
+            if (cell1) {
+                if (p1Val !== null) {
+                    cell1.textContent = getDieEmoji(p1Val);
+                    cell1.style.borderColor = 'rgba(255,255,255,0.3)';
+                } else {
+                    cell1.textContent = '✕';
+                    cell1.style.borderColor = 'rgba(255,0,0,0.3)';
+                    cell1.style.color = '#ff4444';
+                }
+            }
+            if (cell2) {
+                if (p2Val !== null) {
+                    cell2.textContent = getDieEmoji(p2Val);
+                    cell2.style.borderColor = 'rgba(255,255,255,0.3)';
+                } else {
+                    cell2.textContent = '✕';
+                    cell2.style.borderColor = 'rgba(255,0,0,0.3)';
+                    cell2.style.color = '#ff4444';
+                }
             }
 
-            if (counter >= maxSteps) {
-                clearInterval(interval);
+            let p1RoundDamage = 0;
+            let p2RoundDamage = 0;
 
-                let p1Final = p1Val;
-                let p2Final = p2Val;
-
-                if (cell1) {
-                    if (p1Final !== null) {
-                        cell1.textContent = getDieEmoji(p1Final);
-                        cell1.style.borderColor = 'rgba(255,255,255,0.3)';
-                    } else {
-                        cell1.textContent = '✕';
-                        cell1.style.borderColor = 'rgba(255,0,0,0.3)';
-                        cell1.style.color = '#ff4444';
-                    }
-                }
-                if (cell2) {
-                    if (p2Final !== null) {
-                        cell2.textContent = getDieEmoji(p2Final);
-                        cell2.style.borderColor = 'rgba(255,255,255,0.3)';
-                    } else {
-                        cell2.textContent = '✕';
-                        cell2.style.borderColor = 'rgba(255,0,0,0.3)';
-                        cell2.style.color = '#ff4444';
-                    }
-                }
-
-                let p1RoundDamage = 0;
-                let p2RoundDamage = 0;
-
-                if (p1Final !== null && p2Final !== null) {
-                    if (p1Final > p2Final) {
-                        p1RoundDamage = 1;
-                        if (cell1) cell1.style.borderColor = '#00ff44';
-                        if (cell2) cell2.style.borderColor = '#ff4444';
-                    } else if (p2Final > p1Final) {
-                        p2RoundDamage = 1;
-                        if (cell1) cell1.style.borderColor = '#ff4444';
-                        if (cell2) cell2.style.borderColor = '#00ff44';
-                    } else {
-                        p1RoundDamage = 0.5;
-                        p2RoundDamage = 0.5;
-                        if (cell1) cell1.style.borderColor = '#ffaa00';
-                        if (cell2) cell2.style.borderColor = '#ffaa00';
-                    }
-                } else if (p1Final !== null && p2Final === null) {
+            if (p1Val !== null && p2Val !== null) {
+                if (p1Val > p2Val) {
                     p1RoundDamage = 1;
-                    if (cell1) cell1.style.borderColor = '#00ff44';
-                    if (cell2) cell2.style.borderColor = '#ff4444';
-                } else if (p1Final === null && p2Final !== null) {
+                    cell1.style.borderColor = '#00ff44';
+                    cell2.style.borderColor = '#ff4444';
+                } else if (p2Val > p1Val) {
                     p2RoundDamage = 1;
-                    if (cell1) cell1.style.borderColor = '#ff4444';
-                    if (cell2) cell2.style.borderColor = '#00ff44';
+                    cell1.style.borderColor = '#ff4444';
+                    cell2.style.borderColor = '#00ff44';
+                } else {
+                    p1RoundDamage = 0.5;
+                    p2RoundDamage = 0.5;
+                    cell1.style.borderColor = '#ffaa00';
+                    cell2.style.borderColor = '#ffaa00';
                 }
+            } else if (p1Val !== null && p2Val === null) {
+                p1RoundDamage = 1;
+                cell1.style.borderColor = '#00ff44';
+                cell2.style.borderColor = '#ff4444';
+            } else if (p1Val === null && p2Val !== null) {
+                p2RoundDamage = 1;
+                cell1.style.borderColor = '#ff4444';
+                cell2.style.borderColor = '#00ff44';
+            }
 
-                p1Damage += p1RoundDamage;
-                p2Damage += p2RoundDamage;
+            const newP1Damage = (data.p1Damage || 0) + p1RoundDamage;
+            const newP2Damage = (data.p2Damage || 0) + p2RoundDamage;
+            
+            document.getElementById('duelP1Damage').textContent = Math.floor(newP1Damage);
+            document.getElementById('duelP2Damage').textContent = Math.floor(newP2Damage);
 
-                document.getElementById('duelP1Damage').textContent = Math.floor(p1Damage);
-                document.getElementById('duelP2Damage').textContent = Math.floor(p2Damage);
+            if (cell1 && p1RoundDamage > 0) {
+                cell1.style.transform = 'scale(1.3)';
+                setTimeout(() => { if (cell1) cell1.style.transform = 'scale(1)'; }, 200);
+            }
+            if (cell2 && p2RoundDamage > 0) {
+                cell2.style.transform = 'scale(1.3)';
+                setTimeout(() => { if (cell2) cell2.style.transform = 'scale(1)'; }, 200);
+            }
 
-                if (cell1 && p1RoundDamage > 0) {
-                    cell1.style.transform = 'scale(1.3)';
-                    setTimeout(() => {
-                        if (cell1) cell1.style.transform = 'scale(1)';
-                    }, 200);
-                }
-                if (cell2 && p2RoundDamage > 0) {
-                    cell2.style.transform = 'scale(1.3)';
-                    setTimeout(() => {
-                        if (cell2) cell2.style.transform = 'scale(1)';
-                    }, 200);
-                }
+            const updates = {
+                [`duelState/currentRound`]: roundIndex,
+                [`duelState/p1Damage`]: newP1Damage,
+                [`duelState/p2Damage`]: newP2Damage
+            };
+            safeUpdate(GameState.roomRef, updates, 'duel-round');
 
+            if (roundIndex + 1 >= data.totalRounds) {
+                finishSyncedDuel(newP1Damage, newP2Damage);
+            } else {
                 setTimeout(() => {
-                    animateRound(index + 1);
-                }, 800);
+                    const currentData = GameState.duelState;
+                    if (currentData && !currentData.finished) {
+                        scheduleNextDuelRound(currentData);
+                    }
+                }, 1000);
             }
-        }, intervalTime);
+        }
+    }, intervalTime);
+}
+
+function finishSyncedDuel(p1Damage, p2Damage) {
+    const p1Total = Math.floor(p1Damage);
+    const p2Total = Math.floor(p2Damage);
+
+    const data = GameState.duelState;
+    if (!data) return;
+
+    const p1 = data.player1;
+    const p2 = data.player2;
+    const p1Player = GameState.players[p1.uid];
+    const p2Player = GameState.players[p2.uid];
+
+    let result = '';
+    let resultText = '';
+    let resultClass = '';
+
+    if (p1Total > p2Total) {
+        const damageToP2 = Math.max(1, p1Total - p2Total);
+        if (p2Player) {
+            applyPoison(p2.uid, damageToP2, 'Дуэль (поражение)');
+        }
+        result = 'p1win';
+        resultText = `🏆 ${p1.name} ПОБЕЖДАЕТ! ${p2.name} получает ${damageToP2} урона!`;
+        resultClass = 'effect-green';
+        document.getElementById('duelP1Damage').style.color = '#00ff44';
+        document.getElementById('duelP2Damage').style.color = '#ff4444';
+    } else if (p2Total > p1Total) {
+        const damageToP1 = Math.max(1, p2Total - p1Total);
+        if (p1Player) {
+            applyPoison(p1.uid, damageToP1, 'Дуэль (поражение)');
+        }
+        result = 'p2win';
+        resultText = `🏆 ${p2.name} ПОБЕЖДАЕТ! ${p1.name} получает ${damageToP1} урона!`;
+        resultClass = 'effect-red';
+        document.getElementById('duelP1Damage').style.color = '#ff4444';
+        document.getElementById('duelP2Damage').style.color = '#00ff44';
+    } else {
+        const damage = Math.max(1, Math.floor((p1Total + p2Total) / 2) || 1);
+        if (p1Player) {
+            applyPoison(p1.uid, damage, 'Дуэль (ничья)');
+        }
+        if (p2Player) {
+            applyPoison(p2.uid, damage, 'Дуэль (ничья)');
+        }
+        result = 'draw';
+        resultText = `⚖️ НИЧЬЯ! Оба игрока получают ${damage} урона!`;
+        resultClass = 'effect-yellow';
+        document.getElementById('duelP1Damage').style.color = '#ffaa00';
+        document.getElementById('duelP2Damage').style.color = '#ffaa00';
     }
 
-    // Начинаем анимацию
-    animateRound(0);
+    const resultDiv = document.getElementById('duelResult');
+    resultDiv.textContent = resultText;
+    resultDiv.className = `accusation-result ${resultClass}`;
+    resultDiv.style.display = 'block';
 
-    // Функция завершения дуэли
-    function finishDuel(p1, p2, p1Damage, p2Damage, targetUid) {
+    const updates = {
+        'duelState/finished': true,
+        'duelState/result': result
+    };
+    safeUpdate(GameState.roomRef, updates, 'duel-finish');
+
+    addLogEntry('artifact', `⚔️ ДУЭЛЬ: ${p1.name} vs ${p2.name} — ${resultText}`);
+    renderUI();
+
+    setTimeout(() => {
+        const modal = document.getElementById('modalDuel');
+        if (modal) modal.style.display = 'none';
+        GameState.roomRef.child('duelState').remove();
+        GameState.duelSynced = false;
+        GameState.duelState = null;
+        checkDeath();
+    }, 4000);
+}
+
+function handleDuelResult(data) {
+    // Если дуэль уже завершена и модалка открыта — показываем результат
+    if (data.finished && data.result) {
         const resultDiv = document.getElementById('duelResult');
-        resultDiv.style.display = 'block';
-
-        const p1Total = Math.floor(p1Damage);
-        const p2Total = Math.floor(p2Damage);
-
-        let resultText = '';
-        let resultClass = '';
-
-        if (p1Total > p2Total) {
-            const damageToP2 = Math.max(1, p1Total - p2Total);
-            applyPoison(targetUid, damageToP2, 'Дуэль (поражение)');
-            resultText = `🏆 ${p1.name} ПОБЕЖДАЕТ! ${p2.name} получает ${damageToP2} урона!`;
-            resultClass = 'effect-green';
-            document.getElementById('duelP1Damage').style.color = '#00ff44';
-            document.getElementById('duelP2Damage').style.color = '#ff4444';
-        } else if (p2Total > p1Total) {
-            const damageToP1 = Math.max(1, p2Total - p1Total);
-            applyPoison(GameState.myUid, damageToP1, 'Дуэль (поражение)');
-            resultText = `🏆 ${p2.name} ПОБЕЖДАЕТ! ${p1.name} получает ${damageToP1} урона!`;
-            resultClass = 'effect-red';
-            document.getElementById('duelP1Damage').style.color = '#ff4444';
-            document.getElementById('duelP2Damage').style.color = '#00ff44';
-        } else {
-            const damage = Math.max(1, Math.floor((p1Total + p2Total) / 2) || 1);
-            applyPoison(GameState.myUid, damage, 'Дуэль (ничья)');
-            applyPoison(targetUid, damage, 'Дуэль (ничья)');
-            resultText = `⚖️ НИЧЬЯ! Оба игрока получают ${damage} урона!`;
-            resultClass = 'effect-yellow';
-            document.getElementById('duelP1Damage').style.color = '#ffaa00';
-            document.getElementById('duelP2Damage').style.color = '#ffaa00';
-        }
-
-        resultDiv.textContent = resultText;
-        resultDiv.className = `accusation-result ${resultClass}`;
-        resultDiv.style.display = 'block';
-
-        renderUI();
-
-        setTimeout(() => {
-            modal.style.display = 'none';
-            checkDeath();
-            if (GameState.gameState !== 'ended' && GameState.gameState !== 'devil_deal') {
-                // Ничего не делаем
+        if (resultDiv && resultDiv.style.display !== 'block') {
+            const p1 = data.player1;
+            const p2 = data.player2;
+            const p1Total = Math.floor(data.p1Damage);
+            const p2Total = Math.floor(data.p2Damage);
+            
+            let resultText = '';
+            let resultClass = '';
+            
+            if (data.result === 'p1win') {
+                resultText = `🏆 ${p1.name} ПОБЕЖДАЕТ!`;
+                resultClass = 'effect-green';
+            } else if (data.result === 'p2win') {
+                resultText = `🏆 ${p2.name} ПОБЕЖДАЕТ!`;
+                resultClass = 'effect-red';
+            } else {
+                resultText = `⚖️ НИЧЬЯ!`;
+                resultClass = 'effect-yellow';
             }
-        }, 3000);
+            
+            resultDiv.textContent = resultText;
+            resultDiv.className = `accusation-result ${resultClass}`;
+            resultDiv.style.display = 'block';
+        }
     }
 }
+
+    // ============================================================
+// ⚔️ ОБНОВЛЕНИЕ UI ДУЭЛИ В РЕАЛЬНОМ ВРЕМЕНИ
+// ============================================================
+
+function updateDuelUI(data) {
+    if (!data) return;
     
-    // Функция завершения дуэли
-    function finishDuel(p1, p2, p1Damage, p2Damage, targetUid) {
-        const resultDiv = document.getElementById('duelResult');
-        resultDiv.style.display = 'block';
+    // Обновляем счётчики урона
+    document.getElementById('duelP1Damage').textContent = Math.floor(data.p1Damage || 0);
+    document.getElementById('duelP2Damage').textContent = Math.floor(data.p2Damage || 0);
+    
+    // Обновляем отображение уже открытых кубиков
+    const p1 = data.player1;
+    const p2 = data.player2;
+    const currentRound = data.currentRound || -1;
+    
+    for (let i = 0; i <= currentRound; i++) {
+        const cell1 = document.getElementById(`duelP1Cell${i}`);
+        const cell2 = document.getElementById(`duelP2Cell${i}`);
         
-        // Округляем урон (0.5 + 0.5 = 1, но может быть и 0.5+0.5+0.5 = 1.5)
-        const p1Total = Math.floor(p1Damage);
-        const p2Total = Math.floor(p2Damage);
-        
-        let resultText = '';
-        let resultClass = '';
-        
-        // Применяем урон
-        if (p1Total > p2Total) {
-            // Игрок 1 побеждает — игрок 2 получает урон
-            const damageToP2 = Math.max(1, p1Total - p2Total);
-            applyPoison(targetUid, damageToP2, 'Дуэль (поражение)');
-            resultText = `🏆 ${p1.name} ПОБЕЖДАЕТ! ${p2.name} получает ${damageToP2} урона!`;
-            resultClass = 'effect-green';
-            document.getElementById('duelP1Damage').style.color = '#00ff44';
-            document.getElementById('duelP2Damage').style.color = '#ff4444';
-        } else if (p2Total > p1Total) {
-            // Игрок 2 побеждает — игрок 1 получает урон
-            const damageToP1 = Math.max(1, p2Total - p1Total);
-            applyPoison(GameState.myUid, damageToP1, 'Дуэль (поражение)');
-            resultText = `🏆 ${p2.name} ПОБЕЖДАЕТ! ${p1.name} получает ${damageToP1} урона!`;
-            resultClass = 'effect-red';
-            document.getElementById('duelP1Damage').style.color = '#ff4444';
-            document.getElementById('duelP2Damage').style.color = '#00ff44';
-        } else {
-            // Ничья — оба получают урон
-            const damage = Math.max(1, Math.floor((p1Total + p2Total) / 2) || 1);
-            applyPoison(GameState.myUid, damage, 'Дуэль (ничья)');
-            applyPoison(targetUid, damage, 'Дуэль (ничья)');
-            resultText = `⚖️ НИЧЬЯ! Оба игрока получают ${damage} урона!`;
-            resultClass = 'effect-yellow';
-            document.getElementById('duelP1Damage').style.color = '#ffaa00';
-            document.getElementById('duelP2Damage').style.color = '#ffaa00';
-        }
-        
-        resultDiv.textContent = resultText;
-        resultDiv.className = `accusation-result ${resultClass}`;
-        resultDiv.style.display = 'block';
-        
-        // Обновляем жизни в интерфейсе
-        renderUI();
-        
-        // Закрываем модалку через 3 секунды
-        setTimeout(() => {
-            modal.style.display = 'none';
-            // Проверяем смерть после дуэли
-            checkDeath();
-            // Если игра не закончилась и не в режиме сделки — продолжаем
-            if (GameState.gameState !== 'ended' && GameState.gameState !== 'devil_deal') {
-                // Ничего не делаем — игра продолжается
+        if (cell1) {
+            const val = i < p1.dice.length ? p1.dice[i] : null;
+            if (val !== null && cell1.textContent !== getDieEmoji(val)) {
+                cell1.textContent = getDieEmoji(val);
+                cell1.style.borderColor = 'rgba(255,255,255,0.3)';
             }
-        }, 3000);
+        }
+        if (cell2) {
+            const val = i < p2.dice.length ? p2.dice[i] : null;
+            if (val !== null && cell2.textContent !== getDieEmoji(val)) {
+                cell2.textContent = getDieEmoji(val);
+                cell2.style.borderColor = 'rgba(255,255,255,0.3)';
+            }
+        }
     }
 }
+
     
 function showTargetModal(uids, cb) {
     const l=document.getElementById('modalTargetList'); if(!l) return; l.innerHTML='';
