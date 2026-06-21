@@ -1115,6 +1115,15 @@ body.offline { opacity: 0.7; }
     font-size: 1.4em;
     transition: color 0.3s;
 }
+
+    #modalDuel .close-btn {
+    display: none !important;
+}
+
+/* Запрещаем закрытие по клику вне модалки */
+#modalDuel {
+    pointer-events: auto;
+}
     
 </style>
 </head>
