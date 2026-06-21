@@ -2892,19 +2892,16 @@ case 'wheelOfFortune': {
         { name: '💫 Ничего не произошло', color: '#888888', action: () => {} }
     ];
     
-    // ⭐ ВЫБИРАЕМ ОДИН ИНДЕКС И ДЕЙСТВИЕ
     const chosenIndex = Math.floor(Math.random() * effects.length);
     const chosen = effects[chosenIndex];
     
-    // ⭐ БЛОКИРУЕМ ИГРУ
     lockGameDuringDuel();
     
-    // ⭐ СОЗДАЁМ СОСТОЯНИЕ В FIREBASE
     const wheelData = {
         active: true,
         spinning: true,
         finished: false,
-        chosenIndex: chosenIndex,  // ← ОДИН ИНДЕКС ДЛЯ ВСЕХ
+        chosenIndex: chosenIndex,
         currentAngle: 0,
         targetAngle: 3 * 2 * Math.PI + (chosenIndex / effects.length) * 2 * Math.PI,
         resultText: null,
@@ -2912,27 +2909,25 @@ case 'wheelOfFortune': {
     };
     safeSet(GameState.roomRef.child('wheelState'), wheelData, 'wheel-start');
     
-    // ⭐ ПРИМЕНЯЕМ ЭФФЕКТ ЧЕРЕЗ 4 СЕКУНДЫ (после анимации)
-    setTimeout(() => {
+    // ⭐ ГАРАНТИРУЕМ РАЗБЛОКИРОВКУ
+    const wheelTimeout = setTimeout(() => {
+        // Применяем эффект
         chosen.action();
         showNotification(`🎡 КОЛЕСО ФОРТУНЫ: ${chosen.name}!`, 'info', 3000);
         addLogEntry('artifact', `${m.name} запустил Колесо Фортуны: ${chosen.name}`);
         
-        // Обновляем состояние в Firebase
         safeUpdate(GameState.roomRef.child('wheelState'), {
             spinning: false,
             finished: true,
             resultText: `🎯 ${chosen.name}`
         }, 'wheel-finish');
         
-        // Закрываем через 2 секунды
         setTimeout(() => {
             GameState.roomRef.child('wheelState').remove();
             unlockGameAfterDuel();
             renderUI();
             markArtifactUsed(id);
         }, 2000);
-        
     }, 4000);
     
     break;
@@ -4749,31 +4744,151 @@ function showWheelOfFortune(effects, chosenIndex) {
 }
 
 // ============================================================
+// 🎡 КОЛЕСО ФОРТУНЫ — СИНХРОНИЗИРОВАННАЯ ВЕРСИЯ
+// ============================================================
+
+function showWheelOfFortuneSync(data) {
+    const canvas = document.getElementById('wheelCanvas');
+    const ctx = canvas ? canvas.getContext('2d') : null;
+    const resultDiv = document.getElementById('wheelResult');
+    
+    if (!canvas || !ctx) return;
+    
+    const wheelEffects = [
+        { name: '🔄 Переброс кубиков', color: '#4a90d9' },
+        { name: '☠️ Все +1 яд', color: '#d94a4a' },
+        { name: '🩸 Все +1 кровь', color: '#d94a8a' },
+        { name: '🎲 Теряют 1 кубик', color: '#d9a84a' },
+        { name: '🔄 Обмен кубиками', color: '#4ad9a8' },
+        { name: '💫 Ничего не произошло', color: '#888888' }
+    ];
+    
+    const segments = wheelEffects.length;
+    const arcSize = (2 * Math.PI) / segments;
+    const radius = 130;
+    const centerX = 140;
+    const centerY = 140;
+    
+    function drawWheel(rotation) {
+        ctx.clearRect(0, 0, 280, 280);
+        
+        for (let i = 0; i < segments; i++) {
+            const startAngle = rotation + i * arcSize;
+            const endAngle = startAngle + arcSize;
+            
+            ctx.beginPath();
+            ctx.moveTo(centerX, centerY);
+            ctx.arc(centerX, centerY, radius, startAngle, endAngle);
+            ctx.closePath();
+            
+            ctx.fillStyle = wheelEffects[i].color;
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            ctx.save();
+            ctx.translate(centerX, centerY);
+            ctx.rotate(startAngle + arcSize / 2);
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 10px "Press Start 2P", cursive';
+            ctx.shadowColor = 'rgba(0,0,0,0.8)';
+            ctx.shadowBlur = 4;
+            const text = wheelEffects[i].name.length > 8 ? wheelEffects[i].name.slice(0, 6)+'..' : wheelEffects[i].name;
+            ctx.fillText(text, radius * 0.65, 0);
+            ctx.restore();
+        }
+        
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 20, 0, 2 * Math.PI);
+        ctx.fillStyle = '#ffd700';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 16px "Press Start 2P", cursive';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('?', centerX, centerY);
+    }
+    
+    const chosenIndex = data.chosenIndex || 0;
+    const currentAngle = data.currentAngle || 0;
+    drawWheel(currentAngle);
+    
+    if (!data.finished && data.spinning) {
+        let angle = currentAngle;
+        const targetAngle = data.targetAngle || (3 * 2 * Math.PI + (chosenIndex / segments) * 2 * Math.PI);
+        const duration = 3000;
+        const startTime = Date.now();
+        
+        function animateWheel() {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            angle = eased * targetAngle;
+            drawWheel(angle);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animateWheel);
+            } else {
+                const chosen = wheelEffects[chosenIndex];
+                if (resultDiv) {
+                    resultDiv.textContent = `🎯 ${chosen.name}`;
+                    resultDiv.style.display = 'block';
+                    resultDiv.className = 'effect';
+                    resultDiv.style.borderColor = chosen.color;
+                    resultDiv.style.boxShadow = `0 0 30px ${chosen.color}40`;
+                }
+                
+                safeUpdate(GameState.roomRef.child('wheelState'), {
+                    spinning: false,
+                    finished: true,
+                    resultText: `🎯 ${chosen.name}`
+                }, 'wheel-finish');
+            }
+        }
+        
+        animateWheel();
+    } else if (data.finished) {
+        const chosen = wheelEffects[chosenIndex];
+        if (resultDiv) {
+            resultDiv.textContent = data.resultText || `🎯 ${chosen.name}`;
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'effect';
+            resultDiv.style.borderColor = chosen.color;
+            resultDiv.style.boxShadow = `0 0 30px ${chosen.color}40`;
+        }
+    }
+}
+
+// ============================================================
 // 🔫 РУССКАЯ РУЛЕТКА — АНИМАЦИЯ ВЫСТРЕЛА
 // ============================================================
 
-function animateRouletteShot(data, callback) {
+function animateRouletteShot(data, callback, artifactId) {
     const gunWrapper = document.getElementById('gunWrapper');
     const gunFlash = document.getElementById('gunFlash');
     const resultDiv = document.getElementById('rouletteResult');
     const fireBtn = document.getElementById('rouletteFireBtn');
     
-    // Проверяем, есть ли патрон
     const isHit = data.bullets && data.bullets[data.bulletIndex];
     const isP1 = data.currentPlayer === 'p1';
     const currentName = isP1 ? data.p1Name : data.p2Name;
     const currentUid = isP1 ? data.p1Uid : data.p2Uid;
     
-    // 1. Пистолет поднимается (30 градусов)
+    // 1. Пистолет поднимается
     if (gunWrapper) {
         gunWrapper.style.transition = 'transform 0.1s ease';
         gunWrapper.style.transform = 'rotate(-30deg)';
     }
     
-    // 2. Звук выстрела
     playSound('accuse');
     
-    // 3. Вспышка
     if (gunFlash) {
         gunFlash.style.opacity = '1';
         setTimeout(() => {
@@ -4781,13 +4896,11 @@ function animateRouletteShot(data, callback) {
         }, 150);
     }
     
-    // 4. Экранная вспышка
     document.body.classList.add('screen-flash');
     setTimeout(() => {
         document.body.classList.remove('screen-flash');
     }, 300);
     
-    // 5. Пистолет возвращается в исходное положение через 0.5 секунды
     setTimeout(() => {
         if (gunWrapper) {
             gunWrapper.style.transition = 'transform 0.15s ease';
@@ -4795,21 +4908,18 @@ function animateRouletteShot(data, callback) {
         }
     }, 500);
     
-    // 6. Результат через 0.8 секунды
     setTimeout(() => {
         let resultText = '';
         let resultColor = '';
         let finished = false;
         
         if (isHit) {
-            // ПОПАДАНИЕ!
             applyPoison(currentUid, 1, 'Русская рулетка');
             resultText = `💥 ${currentName} получает 1 яд!`;
             resultColor = '#ff4444';
             finished = true;
             addLogEntry('artifact', `Русская рулетка: ${currentName} проиграл!`);
             
-            // Красная вспышка
             document.body.classList.add('screen-flash');
             setTimeout(() => {
                 document.body.classList.remove('screen-flash');
@@ -4821,7 +4931,6 @@ function animateRouletteShot(data, callback) {
             }
             
         } else {
-            // ВЫЖИЛ!
             resultText = `🍀 ${currentName} выжил!`;
             resultColor = '#44ff44';
             addLogEntry('artifact', `Русская рулетка: ${currentName} выжил`);
@@ -4833,7 +4942,6 @@ function animateRouletteShot(data, callback) {
             resultDiv.style.color = resultColor;
         }
         
-        // Вызываем колбэк с результатом
         if (callback) {
             callback({
                 finished: finished,
@@ -4841,7 +4949,7 @@ function animateRouletteShot(data, callback) {
                 currentPlayer: data.currentPlayer,
                 currentUid: currentUid,
                 bulletIndex: data.bulletIndex
-            });
+            }, artifactId); // ← ПЕРЕДАЁМ id
         }
         
     }, 800);
