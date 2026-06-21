@@ -3299,6 +3299,7 @@ case 'healingRain': {
     markArtifactUsed(id);
     break;
     }
+            }
     playSound('artifact');
 }
 
