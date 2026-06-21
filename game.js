@@ -3581,36 +3581,37 @@ function finishSyncedDuel(p1Damage, p2Damage) {
     let resultText = '';
     let resultClass = '';
 
+    // ⭐ ПРАВИЛЬНАЯ ЛОГИКА: проигравший получает 1 урон
     if (p1Total > p2Total) {
-        const damageToP2 = Math.max(1, p1Total - p2Total);
+        // Игрок 1 ПОБЕЖДАЕТ → Игрок 2 (проигравший) получает 1 урон
         if (p2Player) {
-            applyPoison(p2.uid, damageToP2, 'Дуэль (поражение)');
+            applyPoison(p2.uid, 1, 'Дуэль (поражение)');
         }
         result = 'p1win';
-        resultText = `🏆 ${p1.name} ПОБЕЖДАЕТ! ${p2.name} получает ${damageToP2} урона!`;
+        resultText = `🏆 ${p1.name} ПОБЕЖДАЕТ! ${p2.name} получает 1 урона!`;
         resultClass = 'effect-green';
         document.getElementById('duelP1Damage').style.color = '#00ff44';
         document.getElementById('duelP2Damage').style.color = '#ff4444';
     } else if (p2Total > p1Total) {
-        const damageToP1 = Math.max(1, p2Total - p1Total);
+        // Игрок 2 ПОБЕЖДАЕТ → Игрок 1 (проигравший) получает 1 урон
         if (p1Player) {
-            applyPoison(p1.uid, damageToP1, 'Дуэль (поражение)');
+            applyPoison(p1.uid, 1, 'Дуэль (поражение)');
         }
         result = 'p2win';
-        resultText = `🏆 ${p2.name} ПОБЕЖДАЕТ! ${p1.name} получает ${damageToP1} урона!`;
+        resultText = `🏆 ${p2.name} ПОБЕЖДАЕТ! ${p1.name} получает 1 урона!`;
         resultClass = 'effect-red';
         document.getElementById('duelP1Damage').style.color = '#ff4444';
         document.getElementById('duelP2Damage').style.color = '#00ff44';
     } else {
-        const damage = Math.max(1, Math.floor((p1Total + p2Total) / 2) || 1);
+        // НИЧЬЯ — оба получают по 1 урону
         if (p1Player) {
-            applyPoison(p1.uid, damage, 'Дуэль (ничья)');
+            applyPoison(p1.uid, 1, 'Дуэль (ничья)');
         }
         if (p2Player) {
-            applyPoison(p2.uid, damage, 'Дуэль (ничья)');
+            applyPoison(p2.uid, 1, 'Дуэль (ничья)');
         }
         result = 'draw';
-        resultText = `⚖️ НИЧЬЯ! Оба игрока получают ${damage} урона!`;
+        resultText = `⚖️ НИЧЬЯ! Оба игрока получают 1 урона!`;
         resultClass = 'effect-yellow';
         document.getElementById('duelP1Damage').style.color = '#ffaa00';
         document.getElementById('duelP2Damage').style.color = '#ffaa00';
