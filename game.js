@@ -3637,29 +3637,112 @@ case 'thunderShield': {
 }
 
 case 'alchemist': {
-    showNominalModal(fromNom => {
-        showNominalModal(toNom => {
-            if (fromNom === toNom) {
-                showNotification('Номиналы должны отличаться!', 'warning');
-                return;
+    // Шаг 1: выбор исходного номинала
+    let fromNom = null;
+    let toNom = null;
+    
+    // Показываем первую модалку (выбор исходного номинала)
+    const selectFrom = () => {
+        const l = document.getElementById('modalNominalList');
+        if (!l) return;
+        l.innerHTML = '';
+        l.style.display = 'grid';
+        l.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        l.style.gap = '12px';
+        l.style.maxWidth = '320px';
+        l.style.margin = '0 auto';
+        
+        const title = document.querySelector('#modalNominal h2');
+        if (title) title.textContent = 'Выберите КАКОЙ кубик превратить';
+        
+        for (let i = 1; i <= 6; i++) {
+            const b = document.createElement('button');
+            b.className = 'select-item die-select';
+            b.textContent = getDieEmoji(i);
+            // Проверяем, есть ли такие кубики у игрока
+            const has = m.dice.some(d => d === i);
+            if (!has) {
+                b.style.opacity = '0.3';
+                b.style.cursor = 'not-allowed';
+                b.disabled = true;
+                b.title = 'У вас нет таких кубиков';
+            } else {
+                b.onclick = () => {
+                    fromNom = i;
+                    // Закрываем первую модалку и открываем вторую
+                    closeModal('modalNominal');
+                    setTimeout(selectTo, 200);
+                };
             }
-            // Проверяем, есть ли кубики для преобразования
-            const hasFrom = m.dice.some(d => d === fromNom);
-            if (!hasFrom) {
-                showNotification(`У вас нет кубиков ${getDieEmoji(fromNom)}!`, 'warning');
-                return;
+            l.appendChild(b);
+        }
+        document.getElementById('modalNominal').style.display = 'block';
+    };
+    
+    // Шаг 2: выбор целевого номинала
+    const selectTo = () => {
+        const l = document.getElementById('modalNominalList');
+        if (!l) return;
+        l.innerHTML = '';
+        l.style.display = 'grid';
+        l.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        l.style.gap = '12px';
+        l.style.maxWidth = '320px';
+        l.style.margin = '0 auto';
+        
+        const title = document.querySelector('#modalNominal h2');
+        if (title) title.textContent = 'Выберите В КАКОЙ кубик превратить';
+        
+        for (let i = 1; i <= 6; i++) {
+            const b = document.createElement('button');
+            b.className = 'select-item die-select';
+            b.textContent = getDieEmoji(i);
+            if (i === fromNom) {
+                b.style.opacity = '0.3';
+                b.style.cursor = 'not-allowed';
+                b.disabled = true;
+                b.title = 'Номиналы должны отличаться';
+            } else {
+                b.onclick = () => {
+                    toNom = i;
+                    closeModal('modalNominal');
+                    // Применяем превращение
+                    applyAlchemist(fromNom, toNom);
+                };
             }
-            const nd = m.dice.map(d => d === fromNom ? toNom : d);
-            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), { 
-                dice: nd, 
-                evilEyed: false 
-            }, 'alchemist');
-            addLogEntry('artifact', `${m.name} использовал превращение: ${getDieEmoji(fromNom)} → ${getDieEmoji(toNom)}`);
-            showNotification(`🧪 Все ${getDieEmoji(fromNom)} стали ${getDieEmoji(toNom)}!`, 'success');
-            renderUI();
-            markArtifactUsed(id);
-        });
-    });
+            l.appendChild(b);
+        }
+        document.getElementById('modalNominal').style.display = 'block';
+    };
+    
+    // Применение превращения
+    const applyAlchemist = (from, to) => {
+        if (from === to) {
+            showNotification('Номиналы должны отличаться!', 'warning');
+            return;
+        }
+        
+        // Проверяем, есть ли кубики для преобразования
+        const hasFrom = m.dice.some(d => d === from);
+        if (!hasFrom) {
+            showNotification(`У вас нет кубиков ${getDieEmoji(from)}!`, 'warning');
+            return;
+        }
+        
+        const nd = m.dice.map(d => d === from ? to : d);
+        safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), { 
+            dice: nd, 
+            evilEyed: false 
+        }, 'alchemist');
+        
+        addLogEntry('artifact', `${m.name} превратил все ${getDieEmoji(from)} → ${getDieEmoji(to)}`);
+        showNotification(`🧪 Все ${getDieEmoji(from)} стали ${getDieEmoji(to)}!`, 'success', 3000);
+        renderUI();
+        markArtifactUsed(id);
+    };
+    
+    // Запускаем первый шаг
+    selectFrom();
     break;
 }
 
