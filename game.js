@@ -5734,27 +5734,42 @@ function unlockGameAfterDuel() {
 
 // ============================================================
 window.onload = () => {
-    const params=new URLSearchParams(window.location.search);
-    let room=params.get('room');
-    let name=localStorage.getItem('ld_playerName');
-    if(!name){name=prompt('Введите имя:', 'Игрок'+Math.floor(Math.random()*900+100));if(!name)name='Игрок';localStorage.setItem('ld_playerName', name);}
-    GameState.myName=name;
-    GameState.myAvatar=localStorage.getItem('ld_avatar')||'🎲';
-    GameState.myColor=localStorage.getItem('ld_color')||'#ffffff';
-    loadWardrobe();
-    if(!room){
-        const saved=localStorage.getItem('ld_lastRoom');
-        if(saved&&confirm(`Вернуться в ${saved}?`)) room=saved;
+    const params = new URLSearchParams(window.location.search);
+    let room = params.get('room');
+    let name = localStorage.getItem('ld_playerName');
+    if (!name) {
+        name = prompt('Введите имя:', 'Игрок' + Math.floor(Math.random() * 900 + 100));
+        if (!name) name = 'Игрок';
+        localStorage.setItem('ld_playerName', name);
     }
-    if(room){GameState.currentRoomId=room;document.getElementById('roomIdDisplay').textContent='ROOM: '+room;enterRoom(room);}
+    GameState.myName = name;
+    GameState.myAvatar = localStorage.getItem('ld_avatar') || '🎲';
+    GameState.myColor = localStorage.getItem('ld_color') || '#ffffff';
+    loadWardrobe();
+    
+    if (!room) {
+        const saved = localStorage.getItem('ld_lastRoom');
+        if (saved && confirm(`Вернуться в ${saved}?`)) room = saved;
+    }
+    
+    if (room) {
+        GameState.currentRoomId = room;
+        document.getElementById('roomIdDisplay').textContent = 'ROOM: ' + room;
+        enterRoom(room);
+    } else {
+        createRoom();
+    }
+    
+    // ⭐ ОЧИЩАЕМ СОСТОЯНИЯ ПОСЛЕ ВХОДА В КОМНАТУ (ВНЕ УСЛОВИЙ)
+    setTimeout(() => {
         if (GameState.roomRef) {
-    // Очищаем состояние рулетки при загрузке
-    GameState.roomRef.child('rouletteState').remove();
-    GameState.roomRef.child('wheelState').remove();
-    GameState.roomRef.child('duelState').remove();
-}
-        
-    else createRoom();
+            GameState.roomRef.child('rouletteState').remove();
+            GameState.roomRef.child('wheelState').remove();
+            GameState.roomRef.child('duelState').remove();
+            console.log('🧹 Состояния артефактов очищены при загрузке');
+        }
+    }, 1000); // Даём время на инициализацию
+    
     setupAudioContext();
     bindEventListeners();
     log('🎮 BLXRRXDXCX 3.0 BX BLXRRXGXMXS');
