@@ -673,6 +673,79 @@ function setupConnectionListener() {
     });
 }
 
+function setupConnectionListener() {
+    const connectedRef = db.ref('.info/connected');
+    const statusEl = document.getElementById('connectionStatus');
+    connectedRef.on('value', (snap) => {
+        const connected = snap.val();
+        if (statusEl) {
+            if (connected) {
+                statusEl.className = 'connection-status online';
+                statusEl.textContent = '●';
+                document.body.classList.remove('offline');
+                if (GameState.roomRef && GameState.myUid) {
+                    safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), { connected: true, disconnectedAt: null }, 'reconnect');
+                }
+            } else {
+                statusEl.className = 'connection-status offline';
+                statusEl.textContent = '○';
+                document.body.classList.add('offline');
+                showNotification('⚠️ Потеряно соединение...', 'warning', 500);
+                
+                // ⭐ ЕСЛИ ИДЁТ ДУЭЛЬ ИЛИ РУЛЕТКА — ИГРОК ПРОИГРЫВАЕТ
+                if (GameState._duelLocked) {
+                    // Если дуэль активна
+                    GameState.roomRef.child('duelState').once('value', (snap) => {
+                        const duelData = snap.val();
+                        if (duelData && duelData.active && !duelData.finished) {
+                            // Определяем, кто из игроков потерял соединение
+                            const disconnectedPlayer = GameState.myUid;
+                            const p1 = duelData.player1;
+                            const p2 = duelData.player2;
+                            // Отмечаем, что этот игрок проиграл
+                            const updates = {
+                                'duelState/finished': true,
+                                'duelState/result': disconnectedPlayer === p1.uid ? 'p2win' : 'p1win',
+                                'duelState/resultText': `${disconnectedPlayer === p1.uid ? p1.name : p2.name} потерял соединение и проиграл!`
+                            };
+                            safeUpdate(GameState.roomRef, updates, 'duel-disconnect');
+                            // Применяем урон проигравшему
+                            if (disconnectedPlayer === p1.uid) {
+                                applyPoison(p1.uid, 1, 'Потеря соединения (дуэль)');
+                            } else {
+                                applyPoison(p2.uid, 1, 'Потеря соединения (дуэль)');
+                            }
+                            unlockGameAfterDuel();
+                        }
+                    });
+                }
+                
+                // Проверяем рулетку
+                GameState.roomRef.child('rouletteState').once('value', (snap) => {
+                    const rouletteData = snap.val();
+                    if (rouletteData && rouletteData.active && !rouletteData.finished) {
+                        // Если игрок потерял соединение во время рулетки — он проигрывает
+                        const disconnectedPlayer = GameState.myUid;
+                        const p1 = rouletteData.p1Uid;
+                        const p2 = rouletteData.p2Uid;
+                        const p1Name = rouletteData.p1Name || 'Игрок 1';
+                        const p2Name = rouletteData.p2Name || 'Игрок 2';
+                        
+                        const updates = {
+                            'rouletteState/finished': true,
+                            'rouletteState/resultText': `${disconnectedPlayer === p1 ? p1Name : p2Name} потерял соединение и проиграл!`,
+                            'rouletteState/resultColor': '#ff4444'
+                        };
+                        safeUpdate(GameState.roomRef, updates, 'roulette-disconnect');
+                        applyPoison(disconnectedPlayer, 1, 'Потеря соединения (рулетка)');
+                        unlockGameAfterDuel();
+                    }
+                });
+            }
+        }
+    });
+}
+
 function setupRoomListeners() {
     GameState.roomRef.on('value', (snapshot) => {
         const data = snapshot.val();
@@ -916,105 +989,113 @@ function setupRoomListeners() {
         }
     });
 
-    // ============================================================
-    // 🔫 СЛУШАТЕЛЬ РУССКОЙ РУЛЕТКИ
-    // ============================================================
-    GameState.roomRef.child('rouletteState').on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (!data) {
-            const modal = document.getElementById('modalRoulette');
-            if (modal) modal.style.display = 'none';
-            window._rouletteActive = false;
-            return;
+  // ============================================================
+// 🔫 СЛУШАТЕЛЬ РУССКОЙ РУЛЕТКИ
+// ============================================================
+GameState.roomRef.child('rouletteState').on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (!data) {
+        const modal = document.getElementById('modalRoulette');
+        if (modal) modal.style.display = 'none';
+        window._rouletteActive = false;
+        return;
+    }
+    
+    if (data.active && !data.finished) {
+        const modal = document.getElementById('modalRoulette');
+        if (modal) modal.style.display = 'block';
+        
+        // ⭐ Обновляем данные игроков
+        document.getElementById('rouletteP1Emoji').textContent = data.p1Avatar || '🎲';
+        document.getElementById('rouletteP1Name').textContent = data.p1Name || 'Игрок 1';
+        document.getElementById('rouletteP2Emoji').textContent = data.p2Avatar || '🎲';
+        document.getElementById('rouletteP2Name').textContent = data.p2Name || 'Игрок 2';
+        
+        // ⭐ Направление пистолета
+        const gunEmoji = document.getElementById('gunEmoji');
+        if (gunEmoji) {
+            if (data.currentPlayer === 'p1') {
+                gunEmoji.style.transform = 'scaleX(1)';
+            } else {
+                gunEmoji.style.transform = 'scaleX(-1)';
+            }
         }
         
-        if (data.active && !data.finished) {
-            const modal = document.getElementById('modalRoulette');
-            if (modal) modal.style.display = 'block';
-            
-            document.getElementById('rouletteP1Emoji').textContent = data.p1Avatar || '🎲';
-            document.getElementById('rouletteP1Name').textContent = data.p1Name || 'Игрок 1';
-            document.getElementById('rouletteP2Emoji').textContent = data.p2Avatar || '🎲';
-            document.getElementById('rouletteP2Name').textContent = data.p2Name || 'Игрок 2';
-            
-            const gunEmoji = document.getElementById('gunEmoji');
-            if (gunEmoji) {
-                if (data.currentPlayer === 'p1') {
-                    gunEmoji.style.transform = 'scaleX(1)';
-                } else {
-                    gunEmoji.style.transform = 'scaleX(-1)';
-                }
+        // ⭐ Кнопка выстрела
+        const fireBtn = document.getElementById('rouletteFireBtn');
+        const isP1Turn = data.currentPlayer === 'p1';
+        const myTurn = (isP1Turn && data.p1Uid === GameState.myUid) || 
+                      (!isP1Turn && data.p2Uid === GameState.myUid);
+        const currentName = isP1Turn ? data.p1Name : data.p2Name;
+        
+        if (fireBtn) {
+            if (myTurn && !data.finished) {
+                fireBtn.disabled = false;
+                fireBtn.textContent = `🔫 ВЫСТРЕЛИТЬ (${currentName})`;
+                fireBtn.style.background = 'linear-gradient(180deg, #22aa22, #118811)';
+                fireBtn.style.borderColor = '#44ff44';
+                fireBtn.style.opacity = '1';
+                // ⭐ ПЕРЕДАЁМ ID ДЛЯ ВЫСТРЕЛА
+                fireBtn.dataset.artifactId = data._artifactId || 'russianRoulette';
+            } else if (data.finished) {
+                fireBtn.disabled = true;
+                fireBtn.textContent = '💀 ИГРА ЗАВЕРШЕНА';
+                fireBtn.style.background = 'linear-gradient(180deg, #444, #222)';
+                fireBtn.style.borderColor = '#666';
+            } else {
+                fireBtn.disabled = true;
+                fireBtn.textContent = `⏳ Ход ${currentName}`;
+                fireBtn.style.background = 'linear-gradient(180deg, #444, #222)';
+                fireBtn.style.borderColor = '#666';
+                fireBtn.style.opacity = '0.6';
             }
-            
-            const fireBtn = document.getElementById('rouletteFireBtn');
-            const isP1Turn = data.currentPlayer === 'p1';
-            const myTurn = (isP1Turn && data.p1Uid === GameState.myUid) || 
-                          (!isP1Turn && data.p2Uid === GameState.myUid);
-            const currentName = isP1Turn ? data.p1Name : data.p2Name;
-            
-            if (fireBtn) {
-                if (myTurn && !data.finished) {
-                    fireBtn.disabled = false;
-                    fireBtn.textContent = `🔫 ВЫСТРЕЛИТЬ (${currentName})`;
-                    fireBtn.style.background = 'linear-gradient(180deg, #22aa22, #118811)';
-                    fireBtn.style.borderColor = '#44ff44';
-                } else if (data.finished) {
-                    fireBtn.disabled = true;
-                    fireBtn.textContent = '💀 ИГРА ЗАВЕРШЕНА';
-                } else {
-                    fireBtn.disabled = true;
-                    fireBtn.textContent = `⏳ Ход ${currentName}`;
-                    fireBtn.style.background = 'linear-gradient(180deg, #444, #222)';
-                    fireBtn.style.borderColor = '#666';
-                }
-            }
-            
-            const turnIndicator = document.getElementById('rouletteTurnIndicator');
-            if (turnIndicator) {
-                turnIndicator.textContent = data.finished ? '🏁 ИГРА ЗАВЕРШЕНА' : `🎯 Ход: ${currentName}`;
-                turnIndicator.style.color = data.finished ? '#ff4444' : '#ffd700';
-            }
-            
-            const p1Status = document.getElementById('rouletteP1Status');
-            const p2Status = document.getElementById('rouletteP2Status');
-            if (p1Status) {
-                p1Status.textContent = data.currentPlayer === 'p1' ? '🔫 Ход' : '⏳ Ожидание';
-                p1Status.style.color = data.currentPlayer === 'p1' ? '#44ff44' : '#888';
-            }
-            if (p2Status) {
-                p2Status.textContent = data.currentPlayer === 'p2' ? '🔫 Ход' : '⏳ Ожидание';
-                p2Status.style.color = data.currentPlayer === 'p2' ? '#44ff44' : '#888';
-            }
-            
-            const roundEl = document.getElementById('rouletteRound');
-            if (roundEl) roundEl.textContent = (data.round || 0) + 1;
-            
-            if (data.resultText) {
-                const resultDiv = document.getElementById('rouletteResult');
-                if (resultDiv) {
-                    resultDiv.textContent = data.resultText;
-                    resultDiv.style.display = 'block';
-                    resultDiv.style.color = data.resultColor || '#fff';
-                }
-            }
-            
-            window._rouletteActive = true;
-            
-        } else if (data.finished) {
+        }
+        
+        // ⭐ Обновляем статусы
+        const p1Status = document.getElementById('rouletteP1Status');
+        const p2Status = document.getElementById('rouletteP2Status');
+        if (p1Status) {
+            p1Status.textContent = data.currentPlayer === 'p1' ? '🔫 Ход' : '⏳ Ожидание';
+            p1Status.style.color = data.currentPlayer === 'p1' ? '#44ff44' : '#888';
+        }
+        if (p2Status) {
+            p2Status.textContent = data.currentPlayer === 'p2' ? '🔫 Ход' : '⏳ Ожидание';
+            p2Status.style.color = data.currentPlayer === 'p2' ? '#44ff44' : '#888';
+        }
+        
+        // ⭐ Раунд
+        const roundEl = document.getElementById('rouletteRound');
+        if (roundEl) roundEl.textContent = (data.round || 0) + 1;
+        
+        // ⭐ Результат
+        if (data.resultText) {
             const resultDiv = document.getElementById('rouletteResult');
-            if (resultDiv && data.resultText) {
+            if (resultDiv) {
                 resultDiv.textContent = data.resultText;
                 resultDiv.style.display = 'block';
                 resultDiv.style.color = data.resultColor || '#fff';
             }
-            
-            setTimeout(() => {
-                const modal = document.getElementById('modalRoulette');
-                if (modal) modal.style.display = 'none';
-                window._rouletteActive = false;
-            }, 3000);
         }
-    });
+        
+        window._rouletteActive = true;
+        
+    } else if (data.finished) {
+        const resultDiv = document.getElementById('rouletteResult');
+        if (resultDiv && data.resultText) {
+            resultDiv.textContent = data.resultText;
+            resultDiv.style.display = 'block';
+            resultDiv.style.color = data.resultColor || '#fff';
+        }
+        
+        setTimeout(() => {
+            const modal = document.getElementById('modalRoulette');
+            if (modal) modal.style.display = 'none';
+            window._rouletteActive = false;
+            // ⭐ УДАЛЯЕМ СОСТОЯНИЕ ПОСЛЕ ЗАВЕРШЕНИЯ
+            GameState.roomRef.child('rouletteState').remove();
+        }, 3000);
+    }
+});
 }
 
 
@@ -3123,6 +3204,7 @@ case 'russianRoulette': {
         const rouletteData = {
             active: true,
             finished: false,
+            _artifactId: id,
             p1Uid: GameState.myUid,
             p2Uid: t,
             p1Name: m.name,
@@ -5665,6 +5747,13 @@ window.onload = () => {
         if(saved&&confirm(`Вернуться в ${saved}?`)) room=saved;
     }
     if(room){GameState.currentRoomId=room;document.getElementById('roomIdDisplay').textContent='ROOM: '+room;enterRoom(room);}
+        if (GameState.roomRef) {
+    // Очищаем состояние рулетки при загрузке
+    GameState.roomRef.child('rouletteState').remove();
+    GameState.roomRef.child('wheelState').remove();
+    GameState.roomRef.child('duelState').remove();
+}
+        
     else createRoom();
     setupAudioContext();
     bindEventListeners();
