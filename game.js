@@ -497,8 +497,25 @@ function openQuickEmoji() {
 }
 
 function openTaunt() {
-    document.getElementById('tauntTextList').innerHTML = '<p style="color:#888; text-align:center;">Выберите настроение</p>';
+    // Очищаем поле ввода при открытии
+    const input = document.getElementById('customTauntInput');
+    if (input) {
+        input.value = '';
+        input.placeholder = 'Введите текст...';
+    }
+    
+    // Очищаем список таунтов
+    const list = document.getElementById('tauntTextList');
+    if (list) {
+        list.innerHTML = '<p style="color:#888; text-align:center; font-size:0.7em;">Выберите настроение, чтобы увидеть таунты</p>';
+    }
+    
     document.getElementById('modalTaunt').style.display = 'block';
+    
+    // Автофокус на поле ввода
+    setTimeout(() => {
+        if (input) input.focus();
+    }, 100);
 }
 
 function selectTauntMood(mood) {
@@ -5081,7 +5098,60 @@ function bindEventListeners() {
     document.getElementById('menuSandbox')?.addEventListener('click', toggleSandboxMode);
     window.addEventListener('beforeunload', clearAllTimers);
 }
+// ============================================================
+// 📨 ОТПРАВКА СООБЩЕНИЯ ИЗ МОДАЛКИ ТАУНТОВ
+// ============================================================
 
+// Отправка по кнопке
+document.getElementById('customTauntSendBtn')?.addEventListener('click', () => {
+    sendCustomTaunt();
+});
+
+// Отправка по Enter
+document.getElementById('customTauntInput')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+        e.preventDefault();
+        sendCustomTaunt();
+    }
+});
+
+function sendCustomTaunt() {
+    const input = document.getElementById('customTauntInput');
+    if (!input) return;
+    
+    const text = input.value.trim();
+    if (!text) {
+        showNotification('Введите сообщение!', 'warning', 1000);
+        return;
+    }
+    
+    // Ограничение длины (100 символов)
+    if (text.length > 100) {
+        showNotification('Слишком длинное сообщение (макс. 100 символов)', 'warning', 1500);
+        return;
+    }
+    
+    // Отправляем через существующую функцию showSpeechBubble
+    showSpeechBubble(GameState.myUid, text, false, false);
+    
+    // Добавляем в лог
+    addLogEntry('system', `${GameState.myName}: ${text}`);
+    
+    // Очищаем поле и закрываем модалку
+    input.value = '';
+    closeModal('modalTaunt');
+}
+
+// Подсветка поля при фокусе
+document.getElementById('customTauntInput')?.addEventListener('focus', function() {
+    this.style.borderColor = '#ffd700';
+    this.style.boxShadow = '0 0 10px rgba(255,215,0,0.2)';
+});
+
+document.getElementById('customTauntInput')?.addEventListener('blur', function() {
+    this.style.borderColor = '#5a5a8c';
+    this.style.boxShadow = 'none';
+});
 // ============================================================
 // 🎡 КОЛЕСО ФОРТУНЫ — ВИЗУАЛЬНОЕ ШОУ
 // ============================================================
