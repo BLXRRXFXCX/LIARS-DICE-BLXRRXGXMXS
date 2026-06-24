@@ -1202,6 +1202,25 @@ body.offline { opacity: 0.7; }
 #gunBody.kick {
     animation: gunKick 0.2s ease;
 }
+
+    /* ===== ПОЛЕ ВВОДА В ТАУНТАХ ===== */
+#customTauntInput:focus {
+    border-color: #ffd700 !important;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+}
+
+#customTauntInput::placeholder {
+    color: #888;
+    font-size: 0.9em;
+}
+
+#customTauntSendBtn:hover {
+    background: linear-gradient(180deg, #4a8a4a, #3a6a3a) !important;
+}
+
+#customTauntSendBtn:active {
+    transform: scale(0.95);
+}
     
 </style>
 </head>
