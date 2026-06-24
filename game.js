@@ -527,8 +527,8 @@ function selectTauntMood(mood) {
         b.className = 'taunt-text-btn';
         b.textContent = txt;
         b.onclick = () => {
-            showSpeechBubble(GameState.myUid, txt, false, true);
-            closeModal('modalTaunt');
+            showSpeechBubble(GameState.myUid, txt, false, true); // isTaunt = true
+            closeModal('modalTaunt'); // ⭐ ЗАКРЫВАЕМ МОДАЛКУ
         };
         list.appendChild(b);
     });
@@ -5096,6 +5096,33 @@ function resolveVote(tu) {
         GameState.lastVoteEndTime = Date.now();
         GameState.currentVoteTarget = null;
     });
+}
+
+function sendCustomTaunt() {
+    const input = document.getElementById('customTauntInput');
+    if (!input) return;
+    
+    const text = input.value.trim();
+    if (!text) {
+        showNotification('Введите сообщение!', 'warning', 1000);
+        return;
+    }
+    
+    // Ограничение длины (100 символов)
+    if (text.length > 100) {
+        showNotification('Слишком длинное сообщение (макс. 100 символов)', 'warning', 1500);
+        return;
+    }
+    
+    // ⭐ ОТПРАВЛЯЕМ КАК ТАУНТ (isTaunt = true)
+    showSpeechBubble(GameState.myUid, text, false, true);
+    
+    // Добавляем в лог
+    addLogEntry('system', `${GameState.myName}: ${text}`);
+    
+    // ⭐ ОЧИЩАЕМ ПОЛЕ И ЗАКРЫВАЕМ МОДАЛКУ
+    input.value = '';
+    closeModal('modalTaunt');
 }
 
 function bindEventListeners() {
