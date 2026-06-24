@@ -1345,12 +1345,38 @@ body.offline { opacity: 0.7; }
 <div id="modalTaunt" class="modal" style="display:none;">
     <div class="modal-content">
         <span class="close-btn">×</span>
-        <h2>📣 Таунт</h2>
-        <div id="tauntMoodSelect">
+        <h2>📣 ТАУНТ ИЛИ СООБЩЕНИЕ</h2>
+        
+        <!-- ⭐ ПОЛЕ ВВОДА (вверху) -->
+        <div style="margin-bottom:12px; padding:10px; background:rgba(255,255,255,0.05); border-radius:8px; border:1px solid rgba(255,255,255,0.1);">
+            <div style="color:#aaa; font-size:0.6em; margin-bottom:4px;">✏️ Напишите своё сообщение:</div>
+            <div style="display:flex; gap:6px;">
+                <input type="text" id="customTauntInput" placeholder="Введите текст..." 
+                       style="flex:1; padding:6px 10px; background:rgba(255,255,255,0.1); 
+                              border:1px solid #5a5a8c; border-radius:4px; color:#fff; 
+                              font-size:0.65em; font-family:'Press Start 2P', cursive;
+                              outline:none; transition:border-color 0.3s;">
+                <button id="customTauntSendBtn" style="padding:6px 12px; 
+                        background:linear-gradient(180deg, #3a6a3a, #2a4a2a);
+                        border:1px solid #5a8a5a; border-radius:4px; color:#fff;
+                        cursor:pointer; font-size:0.6em;
+                        font-family:'Press Start 2P', cursive;
+                        white-space:nowrap;">
+                    📨 ОТПРАВИТЬ
+                </button>
+            </div>
+            <div style="color:#666; font-size:0.4em; margin-top:3px;">Максимум 100 символов</div>
+        </div>
+        
+        <!-- Существующие настроения -->
+        <div style="margin-bottom:8px; color:#aaa; font-size:0.6em;">🎭 Или выберите готовый таунт:</div>
+        <div id="tauntMoodSelect" style="margin-bottom:10px;">
             <button class="mood-btn" data-mood="evil">😈 Злое</button>
             <button class="mood-btn" data-mood="kind">😇 Доброе</button>
             <button class="mood-btn" data-mood="mocking">😏 Насмешливое</button>
         </div>
+        
+        <!-- Список таунтов (как было) -->
         <div id="tauntTextList"></div>
     </div>
 </div>
