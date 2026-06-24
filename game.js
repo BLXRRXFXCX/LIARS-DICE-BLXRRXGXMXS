@@ -956,6 +956,34 @@ function setupRoomListeners() {
     });
 
     // ============================================================
+// 👻 СЛУШАТЕЛЬ ДЛЯ СДЕЛКИ С ДЬЯВОЛОМ (только для себя)
+// ============================================================
+GameState.roomRef.child('players').child(GameState.myUid).on('value', (snapshot) => {
+    const data = snapshot.val();
+    if (!data) return;
+    
+    // Если этому игроку нужна сделка
+    if (data.devilDealPending && data.alive && !data.isGhost) {
+        // Проверяем, что игра не в состоянии сделки
+        if (GameState.gameState !== 'devil_deal') {
+            // Запускаем сделку для этого игрока
+            addLogEntry('system', `${GameState.myName} отправляется на Сделку с Дьяволом...`);
+            // Очищаем флаг, чтобы не запускать повторно
+            safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {
+                devilDealPending: false
+            }, 'deal-flag-clear');
+            
+            // Запускаем сделку
+            GameState.gameState = 'devil_deal';
+            GameState.isActionInProgress = true;
+            safeUpdate(GameState.roomRef, { state: 'devil_deal' }, 'deal-block');
+            startDevilDeal(GameState.myUid);
+        }
+    }
+});
+
+    
+    // ============================================================
     // 🎡 СЛУШАТЕЛЬ КОЛЕСА ФОРТУНЫ
     // ============================================================
     GameState.roomRef.child('wheelState').on('value', (snapshot) => {
@@ -1809,7 +1837,6 @@ function checkDeath() {
     let dealUid = null;
     let hasDeath = false;
     
-    // Проходим по всем игрокам
     const players = Object.keys(GameState.players);
     for (let i = 0; i < players.length; i++) {
         const uid = players[i];
@@ -1846,22 +1873,29 @@ function checkDeath() {
                 continue;
             }
             
-            // ⭐ ЭТО ИГРОК — нужна сделка
+            // ⭐ ЭТО ИГРОК
             if (uid === GameState.myUid) {
                 // Это Я — показываем модалку
                 needDeal = true;
                 dealUid = uid;
             } else {
-                // Это другой игрок — просто логируем
+                // ⭐ Это ДРУГОЙ игрок — НЕ превращаем в призрака сразу!
+                // Сохраняем состояние, что игроку нужна сделка
+                // Он сам увидит это на своём клиенте и запустит сделку
                 addLogEntry('death', `${p.name} отправляется на Сделку с Дьяволом...`);
-                // Для других игроков просто превращаем в призрака (без сделки)
-                // т.к. сделка только для текущего игрока
-                turnToGhost(uid);
+                safeUpdate(GameState.roomRef.child('players').child(uid), {
+                    needsDevilDeal: true,
+                    devilDealPoisons: p.poisons,
+                    devilDealMaxLives: p.maxLives,
+                    devilDealUsed: p.devilDealsUsed || 0,
+                    devilDealPending: true
+                }, 'needs-deal');
+                // НЕ вызываем turnToGhost(uid)!
             }
         }
     }
     
-    // ⭐ Если нужна сделка для меня — показываем модалку
+    // Если нужна сделка для меня — показываем модалку
     if (needDeal && dealUid) {
         GameState.gameState = 'devil_deal';
         GameState.isActionInProgress = true;
@@ -1870,7 +1904,17 @@ function checkDeath() {
         return true;
     }
     
-    // Проверка победителя (только если не было сделки)
+    // Проверяем, есть ли другие игроки, которым нужна сделка
+    // Если есть — игра ждёт их решения
+    const needDealPlayers = Object.keys(GameState.players).filter(u => 
+        GameState.players[u]?.devilDealPending && !GameState.players[u]?.isGhost
+    );
+    if (needDealPlayers.length > 0) {
+        // Не завершаем игру, пока кто-то на сделке
+        return true;
+    }
+    
+    // Проверка победителя
     const humans = Object.values(GameState.players).filter(p => p?.alive && !p.isGhost);
     if (humans.length === 1 && GameState.gameState !== 'ended') {
         GameState.gameState = 'ended';
@@ -2022,6 +2066,12 @@ function resolveDevilDeal(updateData) {
     log('✅ resolveDevilDeal: применяем данные', updateData);
     
     document.getElementById('devilModal').style.display = 'none';
+    
+    // ⭐ Очищаем флаг сделки
+    safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {
+        devilDealPending: false,
+        needsDevilDeal: false
+    }, 'deal-flag-clear');
     
     safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), updateData, 'deal-resolve');
     renderUI();
@@ -2923,6 +2973,285 @@ if(GameState.spyMemory[GameState.myUid]&&GameState.spyMemory[GameState.myUid].va
                 addLogEntry('artifact', `${m.name} отстрелил все ${getDieEmoji(n)}`);
                 markArtifactUsed(id);
             }); break;
+
+            // 5. ЛЕЧЕБНОЕ ЗЕЛЬЕ
+case 'healingPotion': {
+    if (m.poisons >= 2) {
+        const newPoisons = m.poisons - 2;
+        safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), { poisons: newPoisons }, 'healing-potion');
+        addLogEntry('artifact', `${m.name} вылечил 2 яда`);
+        showNotification('💚 Вы сняли 2 яда!', 'success', 2000);
+    } else if (m.poisons === 1) {
+        safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), { poisons: 0 }, 'healing-potion');
+        addLogEntry('artifact', `${m.name} вылечил 1 яд`);
+        showNotification('💚 Вы сняли 1 яд!', 'success', 2000);
+    } else {
+        // Если ядов нет — +1 кровь
+        const newBlood = (m.blood || 0) + 1;
+        safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), { blood: newBlood }, 'healing-potion');
+        addLogEntry('artifact', `${m.name} получил +1 кровь (ядов не было)`);
+        showNotification('🩸 Ядов не было! Вы получили +1 кровь!', 'success', 2000);
+    }
+    renderUI();
+    markArtifactUsed(id);
+    break;
+}
+
+// 6. НЕВИДИМОСТЬ
+case 'invisibility': {
+    safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {
+        invisible: true,
+        invisibleRound: GameState.roundNumber
+    }, 'invisibility');
+    addLogEntry('artifact', `${m.name} стал невидимым на этот раунд`);
+    showNotification('👻 Вас нельзя выбрать целью в этом раунде!', 'info', 2000);
+    markArtifactUsed(id);
+    break;
+}
+
+// 8. ЩИТ ОТ АРТЕФАКТОВ (пассивный — логика в useArtifact при выборе цели)
+// ВНИМАНИЕ: этот артефакт пассивный, его логика будет в отдельном блоке проверки
+
+// 25. КРОВАВАЯ МЕТКА
+case 'bloodMark': {
+    const targets = Object.keys(GameState.players).filter(u =>
+        u !== GameState.myUid &&
+        GameState.players[u]?.alive &&
+        !GameState.players[u]?.isGhost
+    );
+    if (!targets.length) {
+        GameState.pendingArtifact = null;
+        return showNotification('Нет целей!', 'warning');
+    }
+    showTargetModal(targets, t => {
+        // Сохраняем цель для отслеживания успешных ставок
+        GameState._bloodMarkTarget = t;
+        safeUpdate(GameState.roomRef.child('players').child(t), {
+            bloodMarked: true,
+            bloodMarker: GameState.myUid
+        }, 'blood-mark');
+        addLogEntry('artifact', `${m.name} поставил кровавую метку на ${GameState.players[t].name}`);
+        showNotification(`🔴 Кровавая метка на ${GameState.players[t].name}!`, 'info', 2000);
+        markArtifactUsed(id);
+    });
+    break;
+}
+
+// 28. ОТРАВЛЕННАЯ СТРЕЛА
+case 'poisonArrow': {
+    const targets = Object.keys(GameState.players).filter(u =>
+        u !== GameState.myUid &&
+        GameState.players[u]?.alive &&
+        !GameState.players[u]?.isGhost
+    );
+    if (!targets.length) {
+        GameState.pendingArtifact = null;
+        return showNotification('Нет целей!', 'warning');
+    }
+    showTargetModal(targets, t => {
+        safeUpdate(GameState.roomRef.child('players').child(t), {
+            poisonArrow: true,
+            poisonArrowRound: GameState.roundNumber
+        }, 'poison-arrow');
+        addLogEntry('artifact', `${m.name} нацелил отравленную стрелу на ${GameState.players[t].name}`);
+        showNotification(`🏹 Отравленная стрела на ${GameState.players[t].name}!`, 'info', 2000);
+        markArtifactUsed(id);
+    });
+    break;
+}
+
+// 29. ТЕНЕВАЯ АТАКА
+case 'shadowStrike': {
+    const targets = Object.keys(GameState.players).filter(u =>
+        u !== GameState.myUid &&
+        GameState.players[u]?.alive &&
+        !GameState.players[u]?.isGhost
+    );
+    if (!targets.length) {
+        GameState.pendingArtifact = null;
+        return showNotification('Нет целей!', 'warning');
+    }
+    showTargetModal(targets, t => {
+        safeUpdate(GameState.roomRef.child('players').child(t), {
+            shadowStrike: true,
+            shadowStrikeRound: GameState.roundNumber + 1  // Сработает в следующем раунде
+        }, 'shadow-strike');
+        addLogEntry('artifact', `${m.name} совершил теневую атаку на ${GameState.players[t].name}`);
+        showNotification(`🌑 Теневая атака на ${GameState.players[t].name}!`, 'info', 2000);
+        markArtifactUsed(id);
+    });
+    break;
+}
+
+// 30. АНТИДОТ
+case 'antidote': {
+    if (m.poisons > 0) {
+        const newPoisons = m.poisons - 1;
+        safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), { poisons: newPoisons }, 'antidote');
+        addLogEntry('artifact', `${m.name} снял 1 яд`);
+        showNotification('💚 Вы сняли 1 яд!', 'success', 2000);
+    } else {
+        showNotification('У вас нет ядов!', 'warning', 1500);
+        GameState.pendingArtifact = null;
+        return;
+    }
+    renderUI();
+    markArtifactUsed(id);
+    break;
+}
+
+// 36. СКРЫТАЯ СТАВКА
+case 'hiddenBet': {
+    // Делаем ставку как обычно, но номинал скрыт
+    const c = GameState.betCount;
+    const v = GameState.betValue;
+    if (v < 1 || v > 6) return showNotification('Номинал 1-6!', 'warning');
+    if (GameState.lastBet && (c < GameState.lastBet.count || (c === GameState.lastBet.count && v <= GameState.lastBet.value))) {
+        return showNotification('Ставка должна быть выше!', 'warning');
+    }
+    
+    // Скрытая ставка — виден только счётчик
+    const hiddenBet = { player: GameState.myUid, count: c, value: v, timestamp: Date.now(), isHidden: true };
+    GameState.lastBet = hiddenBet;
+    GameState.players[GameState.myUid].lastBetInRound = hiddenBet;
+    // Сохраняем реальное значение отдельно
+    GameState._hiddenBetValue = v;
+    
+    const updates = {};
+    updates['lastBet'] = hiddenBet;
+    updates[`players/${GameState.myUid}/lastBetInRound`] = hiddenBet;
+    safeUpdate(GameState.roomRef, updates, 'hidden-bet');
+    
+    addLogEntry('artifact', `${m.name} сделал скрытую ставку: ${c}×?`);
+    showNotification(`🕵️ Скрытая ставка: ${c} кубиков! Номинал скрыт!`, 'info', 2000);
+    renderUI();
+    markArtifactUsed(id);
+    break;
+}
+
+// 38. ПРОГНОЗИСТ
+case 'predictor': {
+    const targets = Object.keys(GameState.players).filter(u =>
+        u !== GameState.myUid &&
+        GameState.players[u]?.alive &&
+        !GameState.players[u]?.isGhost
+    );
+    if (!targets.length) {
+        GameState.pendingArtifact = null;
+        return showNotification('Нет целей!', 'warning');
+    }
+    showTargetModal(targets, t => {
+        // Показываем модалку для выбора предсказания
+        const l = document.getElementById('modalNominalList');
+        if (!l) return;
+        l.innerHTML = '';
+        l.style.display = 'grid';
+        l.style.gridTemplateColumns = 'repeat(2, 1fr)';
+        l.style.gap = '12px';
+        l.style.maxWidth = '320px';
+        l.style.margin = '0 auto';
+        
+        const title = document.querySelector('#modalNominal h2');
+        if (title) title.textContent = `Предскажите ход ${GameState.players[t].name}`;
+        
+        const options = [
+            { id: 'bet', label: '📈 СТАВКА' },
+            { id: 'accuse', label: '⚖️ ОБВИНЕНИЕ' }
+        ];
+        options.forEach(opt => {
+            const b = document.createElement('button');
+            b.className = 'select-item';
+            b.textContent = opt.label;
+            b.onclick = () => {
+                closeModal('modalNominal');
+                // Сохраняем предсказание
+                safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {
+                    predictorTarget: t,
+                    predictorGuess: opt.id,
+                    predictorRound: GameState.roundNumber
+                }, 'predictor');
+                addLogEntry('artifact', `${m.name} предсказал ${opt.id} для ${GameState.players[t].name}`);
+                showNotification(`🔮 Вы предсказали: ${opt.label}!`, 'info', 2000);
+                markArtifactUsed(id);
+            };
+            l.appendChild(b);
+        });
+        document.getElementById('modalNominal').style.display = 'block';
+    });
+    break;
+}
+
+// 44. ЦЕНА ЖИЗНИ
+case 'priceOfLife': {
+    const newMaxLives = Math.max(1, (m.maxLives || 3) - 1);
+    const newBlood = (m.blood || 0) + 3;
+    const updates = {
+        maxLives: newMaxLives,
+        blood: newBlood
+    };
+    safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), updates, 'price-of-life');
+    addLogEntry('artifact', `${m.name} потерял 1 макс. жизнь, получил +3 крови`);
+    showNotification(`💔 -1 макс. жизнь, но +3 крови!`, 'info', 3000);
+    renderUI();
+    markArtifactUsed(id);
+    break;
+}
+
+// 17. ХАОТИЧНЫЙ ПЕРЕБРОС
+case 'chaoticRoll': {
+    // Шаг 1: выбрать номинал для яда
+    const l = document.getElementById('modalNominalList');
+    if (!l) return;
+    l.innerHTML = '';
+    l.style.display = 'grid';
+    l.style.gridTemplateColumns = 'repeat(3, 1fr)';
+    l.style.gap = '12px';
+    l.style.maxWidth = '320px';
+    l.style.margin = '0 auto';
+    
+    const title = document.querySelector('#modalNominal h2');
+    if (title) title.textContent = 'Выберите номинал для яда';
+    
+    for (let i = 1; i <= 6; i++) {
+        const b = document.createElement('button');
+        b.className = 'select-item die-select';
+        b.textContent = getDieEmoji(i);
+        b.onclick = () => {
+            closeModal('modalNominal');
+            const chosenNom = i;
+            // Перебрасываем все кубики у всех
+            const updates = {};
+            Object.keys(GameState.players).forEach(u => {
+                const p = GameState.players[u];
+                if (p?.alive && !p.isGhost) {
+                    const nd = p.dice.map(() => Math.floor(Math.random() * 6) + 1);
+                    updates[`players/${u}/dice`] = nd;
+                    p.dice = nd;
+                }
+            });
+            safeUpdate(GameState.roomRef, updates, 'chaotic-roll');
+            
+            // Наносим яд за каждый кубик выбранного номинала
+            Object.keys(GameState.players).forEach(u => {
+                const p = GameState.players[u];
+                if (p?.alive && !p.isGhost) {
+                    const count = p.dice.filter(d => d === chosenNom).length;
+                    if (count > 0) {
+                        applyPoison(u, count, `Хаотичный переброс (${getDieEmoji(chosenNom)})`);
+                    }
+                }
+            });
+            
+            addLogEntry('artifact', `${m.name} запустил хаотичный переброс (яд за ${getDieEmoji(chosenNom)})`);
+            showNotification(`🎲 Хаотичный переброс! Яд за ${getDieEmoji(chosenNom)}!`, 'info', 3000);
+            renderUI();
+            markArtifactUsed(id);
+        };
+        l.appendChild(b);
+    }
+    document.getElementById('modalNominal').style.display = 'block';
+    break;
+}
             // === НОВЫЕ АРТЕФАКТЫ ===
 
 case 'wheelOfFortune': {
