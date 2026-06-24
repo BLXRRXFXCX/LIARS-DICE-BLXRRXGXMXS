@@ -3724,30 +3724,154 @@ function useArtifact(id) {
         }
         
         case 'alchemist': {
-            showNominalModal(fromNom => {
-                showNominalModal(toNom => {
-                    if (fromNom === toNom) {
-                        showNotification('Номиналы должны отличаться!', 'warning');
-                        return;
-                    }
-                    const hasFrom = m.dice.some(d => d === fromNom);
-                    if (!hasFrom) {
-                        showNotification(`У вас нет кубиков ${getDieEmoji(fromNom)}!`, 'warning');
-                        return;
-                    }
-                    const nd = m.dice.map(d => d === fromNom ? toNom : d);
-                    safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), {
-                        dice: nd,
-                        evilEyed: false
-                    }, 'alchemist');
-                    addLogEntry('artifact', `${m.name} использовал превращение: ${getDieEmoji(fromNom)} → ${getDieEmoji(toNom)}`);
-                    showNotification(`🧪 Все ${getDieEmoji(fromNom)} стали ${getDieEmoji(toNom)}!`, 'success');
-                    renderUI();
-                    markArtifactUsed(id);
-                });
-            });
-            break;
+    // ⭐ БЛОКИРУЕМ, ЧТОБЫ НЕ БЫЛО ДВОЙНЫХ ВЫЗОВОВ
+    if (GameState._alchemistActive) {
+        return showNotification('⏳ Превращение уже выполняется...', 'warning', 1000);
+    }
+    GameState._alchemistActive = true;
+    
+    let fromNom = null;
+    let toNom = null;
+    
+    // Шаг 1: выбор исходного номинала
+    function selectFrom() {
+        const l = document.getElementById('modalNominalList');
+        if (!l) {
+            GameState._alchemistActive = false;
+            return;
         }
+        
+        l.innerHTML = '';
+        l.style.display = 'grid';
+        l.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        l.style.gap = '12px';
+        l.style.maxWidth = '320px';
+        l.style.margin = '0 auto';
+        
+        const title = document.querySelector('#modalNominal h2');
+        if (title) title.textContent = '🔮 Выберите КАКОЙ кубик превратить';
+        
+        const hasAny = m.dice.some(d => d >= 1 && d <= 6);
+        if (!hasAny || m.dice.length === 0) {
+            showNotification('У вас нет кубиков для превращения!', 'warning', 1500);
+            GameState._alchemistActive = false;
+            return;
+        }
+        
+        // Считаем количество каждого номинала
+        const counts = {};
+        m.dice.forEach(d => { counts[d] = (counts[d] || 0) + 1; });
+        
+        for (let i = 1; i <= 6; i++) {
+            const b = document.createElement('button');
+            b.className = 'select-item die-select';
+            b.textContent = getDieEmoji(i);
+            
+            const count = counts[i] || 0;
+            const label = document.createElement('span');
+            label.style.cssText = 'display:block; font-size:0.3em; color:#888; margin-top:2px;';
+            label.textContent = `×${count}`;
+            b.appendChild(label);
+            
+            if (count === 0) {
+                b.style.opacity = '0.3';
+                b.style.cursor = 'not-allowed';
+                b.disabled = true;
+                b.title = 'У вас нет таких кубиков';
+            } else {
+                b.onclick = () => {
+                    fromNom = i;
+                    closeModal('modalNominal');
+                    // Небольшая задержка перед вторым шагом
+                    setTimeout(selectTo, 200);
+                };
+            }
+            l.appendChild(b);
+        }
+        
+        document.getElementById('modalNominal').style.display = 'block';
+    }
+    
+    // Шаг 2: выбор целевого номинала
+    function selectTo() {
+        const l = document.getElementById('modalNominalList');
+        if (!l) {
+            GameState._alchemistActive = false;
+            return;
+        }
+        
+        l.innerHTML = '';
+        l.style.display = 'grid';
+        l.style.gridTemplateColumns = 'repeat(3, 1fr)';
+        l.style.gap = '12px';
+        l.style.maxWidth = '320px';
+        l.style.margin = '0 auto';
+        
+        const title = document.querySelector('#modalNominal h2');
+        if (title) title.textContent = `🔮 Выберите В КАКОЙ кубик превратить (из ${getDieEmoji(fromNom)})`;
+        
+        for (let i = 1; i <= 6; i++) {
+            const b = document.createElement('button');
+            b.className = 'select-item die-select';
+            b.textContent = getDieEmoji(i);
+            
+            if (i === fromNom) {
+                b.style.opacity = '0.3';
+                b.style.cursor = 'not-allowed';
+                b.disabled = true;
+                b.title = 'Номиналы должны отличаться';
+            } else {
+                b.onclick = () => {
+                    toNom = i;
+                    closeModal('modalNominal');
+                    // Применяем превращение
+                    applyAlchemist();
+                };
+            }
+            l.appendChild(b);
+        }
+        
+        document.getElementById('modalNominal').style.display = 'block';
+    }
+    
+    // Шаг 3: применение
+    function applyAlchemist() {
+        if (fromNom === null || toNom === null) {
+            GameState._alchemistActive = false;
+            return;
+        }
+        
+        if (fromNom === toNom) {
+            showNotification('Номиналы должны отличаться!', 'warning');
+            GameState._alchemistActive = false;
+            return;
+        }
+        
+        // Проверяем, есть ли кубики для преобразования
+        const hasFrom = m.dice.some(d => d === fromNom);
+        if (!hasFrom) {
+            showNotification(`У вас нет кубиков ${getDieEmoji(fromNom)}!`, 'warning');
+            GameState._alchemistActive = false;
+            return;
+        }
+        
+        const nd = m.dice.map(d => d === fromNom ? toNom : d);
+        safeUpdate(GameState.roomRef.child('players').child(GameState.myUid), { 
+            dice: nd, 
+            evilEyed: false 
+        }, 'alchemist');
+        
+        addLogEntry('artifact', `${m.name} превратил все ${getDieEmoji(fromNom)} → ${getDieEmoji(toNom)}`);
+        showNotification(`🧪 Все ${getDieEmoji(fromNom)} стали ${getDieEmoji(toNom)}!`, 'success', 3000);
+        renderUI();
+        GameState._alchemistActive = false;
+        markArtifactUsed(id);
+    }
+    
+    // Запускаем первый шаг
+    selectFrom();
+    break;
+}
         
         case 'mirage': {
     const c = GameState.betCount;
