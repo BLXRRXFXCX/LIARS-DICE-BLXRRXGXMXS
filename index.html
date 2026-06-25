@@ -1266,7 +1266,67 @@ body.offline { opacity: 0.7; }
 #gunFlash.active {
     opacity: 1;
 }
-    
+
+    /* ===== ИНДИКАТОР ПАТРОНОВ ===== */
+.bullet-indicator {
+    width: 8px;
+    height: 32px;
+    background: linear-gradient(180deg, #ffd700, #b8860b);
+    border-radius: 2px 2px 4px 4px;
+    border: 1px solid #ffd700;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 8px rgba(255, 215, 0, 0.2);
+    position: relative;
+}
+
+/* Верхняя часть пули (как гильза) */
+.bullet-indicator::after {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 4px;
+    background: #ffd700;
+    border-radius: 2px 2px 0 0;
+    border: 1px solid #b8860b;
+}
+
+/* Исчезнувшая пуля */
+.bullet-indicator.used {
+    opacity: 0.15;
+    transform: scaleY(0.3) translateY(10px);
+    background: linear-gradient(180deg, #555, #333);
+    border-color: #444;
+    box-shadow: none;
+}
+
+.bullet-indicator.used::after {
+    opacity: 0;
+}
+
+/* Патрон с пулей (активный) */
+.bullet-indicator.loaded {
+    animation: bulletGlow 1s ease-in-out infinite;
+}
+
+@keyframes bulletGlow {
+    0%, 100% { box-shadow: 0 0 8px rgba(255, 215, 0, 0.2); }
+    50% { box-shadow: 0 0 16px rgba(255, 215, 0, 0.5); }
+}
+
+/* Патрон, который сейчас на очереди */
+.bullet-indicator.current {
+    border-color: #ff4444;
+    box-shadow: 0 0 20px rgba(255, 68, 68, 0.4);
+    animation: bulletPulse 0.5s ease-in-out infinite;
+}
+
+@keyframes bulletPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+}
 </style>
 </head>
 <body>
@@ -1805,10 +1865,15 @@ body.offline { opacity: 0.7; }
                 </div>
             </div>
             
-            <!-- Счётчик раундов -->
-            <div style="font-size:0.6em; color:#666; margin:5px 0;">
-                Раунд: <span id="rouletteRound">1</span> / <span id="rouletteMaxRound">10</span>
-            </div>
+           <!-- ⭐ ИНДИКАТОР ПАТРОНОВ (вертикальные пули) -->
+<div style="display:flex; justify-content:center; gap:4px; margin:8px 0;">
+    <div id="bulletIndicator1" class="bullet-indicator" style="width:8px; height:32px; background:linear-gradient(180deg, #ffd700, #b8860b); border-radius:2px 2px 4px 4px; border:1px solid #ffd700; transition:all 0.3s;"></div>
+    <div id="bulletIndicator2" class="bullet-indicator" style="width:8px; height:32px; background:linear-gradient(180deg, #ffd700, #b8860b); border-radius:2px 2px 4px 4px; border:1px solid #ffd700; transition:all 0.3s;"></div>
+    <div id="bulletIndicator3" class="bullet-indicator" style="width:8px; height:32px; background:linear-gradient(180deg, #ffd700, #b8860b); border-radius:2px 2px 4px 4px; border:1px solid #ffd700; transition:all 0.3s;"></div>
+    <div id="bulletIndicator4" class="bullet-indicator" style="width:8px; height:32px; background:linear-gradient(180deg, #ffd700, #b8860b); border-radius:2px 2px 4px 4px; border:1px solid #ffd700; transition:all 0.3s;"></div>
+    <div id="bulletIndicator5" class="bullet-indicator" style="width:8px; height:32px; background:linear-gradient(180deg, #ffd700, #b8860b); border-radius:2px 2px 4px 4px; border:1px solid #ffd700; transition:all 0.3s;"></div>
+    <div id="bulletIndicator6" class="bullet-indicator" style="width:8px; height:32px; background:linear-gradient(180deg, #ffd700, #b8860b); border-radius:2px 2px 4px 4px; border:1px solid #ffd700; transition:all 0.3s;"></div>
+</div>
             
             <!-- Кнопка выстрела -->
             <button id="rouletteFireBtn" style="padding:8px 20px; background:linear-gradient(180deg, #22aa22, #118811); border:2px solid #44ff44; border-radius:8px; color:#fff; font-weight:bold; cursor:pointer; font-size:0.7em; margin:5px 0; transition:all 0.2s;">
