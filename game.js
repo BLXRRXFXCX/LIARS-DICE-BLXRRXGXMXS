@@ -5560,8 +5560,24 @@ function animateRouletteShot(data, callback, artifactId) {
 // ============================================================
 
 function updateRouletteUI(data) {
-    if (!data) return;
+    if (!data) {
+        console.warn('⚠️ updateRouletteUI: нет данных');
+        return;
+    }
     
+    console.log('🔄 updateRouletteUI вызвана:', {
+        currentPlayer: data.currentPlayer,
+        p1Uid: data.p1Uid,
+        p2Uid: data.p2Uid,
+        myUid: GameState.myUid,
+        finished: data.finished
+    });
+    
+    // Элементы UI
+    const p1Emoji = document.getElementById('rouletteP1Emoji');
+    const p1Name = document.getElementById('rouletteP1Name');
+    const p2Emoji = document.getElementById('rouletteP2Emoji');
+    const p2Name = document.getElementById('rouletteP2Name');
     const p1Status = document.getElementById('rouletteP1Status');
     const p2Status = document.getElementById('rouletteP2Status');
     const fireBtn = document.getElementById('rouletteFireBtn');
@@ -5570,11 +5586,7 @@ function updateRouletteUI(data) {
     const resultDiv = document.getElementById('rouletteResult');
     const gunEmoji = document.getElementById('gunEmoji');
     
-    const p1Emoji = document.getElementById('rouletteP1Emoji');
-    const p1Name = document.getElementById('rouletteP1Name');
-    const p2Emoji = document.getElementById('rouletteP2Emoji');
-    const p2Name = document.getElementById('rouletteP2Name');
-    
+    // Обновляем имена и аватарки
     if (p1Emoji) p1Emoji.textContent = data.p1Avatar || '🎲';
     if (p1Name) p1Name.textContent = data.p1Name || 'Игрок 1';
     if (p2Emoji) p2Emoji.textContent = data.p2Avatar || '🎲';
@@ -5585,6 +5597,9 @@ function updateRouletteUI(data) {
     const myTurn = (isP1Turn && data.p1Uid === GameState.myUid) ||
                   (!isP1Turn && data.p2Uid === GameState.myUid);
     
+    console.log('🔍 myTurn:', myTurn, 'currentPlayer:', data.currentPlayer, 'myUid:', GameState.myUid);
+    
+    // Статусы игроков
     if (p1Status) {
         p1Status.textContent = data.currentPlayer === 'p1' ? '🔫 Ход' : '⏳ Ожидание';
         p1Status.style.color = data.currentPlayer === 'p1' ? '#44ff44' : '#888';
@@ -5594,6 +5609,7 @@ function updateRouletteUI(data) {
         p2Status.style.color = data.currentPlayer === 'p2' ? '#44ff44' : '#888';
     }
     
+    // Направление пистолета
     if (gunEmoji) {
         if (data.currentPlayer === 'p1') {
             gunEmoji.style.transform = 'scaleX(1)';
@@ -5602,13 +5618,17 @@ function updateRouletteUI(data) {
         }
     }
     
+    // ⭐ КЛЮЧЕВОЕ: активация кнопки
     if (fireBtn) {
+        console.log('🔘 fireBtn найден, myTurn:', myTurn, 'finished:', data.finished);
+        
         if (myTurn && !data.finished) {
             fireBtn.disabled = false;
             fireBtn.textContent = `🔫 ВЫСТРЕЛИТЬ (${currentName})`;
             fireBtn.style.background = 'linear-gradient(180deg, #22aa22, #118811)';
             fireBtn.style.borderColor = '#44ff44';
             fireBtn.style.opacity = '1';
+            console.log('✅ Кнопка АКТИВИРОВАНА для', currentName);
         } else if (data.finished) {
             fireBtn.disabled = true;
             fireBtn.textContent = '💀 ИГРА ЗАВЕРШЕНА';
@@ -5620,7 +5640,10 @@ function updateRouletteUI(data) {
             fireBtn.style.background = 'linear-gradient(180deg, #444, #222)';
             fireBtn.style.borderColor = '#666';
             fireBtn.style.opacity = '0.6';
+            console.log('⏳ Кнопка ЗАБЛОКИРОВАНА для', currentName);
         }
+    } else {
+        console.warn('⚠️ fireBtn не найден в DOM!');
     }
     
     if (turnIndicator) {
@@ -5630,6 +5653,7 @@ function updateRouletteUI(data) {
     
     if (roundEl) roundEl.textContent = (data.round || 0) + 1;
     
+    // Индикаторы патронов
     updateBulletIndicators(data.bulletIndex || 0, 6, data.currentPlayer);
     
     if (data.resultText && resultDiv) {
