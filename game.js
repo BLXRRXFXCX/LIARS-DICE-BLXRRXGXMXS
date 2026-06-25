@@ -1062,11 +1062,17 @@ GameState.roomRef.child('rouletteState').on('value', (snapshot) => {
     }
     
     if (data.active && !data.finished) {
+        console.log('🎯 Активируем рулетку, вызываем updateRouletteUI');
         const modal = document.getElementById('modalRoulette');
         if (modal) modal.style.display = 'block';
         
-        // ⭐ ВЫЗЫВАЕМ ГЛОБАЛЬНУЮ ФУНКЦИЮ
-        updateRouletteUI(data);
+        // ⭐ ВЫЗЫВАЕМ ОБНОВЛЕНИЕ UI
+        if (typeof updateRouletteUI === 'function') {
+            updateRouletteUI(data);
+            console.log('✅ updateRouletteUI вызвана');
+        } else {
+            console.error('❌ updateRouletteUI НЕ ОПРЕДЕЛЕНА!');
+        }
         
         window._rouletteActive = true;
         
@@ -1077,12 +1083,10 @@ GameState.roomRef.child('rouletteState').on('value', (snapshot) => {
             resultDiv.style.display = 'block';
             resultDiv.style.color = data.resultColor || '#fff';
         }
-        
         for (let i = 1; i <= 6; i++) {
             const el = document.getElementById(`bulletIndicator${i}`);
             if (el) el.classList.add('used');
         }
-        
         setTimeout(() => {
             const modal = document.getElementById('modalRoulette');
             if (modal) modal.style.display = 'none';
