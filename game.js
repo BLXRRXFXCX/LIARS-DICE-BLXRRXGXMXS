@@ -1047,7 +1047,7 @@ GameState.roomRef.child('players').child(GameState.myUid).on('value', (snapshot)
         }
     });
 
-  // ============================================================
+// ============================================================
 // 🔫 СЛУШАТЕЛЬ РУССКОЙ РУЛЕТКИ
 // ============================================================
 GameState.roomRef.child('rouletteState').on('value', (snapshot) => {
@@ -1063,81 +1063,13 @@ GameState.roomRef.child('rouletteState').on('value', (snapshot) => {
         const modal = document.getElementById('modalRoulette');
         if (modal) modal.style.display = 'block';
         
-        // ⭐ Обновляем данные игроков
-        document.getElementById('rouletteP1Emoji').textContent = data.p1Avatar || '🎲';
-        document.getElementById('rouletteP1Name').textContent = data.p1Name || 'Игрок 1';
-        document.getElementById('rouletteP2Emoji').textContent = data.p2Avatar || '🎲';
-        document.getElementById('rouletteP2Name').textContent = data.p2Name || 'Игрок 2';
-        
-        // ⭐ Направление пистолета
-        const gunEmoji = document.getElementById('gunEmoji');
-        if (gunEmoji) {
-            if (data.currentPlayer === 'p1') {
-                gunEmoji.style.transform = 'scaleX(1)';
-            } else {
-                gunEmoji.style.transform = 'scaleX(-1)';
-            }
-        }
-        
-        // ⭐ Кнопка выстрела
-        const fireBtn = document.getElementById('rouletteFireBtn');
-        const isP1Turn = data.currentPlayer === 'p1';
-        const myTurn = (isP1Turn && data.p1Uid === GameState.myUid) || 
-                      (!isP1Turn && data.p2Uid === GameState.myUid);
-        const currentName = isP1Turn ? data.p1Name : data.p2Name;
-        
-        if (fireBtn) {
-            if (myTurn && !data.finished) {
-                fireBtn.disabled = false;
-                fireBtn.textContent = `🔫 ВЫСТРЕЛИТЬ (${currentName})`;
-                fireBtn.style.background = 'linear-gradient(180deg, #22aa22, #118811)';
-                fireBtn.style.borderColor = '#44ff44';
-                fireBtn.style.opacity = '1';
-                // ⭐ ПЕРЕДАЁМ ID ДЛЯ ВЫСТРЕЛА
-                fireBtn.dataset.artifactId = data._artifactId || 'russianRoulette';
-            } else if (data.finished) {
-                fireBtn.disabled = true;
-                fireBtn.textContent = '💀 ИГРА ЗАВЕРШЕНА';
-                fireBtn.style.background = 'linear-gradient(180deg, #444, #222)';
-                fireBtn.style.borderColor = '#666';
-            } else {
-                fireBtn.disabled = true;
-                fireBtn.textContent = `⏳ Ход ${currentName}`;
-                fireBtn.style.background = 'linear-gradient(180deg, #444, #222)';
-                fireBtn.style.borderColor = '#666';
-                fireBtn.style.opacity = '0.6';
-            }
-        }
-        
-        // ⭐ Обновляем статусы
-        const p1Status = document.getElementById('rouletteP1Status');
-        const p2Status = document.getElementById('rouletteP2Status');
-        if (p1Status) {
-            p1Status.textContent = data.currentPlayer === 'p1' ? '🔫 Ход' : '⏳ Ожидание';
-            p1Status.style.color = data.currentPlayer === 'p1' ? '#44ff44' : '#888';
-        }
-        if (p2Status) {
-            p2Status.textContent = data.currentPlayer === 'p2' ? '🔫 Ход' : '⏳ Ожидание';
-            p2Status.style.color = data.currentPlayer === 'p2' ? '#44ff44' : '#888';
-        }
-        
-        // ⭐ Раунд
-        const roundEl = document.getElementById('rouletteRound');
-        if (roundEl) roundEl.textContent = (data.round || 0) + 1;
-        
-        // ⭐ Результат
-        if (data.resultText) {
-            const resultDiv = document.getElementById('rouletteResult');
-            if (resultDiv) {
-                resultDiv.textContent = data.resultText;
-                resultDiv.style.display = 'block';
-                resultDiv.style.color = data.resultColor || '#fff';
-            }
-        }
+        // ⭐ Используем обновлённую функцию
+        updateRouletteUI(data);
         
         window._rouletteActive = true;
         
     } else if (data.finished) {
+        // Показываем результат
         const resultDiv = document.getElementById('rouletteResult');
         if (resultDiv && data.resultText) {
             resultDiv.textContent = data.resultText;
@@ -1145,11 +1077,17 @@ GameState.roomRef.child('rouletteState').on('value', (snapshot) => {
             resultDiv.style.color = data.resultColor || '#fff';
         }
         
+        // Обновляем индикаторы (все патроны использованы)
+        for (let i = 1; i <= 6; i++) {
+            const el = document.getElementById(`bulletIndicator${i}`);
+            if (el) el.classList.add('used');
+        }
+        
         setTimeout(() => {
             const modal = document.getElementById('modalRoulette');
             if (modal) modal.style.display = 'none';
             window._rouletteActive = false;
-            // ⭐ УДАЛЯЕМ СОСТОЯНИЕ ПОСЛЕ ЗАВЕРШЕНИЯ
+            // Удаляем состояние после завершения
             GameState.roomRef.child('rouletteState').remove();
         }, 3000);
     }
@@ -5644,6 +5582,115 @@ function animateRouletteShot(data, callback, artifactId) {
         }
         
     }, 800);
+}
+
+// ============================================================
+// 🔫 РУССКАЯ РУЛЕТКА — ОБНОВЛЕНИЕ UI
+// ============================================================
+
+function updateRouletteUI(data) {
+    if (!data) return;
+    
+    // Обновляем данные игроков
+    document.getElementById('rouletteP1Emoji').textContent = data.p1Avatar || '🎲';
+    document.getElementById('rouletteP1Name').textContent = data.p1Name || 'Игрок 1';
+    document.getElementById('rouletteP2Emoji').textContent = data.p2Avatar || '🎲';
+    document.getElementById('rouletteP2Name').textContent = data.p2Name || 'Игрок 2';
+    
+    // Направление пистолета
+    const gunEmoji = document.getElementById('gunEmoji');
+    if (gunEmoji) {
+        if (data.currentPlayer === 'p1') {
+            gunEmoji.style.transform = 'scaleX(1)';
+        } else {
+            gunEmoji.style.transform = 'scaleX(-1)';
+        }
+    }
+    
+    // Кнопка выстрела
+    const fireBtn = document.getElementById('rouletteFireBtn');
+    const isP1Turn = data.currentPlayer === 'p1';
+    const myTurn = (isP1Turn && data.p1Uid === GameState.myUid) || 
+                  (!isP1Turn && data.p2Uid === GameState.myUid);
+    const currentName = isP1Turn ? data.p1Name : data.p2Name;
+    
+    if (fireBtn) {
+        if (myTurn && !data.finished) {
+            fireBtn.disabled = false;
+            fireBtn.textContent = `🔫 ВЫСТРЕЛИТЬ (${currentName})`;
+            fireBtn.style.background = 'linear-gradient(180deg, #22aa22, #118811)';
+            fireBtn.style.borderColor = '#44ff44';
+            fireBtn.style.opacity = '1';
+        } else if (data.finished) {
+            fireBtn.disabled = true;
+            fireBtn.textContent = '💀 ИГРА ЗАВЕРШЕНА';
+            fireBtn.style.background = 'linear-gradient(180deg, #444, #222)';
+            fireBtn.style.borderColor = '#666';
+        } else {
+            fireBtn.disabled = true;
+            fireBtn.textContent = `⏳ Ход ${currentName}`;
+            fireBtn.style.background = 'linear-gradient(180deg, #444, #222)';
+            fireBtn.style.borderColor = '#666';
+            fireBtn.style.opacity = '0.6';
+        }
+    }
+    
+    // Индикатор хода
+    const turnIndicator = document.getElementById('rouletteTurnIndicator');
+    if (turnIndicator) {
+        turnIndicator.textContent = data.finished ? '🏁 ИГРА ЗАВЕРШЕНА' : `🎯 Ход: ${currentName}`;
+        turnIndicator.style.color = data.finished ? '#ff4444' : '#ffd700';
+    }
+    
+    // Статусы игроков
+    const p1Status = document.getElementById('rouletteP1Status');
+    const p2Status = document.getElementById('rouletteP2Status');
+    if (p1Status) {
+        p1Status.textContent = data.currentPlayer === 'p1' ? '🔫 Ход' : '⏳ Ожидание';
+        p1Status.style.color = data.currentPlayer === 'p1' ? '#44ff44' : '#888';
+    }
+    if (p2Status) {
+        p2Status.textContent = data.currentPlayer === 'p2' ? '🔫 Ход' : '⏳ Ожидание';
+        p2Status.style.color = data.currentPlayer === 'p2' ? '#44ff44' : '#888';
+    }
+    
+    // ⭐ ОБНОВЛЕНИЕ ИНДИКАТОРОВ ПАТРОНОВ
+    updateBulletIndicators(data.bulletIndex || 0, 6, data.currentPlayer);
+    
+    // Результат
+    if (data.resultText) {
+        const resultDiv = document.getElementById('rouletteResult');
+        if (resultDiv) {
+            resultDiv.textContent = data.resultText;
+            resultDiv.style.display = 'block';
+            resultDiv.style.color = data.resultColor || '#fff';
+        }
+    }
+}
+
+// ============================================================
+// 🔫 ИНДИКАТОРЫ ПАТРОНОВ
+// ============================================================
+
+function updateBulletIndicators(bulletIndex, totalRounds, currentPlayer) {
+    for (let i = 1; i <= totalRounds; i++) {
+        const el = document.getElementById(`bulletIndicator${i}`);
+        if (!el) continue;
+        
+        // Сбрасываем классы
+        el.classList.remove('used', 'loaded', 'current');
+        
+        if (i <= bulletIndex) {
+            // Уже использованные патроны
+            el.classList.add('used');
+        } else if (i === bulletIndex + 1) {
+            // Текущий патрон (на очереди)
+            el.classList.add('current', 'loaded');
+        } else {
+            // Будущие патроны
+            el.classList.add('loaded');
+        }
+    }
 }
 // ============================================================
 // 🧪 ПЕСОЧНИЦА (SANDBOX MODE) — ИСПРАВЛЕННАЯ ВЕРСИЯ 2.0
