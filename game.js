@@ -5553,33 +5553,52 @@ function animateRouletteShot(data, callback, artifactId) {
     const currentName = isP1 ? data.p1Name : data.p2Name;
     const currentUid = isP1 ? data.p1Uid : data.p2Uid;
     
-    // 1. Пистолет поднимается
+    // Определяем, нужно ли зеркалировать пистолет
+    const isFlipped = !isP1; // Если стреляет игрок 2 (p2) — пистолет направлен влево
+    
+    // 1. Анимация отдачи (подъём вверх на 30 градусов)
     if (gunWrapper) {
-        gunWrapper.style.transition = 'transform 0.1s ease';
-        gunWrapper.style.transform = 'rotate(-30deg)';
+        // Убираем предыдущие классы
+        gunWrapper.classList.remove('firing', 'idle', 'flipped');
+        
+        // Применяем правильный класс с учётом зеркалирования
+        if (isFlipped) {
+            gunWrapper.classList.add('firing', 'flipped');
+        } else {
+            gunWrapper.classList.add('firing');
+        }
     }
     
+    // 2. Звук выстрела
     playSound('accuse');
     
+    // 3. Вспышка
     if (gunFlash) {
-        gunFlash.style.opacity = '1';
+        gunFlash.classList.add('active');
         setTimeout(() => {
-            gunFlash.style.opacity = '0';
+            gunFlash.classList.remove('active');
         }, 150);
     }
     
+    // 4. Экранная вспышка
     document.body.classList.add('screen-flash');
     setTimeout(() => {
         document.body.classList.remove('screen-flash');
     }, 300);
     
+    // 5. Пистолет возвращается в исходное положение через 0.5 секунды
     setTimeout(() => {
         if (gunWrapper) {
-            gunWrapper.style.transition = 'transform 0.15s ease';
-            gunWrapper.style.transform = 'rotate(0deg)';
+            gunWrapper.classList.remove('firing');
+            if (isFlipped) {
+                gunWrapper.classList.add('idle', 'flipped');
+            } else {
+                gunWrapper.classList.add('idle');
+            }
         }
     }, 500);
     
+    // 6. Результат через 0.8 секунды
     setTimeout(() => {
         let resultText = '';
         let resultColor = '';
@@ -5621,7 +5640,7 @@ function animateRouletteShot(data, callback, artifactId) {
                 currentPlayer: data.currentPlayer,
                 currentUid: currentUid,
                 bulletIndex: data.bulletIndex
-            }, artifactId); // ← ПЕРЕДАЁМ id
+            }, artifactId);
         }
         
     }, 800);
