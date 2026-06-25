@@ -1052,6 +1052,8 @@ GameState.roomRef.child('players').child(GameState.myUid).on('value', (snapshot)
 // ============================================================
 GameState.roomRef.child('rouletteState').on('value', (snapshot) => {
     const data = snapshot.val();
+    console.log('📡 Получены данные rouletteState:', data);
+    
     if (!data) {
         const modal = document.getElementById('modalRoulette');
         if (modal) modal.style.display = 'none';
@@ -1063,13 +1065,12 @@ GameState.roomRef.child('rouletteState').on('value', (snapshot) => {
         const modal = document.getElementById('modalRoulette');
         if (modal) modal.style.display = 'block';
         
-        // ⭐ Используем обновлённую функцию
+        // ⭐ ВЫЗЫВАЕМ ГЛОБАЛЬНУЮ ФУНКЦИЮ
         updateRouletteUI(data);
         
         window._rouletteActive = true;
         
     } else if (data.finished) {
-        // Показываем результат
         const resultDiv = document.getElementById('rouletteResult');
         if (resultDiv && data.resultText) {
             resultDiv.textContent = data.resultText;
@@ -1077,7 +1078,6 @@ GameState.roomRef.child('rouletteState').on('value', (snapshot) => {
             resultDiv.style.color = data.resultColor || '#fff';
         }
         
-        // Обновляем индикаторы (все патроны использованы)
         for (let i = 1; i <= 6; i++) {
             const el = document.getElementById(`bulletIndicator${i}`);
             if (el) el.classList.add('used');
@@ -1087,7 +1087,6 @@ GameState.roomRef.child('rouletteState').on('value', (snapshot) => {
             const modal = document.getElementById('modalRoulette');
             if (modal) modal.style.display = 'none';
             window._rouletteActive = false;
-            // Удаляем состояние после завершения
             GameState.roomRef.child('rouletteState').remove();
         }, 3000);
     }
@@ -3254,275 +3253,243 @@ function useArtifact(id) {
         }
         
         case 'russianRoulette': {
-            // Этот case будет заменён в ЭТАПЕ 2 на новую версию
-            // Пока оставляем существующий код
-            const targets = Object.keys(GameState.players).filter(u =>
-                u !== GameState.myUid &&
-                GameState.players[u]?.alive &&
-                !GameState.players[u]?.isGhost
-            );
-            if (!targets.length) {
-                GameState.pendingArtifact = null;
-                return showNotification('Нет целей!', 'warning');
-            }
-            showTargetModal(targets, t => {
-                const p = GameState.players[t];
-                lockGameDuringDuel();
+    const targets = Object.keys(GameState.players).filter(u =>
+        u !== GameState.myUid &&
+        GameState.players[u]?.alive &&
+        !GameState.players[u]?.isGhost
+    );
+    if (!targets.length) {
+        GameState.pendingArtifact = null;
+        return showNotification('Нет целей!', 'warning');
+    }
+    showTargetModal(targets, t => {
+        const p = GameState.players[t];
+        
+        // Блокируем игру
+        lockGameDuringDuel();
+        
+        // Патрон всегда есть в одном из 6 слотов
+        const bulletPosition = Math.floor(Math.random() * 6);
+        const bullets = [];
+        for (let i = 0; i < 6; i++) {
+            bullets.push(i === bulletPosition);
+        }
+        console.log(`🔫 Патрон в слоте ${bulletPosition + 1}`);
+        
+        // Первым стреляет ЦЕЛЬ (игрок 2)
+        const firstPlayer = 'p2';
+        
+        const rouletteData = {
+            active: true,
+            finished: false,
+            _artifactId: id,
+            p1Uid: GameState.myUid,
+            p2Uid: t,
+            p1Name: m.name,
+            p2Name: p.name,
+            p1Avatar: m.wardrobe?.head || m.avatar || '🎲',
+            p2Avatar: p.wardrobe?.head || p.avatar || '🎲',
+            currentPlayer: firstPlayer,
+            round: 0,
+            maxRounds: 6,
+            bulletIndex: 0,
+            bullets: bullets,
+            shotFired: false,
+            resultText: null,
+            resultColor: null,
+            waitingForShot: true,
+            timestamp: Date.now()
+        };
+        safeSet(GameState.roomRef.child('rouletteState'), rouletteData, 'roulette-start');
+        
+        // Настраиваем кнопку (локально)
+        const fireBtn = document.getElementById('rouletteFireBtn');
+        
+        // Обработчик выстрела
+        if (fireBtn) {
+            fireBtn.onclick = () => {
+                if (fireBtn.disabled) return;
                 
-                const bulletPosition = Math.floor(Math.random() * 6);
-                const bullets = [];
-                for (let i = 0; i < 6; i++) {
-                    bullets.push(i === bulletPosition);
-                }
-                
-                const firstPlayer = 'p2';
-                const rouletteData = {
-                    active: true,
-                    finished: false,
-                    _artifactId: id,
-                    p1Uid: GameState.myUid,
-                    p2Uid: t,
-                    p1Name: m.name,
-                    p2Name: p.name,
-                    p1Avatar: m.wardrobe?.head || m.avatar || '🎲',
-                    p2Avatar: p.wardrobe?.head || p.avatar || '🎲',
-                    currentPlayer: firstPlayer,
-                    round: 0,
-                    maxRounds: 6,
-                    bulletIndex: 0,
-                    bullets: bullets,
-                    shotFired: false,
-                    resultText: null,
-                    resultColor: null,
-                    waitingForShot: true,
-                    timestamp: Date.now()
-                };
-                safeSet(GameState.roomRef.child('rouletteState'), rouletteData, 'roulette-start');
-                
-                const fireBtn = document.getElementById('rouletteFireBtn');
-                const turnIndicator = document.getElementById('rouletteTurnIndicator');
-                const p1Status = document.getElementById('rouletteP1Status');
-                const p2Status = document.getElementById('rouletteP2Status');
-                const roundEl = document.getElementById('rouletteRound');
-                const maxRoundEl = document.getElementById('rouletteMaxRound');
-                if (maxRoundEl) maxRoundEl.textContent = '6';
-                
-                function updateRouletteUI(data) {
+                GameState.roomRef.child('rouletteState').once('value', (snap) => {
+                    const currentData = snap.val();
+                    if (!currentData || currentData.finished) return;
+                    
+                    const isP1Turn = currentData.currentPlayer === 'p1';
+                    const myTurn = (isP1Turn && currentData.p1Uid === GameState.myUid) ||
+                                  (!isP1Turn && currentData.p2Uid === GameState.myUid);
+                    if (!myTurn) return;
+                    
+                    fireBtn.disabled = true;
+                    
+                    animateRouletteShot(currentData, (result) => {
+                        const updates = {};
+                        
+                        if (result.finished) {
+                            updates['finished'] = true;
+                            updates['resultText'] = `💥 ${currentData.currentPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} получает 1 яд!`;
+                            updates['resultColor'] = '#ff4444';
+                            updates['shotFired'] = true;
+                            
+                            safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-finish');
+                            
+                            setTimeout(() => {
+                                unlockGameAfterDuel();
+                                renderUI();
+                                markArtifactUsed(id);
+                            }, 2000);
+                            
+                        } else {
+                            const nextPlayer = currentData.currentPlayer === 'p1' ? 'p2' : 'p1';
+                            const nextRound = (currentData.round || 0) + 1;
+                            const nextBulletIndex = (currentData.bulletIndex || 0) + 1;
+                            
+                            if (nextBulletIndex >= 6) {
+                                updates['bullets'] = [false, false, false, false, false, true];
+                                updates['bulletIndex'] = 5;
+                                updates['currentPlayer'] = nextPlayer;
+                                updates['round'] = nextRound;
+                                updates['shotFired'] = true;
+                                updates['resultText'] = `💥 ${nextPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} получает 1 яд!`;
+                                updates['resultColor'] = '#ff4444';
+                                
+                                safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-force');
+                                
+                                setTimeout(() => {
+                                    unlockGameAfterDuel();
+                                    renderUI();
+                                    markArtifactUsed(id);
+                                }, 2000);
+                            } else {
+                                updates['currentPlayer'] = nextPlayer;
+                                updates['round'] = nextRound;
+                                updates['bulletIndex'] = nextBulletIndex;
+                                updates['shotFired'] = true;
+                                updates['resultText'] = `🍀 ${currentData.currentPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} выжил!`;
+                                updates['resultColor'] = '#44ff44';
+                                
+                                safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-next');
+                            }
+                        }
+                    });
+                });
+            };
+        }
+        
+        // Бот стреляет автоматически
+        if (p.isBot) {
+            function botShoot() {
+                GameState.roomRef.child('rouletteState').once('value', (snap) => {
+                    const data = snap.val();
+                    if (!data || data.finished) return;
+                    
                     const isP1Turn = data.currentPlayer === 'p1';
-                    const currentName = isP1Turn ? data.p1Name : data.p2Name;
-                    const myTurn = (isP1Turn && data.p1Uid === GameState.myUid) ||
-                        (!isP1Turn && data.p2Uid === GameState.myUid);
+                    const isBotTurn = (isP1Turn && data.p1Uid === p.uid) ||
+                                     (!isP1Turn && data.p2Uid === p.uid);
+                    if (!isBotTurn) return;
                     
-                    if (p1Status) {
-                        p1Status.textContent = data.currentPlayer === 'p1' ? '🔫 Ход' : '⏳ Ожидание';
-                        p1Status.style.color = data.currentPlayer === 'p1' ? '#44ff44' : '#888';
-                    }
-                    if (p2Status) {
-                        p2Status.textContent = data.currentPlayer === 'p2' ? '🔫 Ход' : '⏳ Ожидание';
-                        p2Status.style.color = data.currentPlayer === 'p2' ? '#44ff44' : '#888';
-                    }
-                    
-                    const gunEmoji = document.getElementById('gunEmoji');
-                    if (gunEmoji) {
-                        if (data.currentPlayer === 'p1') {
-                            gunEmoji.style.transform = 'scaleX(1)';
-                        } else {
-                            gunEmoji.style.transform = 'scaleX(-1)';
-                        }
-                    }
-                    
-                    if (fireBtn) {
-                        if (myTurn && !data.finished) {
-                            fireBtn.disabled = false;
-                            fireBtn.textContent = `🔫 ВЫСТРЕЛИТЬ (${currentName})`;
-                            fireBtn.style.background = 'linear-gradient(180deg, #22aa22, #118811)';
-                            fireBtn.style.borderColor = '#44ff44';
-                            fireBtn.style.opacity = '1';
-                        } else if (data.finished) {
-                            fireBtn.disabled = true;
-                            fireBtn.textContent = '💀 ИГРА ЗАВЕРШЕНА';
-                            fireBtn.style.background = 'linear-gradient(180deg, #444, #222)';
-                            fireBtn.style.borderColor = '#666';
-                        } else {
-                            fireBtn.disabled = true;
-                            fireBtn.textContent = `⏳ Ход ${currentName}`;
-                            fireBtn.style.background = 'linear-gradient(180deg, #444, #222)';
-                            fireBtn.style.borderColor = '#666';
-                            fireBtn.style.opacity = '0.6';
-                        }
-                    }
-                    
-                    if (turnIndicator) {
-                        turnIndicator.textContent = data.finished ? '🏁 ИГРА ЗАВЕРШЕНА' : `🎯 Ход: ${currentName}`;
-                        turnIndicator.style.color = data.finished ? '#ff4444' : '#ffd700';
-                    }
-                    
-                    if (roundEl) roundEl.textContent = (data.round || 0) + 1;
-                }
-                
-                if (fireBtn) {
-                    fireBtn.onclick = () => {
-                        if (fireBtn.disabled) return;
-                        GameState.roomRef.child('rouletteState').once('value', (snap) => {
-                            const currentData = snap.val();
-                            if (!currentData || currentData.finished) return;
-                            const isP1Turn = currentData.currentPlayer === 'p1';
-                            const myTurn = (isP1Turn && currentData.p1Uid === GameState.myUid) ||
-                                (!isP1Turn && currentData.p2Uid === GameState.myUid);
-                            if (!myTurn) return;
-                            fireBtn.disabled = true;
-                            animateRouletteShot(currentData, (result) => {
-                                const updates = {};
-                                if (result.finished) {
-                                    updates['finished'] = true;
-                                    updates['resultText'] = `💥 ${currentData.currentPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} получает 1 яд!`;
-                                    updates['resultColor'] = '#ff4444';
+                    GameState.roomRef.child('rouletteState').once('value', (snap2) => {
+                        const currentData = snap2.val();
+                        if (!currentData || currentData.finished) return;
+                        
+                        const fireBtn = document.getElementById('rouletteFireBtn');
+                        if (fireBtn) fireBtn.disabled = true;
+                        
+                        animateRouletteShot(currentData, (result) => {
+                            const updates = {};
+                            
+                            if (result.finished) {
+                                updates['finished'] = true;
+                                updates['resultText'] = `💥 ${currentData.currentPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} получает 1 яд!`;
+                                updates['resultColor'] = '#ff4444';
+                                updates['shotFired'] = true;
+                                
+                                safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-finish');
+                                
+                                setTimeout(() => {
+                                    unlockGameAfterDuel();
+                                    renderUI();
+                                    markArtifactUsed(id);
+                                }, 2000);
+                            } else {
+                                const nextPlayer = currentData.currentPlayer === 'p1' ? 'p2' : 'p1';
+                                const nextRound = (currentData.round || 0) + 1;
+                                const nextBulletIndex = (currentData.bulletIndex || 0) + 1;
+                                
+                                if (nextBulletIndex >= 6) {
+                                    updates['bullets'] = [false, false, false, false, false, true];
+                                    updates['bulletIndex'] = 5;
+                                    updates['currentPlayer'] = nextPlayer;
+                                    updates['round'] = nextRound;
                                     updates['shotFired'] = true;
-                                    safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-finish');
+                                    updates['resultText'] = `💥 ${nextPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} получает 1 яд!`;
+                                    updates['resultColor'] = '#ff4444';
+                                    
+                                    safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-force');
+                                    
                                     setTimeout(() => {
                                         unlockGameAfterDuel();
                                         renderUI();
                                         markArtifactUsed(id);
                                     }, 2000);
                                 } else {
-                                    const nextPlayer = currentData.currentPlayer === 'p1' ? 'p2' : 'p1';
-                                    const nextRound = (currentData.round || 0) + 1;
-                                    const nextBulletIndex = (currentData.bulletIndex || 0) + 1;
-                                    if (nextBulletIndex >= 6) {
-                                        updates['bullets'] = [false, false, false, false, false, true];
-                                        updates['bulletIndex'] = 5;
-                                        updates['currentPlayer'] = nextPlayer;
-                                        updates['round'] = nextRound;
-                                        updates['shotFired'] = true;
-                                        updates['resultText'] = `💥 ${nextPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} получает 1 яд!`;
-                                        updates['resultColor'] = '#ff4444';
-                                        safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-force');
-                                        setTimeout(() => {
-                                            unlockGameAfterDuel();
-                                            renderUI();
-                                            markArtifactUsed(id);
-                                        }, 2000);
-                                    } else {
-                                        updates['currentPlayer'] = nextPlayer;
-                                        updates['round'] = nextRound;
-                                        updates['bulletIndex'] = nextBulletIndex;
-                                        updates['shotFired'] = true;
-                                        updates['resultText'] = `🍀 ${currentData.currentPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} выжил!`;
-                                        updates['resultColor'] = '#44ff44';
-                                        safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-next');
-                                    }
+                                    updates['currentPlayer'] = nextPlayer;
+                                    updates['round'] = nextRound;
+                                    updates['bulletIndex'] = nextBulletIndex;
+                                    updates['shotFired'] = true;
+                                    updates['resultText'] = `🍀 ${currentData.currentPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} выжил!`;
+                                    updates['resultColor'] = '#44ff44';
+                                    
+                                    safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-next');
                                 }
-                            });
+                            }
                         });
-                    };
-                }
-                
-                const rouletteListener = GameState.roomRef.child('rouletteState').on('value', (snapshot) => {
-                    const data = snapshot.val();
-                    if (!data) return;
-                    updateRouletteUI(data);
-                    if (data.resultText) {
-                        const resultDiv = document.getElementById('rouletteResult');
-                        if (resultDiv) {
-                            resultDiv.textContent = data.resultText;
-                            resultDiv.style.display = 'block';
-                            resultDiv.style.color = data.resultColor || '#fff';
-                        }
-                    }
-                    if (data.finished) {
-                        setTimeout(() => {
-                            GameState.roomRef.child('rouletteState').off('value', rouletteListener);
-                        }, 3000);
+                    });
+                });
+            }
+            
+            // Если бот — цель, он стреляет первым
+            setTimeout(() => {
+                GameState.roomRef.child('rouletteState').once('value', (snap) => {
+                    const data = snap.val();
+                    if (!data || data.finished) return;
+                    
+                    const isP1Turn = data.currentPlayer === 'p1';
+                    const isBotTurn = (isP1Turn && data.p1Uid === p.uid) ||
+                                     (!isP1Turn && data.p2Uid === p.uid);
+                    if (isBotTurn) {
+                        botShoot();
                     }
                 });
-                
-                if (p.isBot) {
-                    function botShoot() {
-                        GameState.roomRef.child('rouletteState').once('value', (snap) => {
-                            const data = snap.val();
-                            if (!data || data.finished) return;
-                            const isP1Turn = data.currentPlayer === 'p1';
-                            const isBotTurn = (isP1Turn && data.p1Uid === p.uid) ||
-                                (!isP1Turn && data.p2Uid === p.uid);
-                            if (!isBotTurn) return;
-                            GameState.roomRef.child('rouletteState').once('value', (snap2) => {
-                                const currentData = snap2.val();
-                                if (!currentData || currentData.finished) return;
-                                const fireBtn = document.getElementById('rouletteFireBtn');
-                                if (fireBtn) fireBtn.disabled = true;
-                                animateRouletteShot(currentData, (result) => {
-                                    const updates = {};
-                                    if (result.finished) {
-                                        updates['finished'] = true;
-                                        updates['resultText'] = `💥 ${currentData.currentPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} получает 1 яд!`;
-                                        updates['resultColor'] = '#ff4444';
-                                        updates['shotFired'] = true;
-                                        safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-finish');
-                                        setTimeout(() => {
-                                            unlockGameAfterDuel();
-                                            renderUI();
-                                            markArtifactUsed(id);
-                                        }, 2000);
-                                    } else {
-                                        const nextPlayer = currentData.currentPlayer === 'p1' ? 'p2' : 'p1';
-                                        const nextRound = (currentData.round || 0) + 1;
-                                        const nextBulletIndex = (currentData.bulletIndex || 0) + 1;
-                                        if (nextBulletIndex >= 6) {
-                                            updates['bullets'] = [false, false, false, false, false, true];
-                                            updates['bulletIndex'] = 5;
-                                            updates['currentPlayer'] = nextPlayer;
-                                            updates['round'] = nextRound;
-                                            updates['shotFired'] = true;
-                                            updates['resultText'] = `💥 ${nextPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} получает 1 яд!`;
-                                            updates['resultColor'] = '#ff4444';
-                                            safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-force');
-                                            setTimeout(() => {
-                                                unlockGameAfterDuel();
-                                                renderUI();
-                                                markArtifactUsed(id);
-                                            }, 2000);
-                                        } else {
-                                            updates['currentPlayer'] = nextPlayer;
-                                            updates['round'] = nextRound;
-                                            updates['bulletIndex'] = nextBulletIndex;
-                                            updates['shotFired'] = true;
-                                            updates['resultText'] = `🍀 ${currentData.currentPlayer === 'p1' ? currentData.p1Name : currentData.p2Name} выжил!`;
-                                            updates['resultColor'] = '#44ff44';
-                                            safeUpdate(GameState.roomRef.child('rouletteState'), updates, 'roulette-next');
-                                        }
-                                    }
-                                });
-                            });
-                        });
+            }, 1500);
+            
+            const botInterval = setInterval(() => {
+                GameState.roomRef.child('rouletteState').once('value', (snap) => {
+                    const data = snap.val();
+                    if (!data || data.finished) {
+                        clearInterval(botInterval);
+                        return;
                     }
                     
-                    setTimeout(() => { botShoot(); }, 1500);
-                    const botInterval = setInterval(() => {
-                        GameState.roomRef.child('rouletteState').once('value', (snap) => {
-                            const data = snap.val();
-                            if (!data || data.finished) {
-                                clearInterval(botInterval);
-                                return;
-                            }
-                            const isP1Turn = data.currentPlayer === 'p1';
-                            const isBotTurn = (isP1Turn && data.p1Uid === p.uid) ||
-                                (!isP1Turn && data.p2Uid === p.uid);
-                            if (!isBotTurn) return;
-                            botShoot();
-                        });
-                    }, 2500);
-                    
-                    const finishListener = GameState.roomRef.child('rouletteState').on('value', (snap) => {
-                        const data = snap.val();
-                        if (data && data.finished) {
-                            clearInterval(botInterval);
-                            GameState.roomRef.child('rouletteState').off('value', finishListener);
-                        }
-                    });
+                    const isP1Turn = data.currentPlayer === 'p1';
+                    const isBotTurn = (isP1Turn && data.p1Uid === p.uid) ||
+                                     (!isP1Turn && data.p2Uid === p.uid);
+                    if (isBotTurn) {
+                        botShoot();
+                    }
+                });
+            }, 3000);
+            
+            const finishListener = GameState.roomRef.child('rouletteState').on('value', (snap) => {
+                const data = snap.val();
+                if (data && data.finished) {
+                    clearInterval(botInterval);
+                    GameState.roomRef.child('rouletteState').off('value', finishListener);
                 }
             });
-            break;
         }
+    });
+    break;
+}
         
         case 'lifeExchange': {
             const targets = Object.keys(GameState.players).filter(u => u !== GameState.myUid && GameState.players[u]?.alive && !GameState.players[u]?.isGhost);
@@ -5585,20 +5552,44 @@ function animateRouletteShot(data, callback, artifactId) {
 }
 
 // ============================================================
-// 🔫 РУССКАЯ РУЛЕТКА — ОБНОВЛЕНИЕ UI
+// 🔫 РУССКАЯ РУЛЕТКА — ОБНОВЛЕНИЕ UI (ГЛОБАЛЬНАЯ)
 // ============================================================
 
 function updateRouletteUI(data) {
     if (!data) return;
     
-    // Обновляем данные игроков
-    document.getElementById('rouletteP1Emoji').textContent = data.p1Avatar || '🎲';
-    document.getElementById('rouletteP1Name').textContent = data.p1Name || 'Игрок 1';
-    document.getElementById('rouletteP2Emoji').textContent = data.p2Avatar || '🎲';
-    document.getElementById('rouletteP2Name').textContent = data.p2Name || 'Игрок 2';
-    
-    // Направление пистолета
+    const p1Status = document.getElementById('rouletteP1Status');
+    const p2Status = document.getElementById('rouletteP2Status');
+    const fireBtn = document.getElementById('rouletteFireBtn');
+    const turnIndicator = document.getElementById('rouletteTurnIndicator');
+    const roundEl = document.getElementById('rouletteRound');
+    const resultDiv = document.getElementById('rouletteResult');
     const gunEmoji = document.getElementById('gunEmoji');
+    
+    const p1Emoji = document.getElementById('rouletteP1Emoji');
+    const p1Name = document.getElementById('rouletteP1Name');
+    const p2Emoji = document.getElementById('rouletteP2Emoji');
+    const p2Name = document.getElementById('rouletteP2Name');
+    
+    if (p1Emoji) p1Emoji.textContent = data.p1Avatar || '🎲';
+    if (p1Name) p1Name.textContent = data.p1Name || 'Игрок 1';
+    if (p2Emoji) p2Emoji.textContent = data.p2Avatar || '🎲';
+    if (p2Name) p2Name.textContent = data.p2Name || 'Игрок 2';
+    
+    const isP1Turn = data.currentPlayer === 'p1';
+    const currentName = isP1Turn ? data.p1Name : data.p2Name;
+    const myTurn = (isP1Turn && data.p1Uid === GameState.myUid) ||
+                  (!isP1Turn && data.p2Uid === GameState.myUid);
+    
+    if (p1Status) {
+        p1Status.textContent = data.currentPlayer === 'p1' ? '🔫 Ход' : '⏳ Ожидание';
+        p1Status.style.color = data.currentPlayer === 'p1' ? '#44ff44' : '#888';
+    }
+    if (p2Status) {
+        p2Status.textContent = data.currentPlayer === 'p2' ? '🔫 Ход' : '⏳ Ожидание';
+        p2Status.style.color = data.currentPlayer === 'p2' ? '#44ff44' : '#888';
+    }
+    
     if (gunEmoji) {
         if (data.currentPlayer === 'p1') {
             gunEmoji.style.transform = 'scaleX(1)';
@@ -5606,13 +5597,6 @@ function updateRouletteUI(data) {
             gunEmoji.style.transform = 'scaleX(-1)';
         }
     }
-    
-    // Кнопка выстрела
-    const fireBtn = document.getElementById('rouletteFireBtn');
-    const isP1Turn = data.currentPlayer === 'p1';
-    const myTurn = (isP1Turn && data.p1Uid === GameState.myUid) || 
-                  (!isP1Turn && data.p2Uid === GameState.myUid);
-    const currentName = isP1Turn ? data.p1Name : data.p2Name;
     
     if (fireBtn) {
         if (myTurn && !data.finished) {
@@ -5635,36 +5619,19 @@ function updateRouletteUI(data) {
         }
     }
     
-    // Индикатор хода
-    const turnIndicator = document.getElementById('rouletteTurnIndicator');
     if (turnIndicator) {
         turnIndicator.textContent = data.finished ? '🏁 ИГРА ЗАВЕРШЕНА' : `🎯 Ход: ${currentName}`;
         turnIndicator.style.color = data.finished ? '#ff4444' : '#ffd700';
     }
     
-    // Статусы игроков
-    const p1Status = document.getElementById('rouletteP1Status');
-    const p2Status = document.getElementById('rouletteP2Status');
-    if (p1Status) {
-        p1Status.textContent = data.currentPlayer === 'p1' ? '🔫 Ход' : '⏳ Ожидание';
-        p1Status.style.color = data.currentPlayer === 'p1' ? '#44ff44' : '#888';
-    }
-    if (p2Status) {
-        p2Status.textContent = data.currentPlayer === 'p2' ? '🔫 Ход' : '⏳ Ожидание';
-        p2Status.style.color = data.currentPlayer === 'p2' ? '#44ff44' : '#888';
-    }
+    if (roundEl) roundEl.textContent = (data.round || 0) + 1;
     
-    // ⭐ ОБНОВЛЕНИЕ ИНДИКАТОРОВ ПАТРОНОВ
     updateBulletIndicators(data.bulletIndex || 0, 6, data.currentPlayer);
     
-    // Результат
-    if (data.resultText) {
-        const resultDiv = document.getElementById('rouletteResult');
-        if (resultDiv) {
-            resultDiv.textContent = data.resultText;
-            resultDiv.style.display = 'block';
-            resultDiv.style.color = data.resultColor || '#fff';
-        }
+    if (data.resultText && resultDiv) {
+        resultDiv.textContent = data.resultText;
+        resultDiv.style.display = 'block';
+        resultDiv.style.color = data.resultColor || '#fff';
     }
 }
 
@@ -5676,18 +5643,12 @@ function updateBulletIndicators(bulletIndex, totalRounds, currentPlayer) {
     for (let i = 1; i <= totalRounds; i++) {
         const el = document.getElementById(`bulletIndicator${i}`);
         if (!el) continue;
-        
-        // Сбрасываем классы
         el.classList.remove('used', 'loaded', 'current');
-        
         if (i <= bulletIndex) {
-            // Уже использованные патроны
             el.classList.add('used');
         } else if (i === bulletIndex + 1) {
-            // Текущий патрон (на очереди)
             el.classList.add('current', 'loaded');
         } else {
-            // Будущие патроны
             el.classList.add('loaded');
         }
     }
